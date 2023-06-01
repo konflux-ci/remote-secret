@@ -18,6 +18,9 @@ import (
 	"context"
 	stdErrors "errors"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/go-logr/logr"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
@@ -40,8 +43,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sort"
-	"time"
 )
 
 var (

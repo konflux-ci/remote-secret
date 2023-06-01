@@ -16,8 +16,9 @@ package sync
 
 import (
 	"context"
-	"github.com/redhat-appstudio/remote-secret/pkg/infrastructure"
 	"testing"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/infrastructure"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"

@@ -106,13 +106,60 @@ manifests: controller-gen
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
+### fmt: Runs go fmt against code
+fmt:
+  ifneq ($(shell command -v goimports 2> /dev/null),)
+	  find . -not -path '*/\.*' -name '*.go' -exec goimports -w {} \;
+  else
+	  @echo "WARN: goimports is not installed -- formatting using go fmt instead."
+	  @echo "      Please install goimports to ensure file imports are consistent."
+	  go fmt -x ./...
+  endif
 
-.PHONY: vet
-vet: ## Run go vet against code.
+### fmt_license: Ensures the license header is set on all files
+fmt_license:
+  ifneq ($(shell command -v addlicense 2> /dev/null),)
+	  @echo 'addlicense -v -f license_header.txt **/*.go'
+	  addlicense -v -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go')
+  else
+	  $(error addlicense must be installed for this rule: go install github.com/google/addlicense)
+  endif
+
+### check_fmt: Checks the formatting on files in repo
+check_fmt:
+  ifeq ($(shell command -v goimports 2> /dev/null),)
+	  $(error "goimports must be installed for this rule" && exit 1)
+  endif
+  ifeq ($(shell command -v addlicense 2> /dev/null),)
+	  $(error "error addlicense must be installed for this rule: go install github.com/google/addlicense")
+  endif
+	  if [[ $$(find . -not -path '*/\.*' -name '*.go' -exec goimports -l {} \;) != "" ]]; then \
+	    echo "Files not formatted; run 'make fmt'"; exit 1 ;\
+	  fi ;\
+	  if ! addlicense -check -f license_header.txt $$(find . -not -path '*/\.*' -name '*.go'); then \
+	    echo "Licenses are not formatted; run 'make fmt_license'"; exit 1 ;\
+	  fi
+
+### Run the linter on the codebase
+lint:
+  ifeq ($(shell command -v golangci-lint 2> /dev/null),)
+	  $(error "golangci-lint must be installed for this rule" && exit 1)
+  endif
+	golangci-lint run
+
+### Run go vet against code.
+vet:
 	go vet ./...
+
+### updates go.mod
+go.mod:
+	go mod download
+	go mod tidy
+
+check: check_fmt lint test ## Check that the code conforms to all requirements for commit. Formatting, licenses, vet, tests and linters
+
+ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
+
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.

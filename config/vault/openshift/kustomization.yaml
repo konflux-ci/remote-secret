@@ -1,0 +1,14 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+namespace: spi-vault
+
+commonLabels:
+  app.kubernetes.io/part-of: service-provider-integration-operator
+
+resources:
+  - ../base/
+  - deployment.yaml
+
+patchesStrategicMerge:
+  - delete-vault-test.yaml
