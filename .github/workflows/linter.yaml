@@ -1,0 +1,73 @@
+name: linter
+on:
+  pull_request:
+jobs:
+  golangci-lint:
+    name: golangci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: latest
+
+          # Optional: working directory, useful for monorepos
+          # working-directory: somedir
+
+          # Optional: golangci-lint command line arguments.
+          args: --timeout=10m
+
+          # Optional: show only new issues if it's a pull request. The default value is `false`.
+          # only-new-issues: true
+
+          # Optional: if set to true then the action don't cache or restore ~/go/pkg.
+          # skip-pkg-cache: true
+
+          # Optional: if set to true then the action don't cache or restore ~/.cache/go-build.
+          # skip-build-cache: true
+  gosec:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: ./...
+  kube-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # This prepares directory where github/codeql-action/upload-sarif@v1 looks up report files by default.
+      - name: Create ./.kube-linter/ for deployment files
+        shell: bash
+        run: mkdir -p ./.kube-linter/
+      - name: Generate openshift with vault configuration
+        shell: bash
+        run: kustomize build config/overlays/openshift_vault/ >  ./.kube-linter/deploy-spi-openshift-vault.yaml
+      - name: Generate openshift with aws configuration
+        shell: bash
+        run: kustomize build config/overlays/openshift_aws/ >  ./.kube-linter/deploy-spi-openshift-aws.yaml
+      - name: Generate monitoring configuration
+        shell: bash
+        run: kustomize build config/monitoring/base >  ./.kube-linter/monitorings.yaml
+      - name: Generate vault configuration
+        shell: bash
+        run: kustomize build config/vault/openshift/ >  ./.kube-linter/deploy-vault-openshift.yaml
+      - name: Scan yaml files with kube-linter
+        uses: stackrox/kube-linter-action@v1
+        id: kube-linter-action-scan
+        with:
+          # Adjust this directory to the location where your kubernetes resources and helm charts are located.
+          directory: ./.kube-linter/
+          # Adjust this to the location of kube-linter config you're using, or remove the setting if you'd like to use
+          # the default config.
+          config: ./.github/.kube-linter-config.yaml

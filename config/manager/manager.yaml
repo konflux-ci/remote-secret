@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/instance: system
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: remote-secret
+    app.kubernetes.io/part-of: remote-secret
+    app.kubernetes.io/managed-by: kustomize
+  name: system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: remotesecret
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: remote-secret
+    app.kubernetes.io/part-of: remote-secret
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - command:
+        - /manager
+        args:
+        - --leader-elect
+        image: quay.io/redhat-appstudio/remote-secret-operator:latest
+        name: manager
+        env: [ ]
+        envFrom:
+          - configMapRef:
+              name: controller-manager-environment-config
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+              - ALL
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 600Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+        volumeMounts:
+          - mountPath: /etc/spi/config.yaml
+            name: config-file
+            readOnly: true
+            subPath: config.yaml
+      - name: kube-rbac-proxy
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+        args:
+          - "--secure-listen-address=0.0.0.0:8443"
+          - "--upstream=http://127.0.0.1:8080/"
+          - "--logtostderr=true"
+          - "--v=10"
+        ports:
+          - containerPort: 8443
+            protocol: TCP
+            name: https
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+             drop:
+               - ALL
+        resources:
+          limits:
+            cpu: 50m
+            memory: 50Mi
+          requests:
+            cpu: 20m
+            memory: 10Mi
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: config-file
+          secret:
+            secretName: shared-configuration-file
+            items:
+              - key: config.yaml
+                path: config.yaml

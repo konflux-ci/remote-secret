@@ -1,0 +1,18 @@
+kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+commonLabels:
+  app.kubernetes.io/name: service-provider-integration-vault
+  app.kubernetes.io/part-of: service-provider-integration-operator
+
+resources:
+  - namespace.yaml
+
+configMapGenerator:
+  - name: vault-poststart-script
+    files:
+      - poststart.sh
+      - root.sh
