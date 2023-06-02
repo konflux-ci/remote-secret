@@ -33,7 +33,7 @@ done
 CURDIR=$(pwd)
 cd "${OVERLAY_DIR}" || exit
 if [ ! -z ${IMG} ]; then
-  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/remote-secret-operator="${IMG}"
+  ${KUSTOMIZE} edit set image quay.io/redhat-appstudio/remote-secret-controller="${IMG}"
 fi
 
 ${KUSTOMIZE} build . | kubectl apply -f -

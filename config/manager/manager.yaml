@@ -43,7 +43,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: quay.io/redhat-appstudio/remote-secret-operator:latest
+        image: quay.io/redhat-appstudio/remote-secret-controller:latest
         name: manager
         env: [ ]
         envFrom:
