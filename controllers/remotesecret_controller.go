@@ -21,6 +21,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
+
 	"github.com/go-logr/logr"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
@@ -254,7 +256,7 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 		Name: "secret-deployment",
 	}
 
-	aerr := &AggregatedError{}
+	aerr := &rerror.AggregatedError{}
 	r.processTargets(ctx, remoteSecret, data, aerr)
 
 	var deploymentStatus metav1.ConditionStatus
@@ -287,7 +289,7 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 
 // processTargets uses remotesecrets.ClassifyTargetNamespaces to find out what to do with targets in the remote secret spec and status
 // and does what the classification tells it to.
-func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *AggregatedError) {
+func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *rerror.AggregatedError) {
 	namespaceClassification := remotesecrets.ClassifyTargetNamespaces(remoteSecret)
 	for specIdx, statusIdx := range namespaceClassification.Sync {
 		spec := &remoteSecret.Spec.Targets[specIdx]
@@ -401,7 +403,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
 	}
 
-	return AggregateNonNilErrors(syncErr, updateErr)
+	return rerror.AggregateNonNilErrors(syncErr, updateErr)
 }
 
 func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
