@@ -5,5 +5,4 @@ metadata:
 data:
   VAULTHOST: ${VAULT_HOST}
   TOKENSTORAGE: vault
-  BASEURL: https://localhost
   ENABLEREMOTESECRETS: "true"
