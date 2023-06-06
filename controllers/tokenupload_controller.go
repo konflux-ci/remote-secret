@@ -53,9 +53,8 @@ const (
 )
 
 var (
-	invalidSecretTypeError = stdErrors.New("invalid secret type")
-	targetTypeNotSetError  = stdErrors.New("target type not set")
-	targetNameNotSetError  = stdErrors.New("target name not set")
+	targetTypeNotSetError = stdErrors.New("target type not set")
+	targetNameNotSetError = stdErrors.New("target name not set")
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
