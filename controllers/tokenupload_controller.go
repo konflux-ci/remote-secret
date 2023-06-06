@@ -46,8 +46,8 @@ import (
 )
 
 const (
-	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
+	uploadSecretLabel          = "appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
+	spiTokenNameField          = "spiTokenName"                       //#nosec G101 -- false positive, this is not a token
 	providerUrlField           = "providerUrl"
 	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
 	targetTypeAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-type"
@@ -106,7 +106,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// on the non-nil DeletionTimestamp. Therefore, in case of errors, we just create the error event and
 	// return a "success" to the controller runtime.
 
-	secretType := uploadSecret.GetLabels()[tokenSecretLabel]
+	secretType := uploadSecret.GetLabels()[uploadSecretLabel]
 	switch secretType {
 	case "remotesecret":
 		err = r.reconcileRemoteSecret(ctx, uploadSecret)
@@ -157,7 +157,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      tokenSecretLabel,
+				Key:      uploadSecretLabel,
 				Values:   []string{"remotesecret"},
 				Operator: metav1.LabelSelectorOpIn,
 			},
