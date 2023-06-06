@@ -90,10 +90,13 @@ func (s *NotifyingRemoteSecretStorage) createDataUpdate(ctx context.Context, id 
 		}
 
 		remoteSecret.Labels["secretuploaded"] = "true"
-		return cl.Update(context.TODO(), remoteSecret)
+		if err := cl.Update(ctx, remoteSecret); err != nil {
+			return fmt.Errorf("update failed: %w", err)
+		}
+		return nil
 	})
 	if retryErr != nil {
-		return fmt.Errorf("update failed: %v", retryErr)
+		return fmt.Errorf("update failed: %w", retryErr)
 	}
 	lg.Info("Adding label to RemoteSecret - ok")
 	return nil
