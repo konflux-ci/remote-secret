@@ -1,0 +1,41 @@
+# Configuration file for golangci-lint
+
+run:
+  tests: false # don't include test files in the analysis
+  skip-dirs:
+  - integration_tests # don't include the integration tests in the analysis
+  skip-files:
+  - ".*_mock\\.go$"
+
+linters:
+  # this should enable the following linters in addition to the default ones
+  enable:
+    - gosec
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - errchkjson
+    - exportloopref
+    - goerr113
+    - makezero
+    - nilerr
+    - noctx
+    - prealloc
+    - wrapcheck
+    - nolintlint
+    - loggercheck
+
+linters-settings:
+  wrapcheck:
+    ignoreSigs:
+      # These are our timers that just forward the errors so there's no need to wrap such errors.
+      - .ObserveValuesAndDuration(
+      # These are the default ignores that we need to repeat here, because we cannot just add to the list :-\
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
