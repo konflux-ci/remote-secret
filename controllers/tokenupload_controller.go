@@ -46,18 +46,15 @@ import (
 )
 
 const (
-	tokenSecretLabel           = "spi.appstudio.redhat.com/upload-secret" //#nosec G101 -- false positive, this is not a token
-	spiTokenNameField          = "spiTokenName"                           //#nosec G101 -- false positive, this is not a token
-	providerUrlField           = "providerUrl"
+	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"         //#nosec G101 -- false positive, this is not a token
 	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
 	targetTypeAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-type"
 	targetNameAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-name"
 )
 
 var (
-	invalidSecretTypeError = stdErrors.New("invalid secret type")
-	targetTypeNotSetError  = stdErrors.New("target type not set")
-	targetNameNotSetError  = stdErrors.New("target name not set")
+	targetTypeNotSetError = stdErrors.New("target type not set")
+	targetNameNotSetError = stdErrors.New("target name not set")
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
@@ -150,7 +147,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      tokenSecretLabel,
+				Key:      uploadSecretLabel,
 				Values:   []string{"remotesecret"},
 				Operator: metav1.LabelSelectorOpIn,
 			},
