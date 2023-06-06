@@ -106,16 +106,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// on the non-nil DeletionTimestamp. Therefore, in case of errors, we just create the error event and
 	// return a "success" to the controller runtime.
 
-	secretType := uploadSecret.GetLabels()[tokenSecretLabel]
-	switch secretType {
-	case "token":
-		lg.Error(err, "invalid secret type")
-	case "remotesecret":
-		err = r.reconcileRemoteSecret(ctx, uploadSecret)
-	default:
-		err = fmt.Errorf("%w: %s", invalidSecretTypeError, secretType)
-		lg.Error(err, "invalid secret type")
-	}
+	err = r.reconcileRemoteSecret(ctx, uploadSecret)
 
 	if err != nil {
 		r.createErrorEvent(ctx, uploadSecret, err, lg)
@@ -160,7 +151,8 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
 				Key:      tokenSecretLabel,
-				Operator: metav1.LabelSelectorOpExists,
+				Values:   []string{"remotesecret"},
+				Operator: metav1.LabelSelectorOpIn,
 			},
 		},
 	})
