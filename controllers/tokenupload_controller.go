@@ -108,8 +108,6 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	secretType := uploadSecret.GetLabels()[tokenSecretLabel]
 	switch secretType {
-	case "token":
-		lg.Error(err, "invalid secret type")
 	case "remotesecret":
 		err = r.reconcileRemoteSecret(ctx, uploadSecret)
 	default:
@@ -160,7 +158,8 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
 				Key:      tokenSecretLabel,
-				Operator: metav1.LabelSelectorOpExists,
+				Values:   []string{"remotesecret"},
+				Operator: metav1.LabelSelectorOpIn,
 			},
 		},
 	})
