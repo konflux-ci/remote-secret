@@ -402,8 +402,10 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		}
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
 	}
-
-	return fmt.Errorf("aggregate error: %w", rerror.AggregateNonNilErrors(syncErr, updateErr))
+	//TODO Think about proper fix. this fix is not working.
+	//return fmt.Errorf("aggregate error: %w", rerror.AggregateNonNilErrors(syncErr, updateErr))
+	//nolint:wrapcheck
+	return rerror.AggregateNonNilErrors(syncErr, updateErr)
 }
 
 func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
