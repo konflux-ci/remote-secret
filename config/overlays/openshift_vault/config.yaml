@@ -1,7 +1,5 @@
-serviceProviders:
-- type: GitHub
-  clientId: "123"
-  clientSecret: "42"
-- type: Quay
-  clientId: "456"
-  clientSecret: "54"
+foo: bar
+pleh: help
+stuff:
+  foo: bar
+  bar: foo
