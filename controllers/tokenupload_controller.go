@@ -46,10 +46,10 @@ import (
 )
 
 const (
-	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"         //#nosec G101 -- false positive, this is not a token
-	remoteSecretNameAnnotation = "spi.appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
-	targetTypeAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-type"
-	targetNameAnnotation       = "spi.appstudio.redhat.com/remotesecret-target-name"
+	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
+	remoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
+	targetTypeAnnotation       = "appstudio.redhat.com/remotesecret-target-type"
+	targetNameAnnotation       = "appstudio.redhat.com/remotesecret-target-name"
 )
 
 var (

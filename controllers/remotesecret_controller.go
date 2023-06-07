@@ -51,7 +51,7 @@ var (
 	unexpectedObjectTypeError = stdErrors.New("unexpected object type")
 )
 
-const linkedObjectsFinalizerName = "spi.appstudio.redhat.com/linked-objects"
+const linkedObjectsFinalizerName = "appstudio.redhat.com/linked-objects"
 
 type RemoteSecretReconciler struct {
 	client.Client
@@ -67,7 +67,7 @@ type RemoteSecretReconciler struct {
 
 var _ reconcile.Reconciler = (*RemoteSecretReconciler)(nil)
 
-const storageFinalizerName = "spi.appstudio.redhat.com/secret-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
+const storageFinalizerName = "appstudio.redhat.com/secret-storage" //#nosec G101 -- false positive, we're not storing any sensitive data using this
 
 func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.finalizers = finalizer.NewFinalizers()

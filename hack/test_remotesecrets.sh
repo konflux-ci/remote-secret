@@ -59,7 +59,7 @@ metadata:
   labels:
     appstudio.redhat.com/upload-secret: remotesecret
   annotations:
-    spi.appstudio.redhat.com/remotesecret-name: ${RS_NAME}
+    appstudio.redhat.com/remotesecret-name: ${RS_NAME}
 type: Opaque
 stringData:
   a: b

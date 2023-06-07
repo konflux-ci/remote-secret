@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	LinkedByRemoteSecretLabel          = "spi.appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
-	ManagingRemoteSecretNameAnnotation = "spi.appstudio.redhat.com/managing-remote-secret"  //#nosec G101 -- false positive, this is just a label
-	LinkedRemoteSecretsAnnotation      = "spi.appstudio.redhat.com/linked-remote-secrets"   //#nosec G101 -- false positive, this is just a label
+	LinkedByRemoteSecretLabel          = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
+	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret"  //#nosec G101 -- false positive, this is just a label
+	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"   //#nosec G101 -- false positive, this is just a label
 )
 
 type NamespaceObjectMarker struct {
