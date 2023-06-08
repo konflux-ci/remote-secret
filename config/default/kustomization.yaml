@@ -8,6 +8,11 @@ namespace: remotesecret
 # field above.
 namePrefix: remote-secret-
 
+images:
+  - name: quay.io/redhat-appstudio/remote-secret-controller
+    newName: quay.io/redhat-appstudio/remote-secret-controller
+    newTag: latest
+
 resources:
 - ../crd
 - ../rbac
