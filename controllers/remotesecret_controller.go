@@ -432,9 +432,15 @@ func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remote
 }
 
 func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
+	var apiUrl string
+	if targetSpec != nil {
+		apiUrl = targetSpec.ApiUrl
+	} else if targetStatus != nil {
+		apiUrl = targetStatus.ApiUrl
+	}
 	return bindings.DependentsHandler[*api.RemoteSecret]{
 		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.clientForTarget(targetSpec),
+			Client:       r.clientForUrl(apiUrl),
 			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
 			SecretSpec:   &remoteSecret.Spec.Secret,
 			TargetSpec:   targetSpec,
@@ -447,8 +453,8 @@ func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSe
 	}
 }
 
-func (r *RemoteSecretReconciler) clientForTarget(targetSpec *api.RemoteSecretTarget) client.Client {
-	if targetSpec.ApiUrl == "" {
+func (r *RemoteSecretReconciler) clientForUrl(apiUrl string) client.Client {
+	if apiUrl == "" {
 		return r.Client
 	}
 
