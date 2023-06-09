@@ -369,6 +369,8 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	targetStatus.ApiUrl = targetSpec.ApiUrl
 
+	inconsistent := false
+
 	if syncErr == nil {
 		targetStatus.Namespace = deps.Secret.Namespace
 		targetStatus.SecretName = deps.Secret.Name
@@ -383,12 +385,19 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		targetStatus.SecretName = ""
 		targetStatus.ServiceAccountNames = []string{}
 		targetStatus.Error = syncErr.Error()
+		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
+			inconsistent = true
+		}
 	}
 
 	updateErr := r.Client.Status().Update(ctx, remoteSecret)
 	if syncErr != nil || updateErr != nil {
 		if syncErr != nil {
-			debugLog.Error(syncErr, "failed to sync the dependent objects")
+			if inconsistent {
+				debugLog.Info("encountered an inconsistency error", "error", syncErr.Error())
+			} else {
+				debugLog.Error(syncErr, "failed to sync the dependent objects")
+			}
 		}
 
 		if updateErr != nil {
@@ -404,6 +413,12 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 			saks[i] = client.ObjectKeyFromObject(sa)
 		}
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
+	}
+
+	// we want the inconsistency errors to be noted by the user, but we don't want them to
+	// bubble up and cause reconcile retries
+	if inconsistent {
+		syncErr = nil
 	}
 	//TODO Think about proper fix. this fix is not working.
 	//return fmt.Errorf("aggregate error: %w", rerror.AggregateNonNilErrors(syncErr, updateErr))
