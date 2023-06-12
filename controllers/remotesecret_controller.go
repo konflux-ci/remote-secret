@@ -139,11 +139,13 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{Requeue: false}, fmt.Errorf("failed to finalize: %w", err)
 	}
 	if finalizationResult.Updated {
+		lg.V(logs.DebugLevel).Info("finalizer wants to update the spec. updating it.")
 		if err = r.Client.Update(ctx, remoteSecret); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update based on finalization result: %w", err)
 		}
 	}
 	if finalizationResult.StatusUpdated {
+		lg.V(logs.DebugLevel).Info("finalizer wants to update the status. updating it.")
 		if err = r.Client.Status().Update(ctx, remoteSecret); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status based on finalization result: %w", err)
 		}
@@ -195,7 +197,7 @@ func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api
 	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
 
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
-		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %v: %w", result, serr)
+		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
 
 	if result.Cancellation.Cancel || result.Cancellation.ReturnError != nil {
@@ -291,6 +293,7 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 // and does what the classification tells it to.
 func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecret *api.RemoteSecret, secretData *remotesecretstorage.SecretData, errorAggregate *rerror.AggregatedError) {
 	namespaceClassification := remotesecrets.ClassifyTargetNamespaces(remoteSecret)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("namespace classification", "classification", namespaceClassification)
 	for specIdx, statusIdx := range namespaceClassification.Sync {
 		spec := &remoteSecret.Spec.Targets[specIdx]
 		var status *api.TargetStatus
@@ -366,6 +369,8 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	targetStatus.ApiUrl = targetSpec.ApiUrl
 
+	inconsistent := false
+
 	if syncErr == nil {
 		targetStatus.Namespace = deps.Secret.Namespace
 		targetStatus.SecretName = deps.Secret.Name
@@ -380,12 +385,19 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		targetStatus.SecretName = ""
 		targetStatus.ServiceAccountNames = []string{}
 		targetStatus.Error = syncErr.Error()
+		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
+			inconsistent = true
+		}
 	}
 
 	updateErr := r.Client.Status().Update(ctx, remoteSecret)
 	if syncErr != nil || updateErr != nil {
 		if syncErr != nil {
-			debugLog.Error(syncErr, "failed to sync the dependent objects")
+			if inconsistent {
+				debugLog.Info("encountered an inconsistency error", "error", syncErr.Error())
+			} else {
+				debugLog.Error(syncErr, "failed to sync the dependent objects")
+			}
 		}
 
 		if updateErr != nil {
@@ -402,6 +414,12 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		}
 		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
 	}
+
+	// we want the inconsistency errors to be noted by the user, but we don't want them to
+	// bubble up and cause reconcile retries
+	if inconsistent {
+		syncErr = nil
+	}
 	//TODO Think about proper fix. this fix is not working.
 	//return fmt.Errorf("aggregate error: %w", rerror.AggregateNonNilErrors(syncErr, updateErr))
 	//nolint:wrapcheck
@@ -415,26 +433,25 @@ func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remote
 		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
 	}
 
-	// leave out the index from the status targets and save right now, so that the status reflects the state of the cluster as closely as possible.
-	newTargets := make([]api.TargetStatus, 0, len(remoteSecret.Status.Targets)-1)
-	for i, t := range remoteSecret.Status.Targets {
-		if i != targetStatusIndex {
-			newTargets = append(newTargets, t)
-		}
-	}
-	remoteSecret.Status.Targets = newTargets
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		return fmt.Errorf("failed to update the status with a modified set of target statuses: %w", err)
-	}
+	// unlike in deployToNamespace, we DO NOT update the status here straight away. That is because doing that would mess up the indices
+	// in the naming classification in processTargets which this method is a helper of.
+	// It is safe to do so, because dep.Cleanup() above doesn't fail with missing objects, so if we get a failure halfway through removing
+	// the secrets, we end up with inconsistent status, but that we will eventually solve itself when the reconciliation (which will be repeated
+	// in that case) finally goes through completely.
 
 	return nil
 }
 
 func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
+	var apiUrl string
+	if targetSpec != nil {
+		apiUrl = targetSpec.ApiUrl
+	} else if targetStatus != nil {
+		apiUrl = targetStatus.ApiUrl
+	}
 	return bindings.DependentsHandler[*api.RemoteSecret]{
 		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.clientForTarget(targetSpec),
+			Client:       r.clientForUrl(apiUrl),
 			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
 			SecretSpec:   &remoteSecret.Spec.Secret,
 			TargetSpec:   targetSpec,
@@ -447,8 +464,8 @@ func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSe
 	}
 }
 
-func (r *RemoteSecretReconciler) clientForTarget(targetSpec *api.RemoteSecretTarget) client.Client {
-	if targetSpec.ApiUrl == "" {
+func (r *RemoteSecretReconciler) clientForUrl(apiUrl string) client.Client {
+	if apiUrl == "" {
 		return r.Client
 	}
 

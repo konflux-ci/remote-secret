@@ -16,7 +16,6 @@ package bindings
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -27,9 +26,9 @@ import (
 )
 
 var (
-	specInconsistentWithStatusError              = stderrors.New("the number of service accounts in the spec doesn't correspond to the number of found service accounts")
-	managedServiceAccountAlreadyExists           = stderrors.New("a service account with same name as the managed one already exists")
-	managedServiceAccountManagedByAnotherBinding = stderrors.New("the service account already exists and is managed by another binding object")
+	specInconsistentWithStatusError              = fmt.Errorf("%w: the number of service accounts in the spec doesn't correspond to the number of found service accounts", DependentsInconsistencyError)
+	managedServiceAccountAlreadyExists           = fmt.Errorf("%w: a service account with same name as the managed one already exists", DependentsInconsistencyError)
+	managedServiceAccountManagedByAnotherBinding = fmt.Errorf("%w: the service account already exists and is managed by another binding object", DependentsInconsistencyError)
 )
 
 const (
