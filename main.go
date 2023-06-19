@@ -126,7 +126,7 @@ func createManager(args cmd.OperatorCliArgs) (manager.Manager, error) {
 		MetricsBindAddress:     args.MetricsAddr,
 		HealthProbeBindAddress: args.ProbeAddr,
 		LeaderElection:         args.EnableLeaderElection,
-		LeaderElectionID:       "f5c55e18.appstudio.redhat.org",
+		LeaderElectionID:       "4279163b.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
 	}
 	restConfig := ctrl.GetConfigOrDie()
