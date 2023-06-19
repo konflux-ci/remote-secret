@@ -27,6 +27,12 @@ spec:
         awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/remote-secret-controller/overlays/development/kustomization.yaml
         sed -i -e 's|\(https://github.com/redhat-appstudio/remote-secret/config/overlays/openshift_aws?ref=\)\(.*\)|\1{{ revision }}|' components/remote-secret-controller/overlays/staging/base/kustomization.yaml;
         awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/remote-secret-controller/overlays/staging/base/kustomization.yaml
+    - name: update-repo-script
+      value: |
+        INSTALL_PKGS="go-toolset" &&  yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && rpm -V $INSTALL_PKGS;
+        ./hack/set-remote-secret.sh {{ revision }} ;
+    - name: update-repo-name
+      value: redhat-appstudio/service-provider-integration-operator
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
