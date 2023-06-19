@@ -23,6 +23,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/remote-secret/pkg/sync"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -70,14 +71,36 @@ type secretHandler[K any] struct {
 	SecretDataGetter SecretDataGetter[K]
 }
 
-func (h *secretHandler[K]) Sync(ctx context.Context, key K) (*corev1.Secret, string, error) {
+// GetStale detects whether the secret referenced by the target is stale and needs to be replaced by a new one.
+// A secret in the target can become stale if it no longer corresponds to the spec of the target.
+func (h *secretHandler[K]) GetStale(ctx context.Context) (*corev1.Secret, error) {
+	existingSecretName := h.Target.GetActualSecretName()
+	if existingSecretName == "" || NameCorresponds(existingSecretName, h.Target.GetSpec().Name, h.Target.GetSpec().GenerateName) {
+		return nil, nil
+	}
+
+	existingSecret := &corev1.Secret{}
+	err := h.Target.GetClient().Get(ctx, client.ObjectKey{Name: existingSecretName, Namespace: h.Target.GetTargetNamespace()}, existingSecret)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return existingSecret, fmt.Errorf("failed to detect whether the secret is stale: %w", err)
+	} else {
+		return existingSecret, nil
+	}
+}
+
+// Sync creates or updates the secret with the data from the given key. The recreate flag can be used to force the creation of a new secret even
+// if the target already reports an existing secret using its GetActualSecretName method. This can be used to deal with the stale secrets (see GetStale method).
+func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*corev1.Secret, string, error) {
 	data, errorReason, err := h.SecretDataGetter.GetData(ctx, key)
 	if err != nil {
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}
 
 	secretName := h.Target.GetActualSecretName()
-	if secretName == "" {
+	if recreate || secretName == "" {
 		secretName = h.Target.GetSpec().Name
 	}
 
