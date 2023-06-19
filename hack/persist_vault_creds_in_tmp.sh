@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 mkdir -p .tmp/
 SECRET=$(kubectl get -n remotesecret secret vault-approle-remote-secret-operator -o json)
