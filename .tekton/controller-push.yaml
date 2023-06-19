@@ -23,6 +23,10 @@ spec:
       value: 'quay.io/redhat-appstudio/remote-secret-controller:{{revision}}'
     - name: infra-deployment-update-script
       value: |
+        sed -i -e 's|\(https://github.com/redhat-appstudio/remote-secret/config/overlays/openshift_vault?ref=\)\(.*\)|\1{{ revision }}|' components/remote-secret-controller/overlays/development/kustomization.yaml;
+        awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/remote-secret-controller/overlays/development/kustomization.yaml
+        sed -i -e 's|\(https://github.com/redhat-appstudio/remote-secret/config/overlays/openshift_aws?ref=\)\(.*\)|\1{{ revision }}|' components/remote-secret-controller/overlays/staging/base/kustomization.yaml;
+        awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/remote-secret-controller/overlays/staging/base/kustomization.yaml
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
