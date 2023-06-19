@@ -22,6 +22,11 @@ spec:
       value: "{{revision}}"
     - name: output-image
       value: "quay.io/redhat-appstudio/pull-request-builds:remote-secret-controller-{{pull_request_number}}"
+    - name: update-repo-script
+      value: |
+        ./hack/set-remote-secret.sh {{ revision }}
+    - name: update-repo-name
+      value: redhat-appstudio/service-provider-integration-operator
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
