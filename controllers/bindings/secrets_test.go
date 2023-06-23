@@ -52,13 +52,14 @@ func TestSync(t *testing.T) {
 
 	t.Run("empty-cluster", func(t *testing.T) {
 		t.Run("service-account-token secret type", func(t *testing.T) {
+			cl := clBld().Build()
 			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
 				return api.LinkableSecretSpec{
 					Name: "secret",
 					Type: corev1.SecretTypeServiceAccountToken,
 				}
 			}
-			deploymentTarget.GetClientImpl = func() client.Client { return clBld().Build() }
+			deploymentTarget.GetClientImpl = func() client.Client { return cl }
 			deploymentTarget.GetTargetNamespaceImpl = func() string {
 				return "ns"
 			}
@@ -69,7 +70,7 @@ func TestSync(t *testing.T) {
 				}, "", nil
 			}
 
-			secret, reason, err := h.Sync(context.TODO(), token)
+			secret, reason, err := h.Sync(context.TODO(), token, false)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
@@ -79,13 +80,14 @@ func TestSync(t *testing.T) {
 		})
 
 		t.Run("other secret types", func(t *testing.T) {
+			cl := clBld().Build()
 			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
 				return api.LinkableSecretSpec{
 					Name: "secret",
 					Type: corev1.SecretTypeBasicAuth,
 				}
 			}
-			deploymentTarget.GetClientImpl = func() client.Client { return clBld().Build() }
+			deploymentTarget.GetClientImpl = func() client.Client { return cl }
 			deploymentTarget.GetTargetNamespaceImpl = func() string {
 				return "ns"
 			}
@@ -96,7 +98,7 @@ func TestSync(t *testing.T) {
 				}, "", nil
 			}
 
-			secret, reason, err := h.Sync(context.TODO(), token)
+			secret, reason, err := h.Sync(context.TODO(), token, false)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
@@ -108,6 +110,18 @@ func TestSync(t *testing.T) {
 
 	t.Run("secret-in-cluster", func(t *testing.T) {
 		t.Run("service-account-token secret type", func(t *testing.T) {
+			cl := clBld().
+				WithObjects(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret",
+						Namespace: "ns",
+					},
+					Data: map[string][]byte{
+						"a": []byte("b"),
+					},
+				}).
+				Build()
+
 			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
 				return api.LinkableSecretSpec{
 					Name: "secret",
@@ -115,17 +129,7 @@ func TestSync(t *testing.T) {
 				}
 			}
 			deploymentTarget.GetClientImpl = func() client.Client {
-				return clBld().
-					WithObjects(&corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "ns",
-						},
-						Data: map[string][]byte{
-							"a": []byte("b"),
-						},
-					}).
-					Build()
+				return cl
 			}
 			deploymentTarget.GetTargetNamespaceImpl = func() string {
 				return "ns"
@@ -137,7 +141,7 @@ func TestSync(t *testing.T) {
 				}, "", nil
 			}
 
-			secret, reason, err := h.Sync(context.TODO(), token)
+			secret, reason, err := h.Sync(context.TODO(), token, false)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
@@ -148,6 +152,18 @@ func TestSync(t *testing.T) {
 		})
 
 		t.Run("other secret types", func(t *testing.T) {
+			cl := clBld().
+				WithObjects(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret",
+						Namespace: "ns",
+					},
+					Data: map[string][]byte{
+						"a": []byte("b"),
+					},
+				}).
+				Build()
+
 			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
 				return api.LinkableSecretSpec{
 					Name: "secret",
@@ -155,17 +171,7 @@ func TestSync(t *testing.T) {
 				}
 			}
 			deploymentTarget.GetClientImpl = func() client.Client {
-				return clBld().
-					WithObjects(&corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "secret",
-							Namespace: "ns",
-						},
-						Data: map[string][]byte{
-							"a": []byte("b"),
-						},
-					}).
-					Build()
+				return cl
 			}
 			deploymentTarget.GetTargetNamespaceImpl = func() string {
 				return "ns"
@@ -177,7 +183,7 @@ func TestSync(t *testing.T) {
 				}, "", nil
 			}
 
-			secret, reason, err := h.Sync(context.TODO(), token)
+			secret, reason, err := h.Sync(context.TODO(), token, false)
 			assert.Equal(t, "", reason)
 			assert.NoError(t, err)
 
@@ -185,6 +191,38 @@ func TestSync(t *testing.T) {
 			assert.Contains(t, secret.Data, "token")
 			assert.Equal(t, secret.Data["token"], []byte("token"))
 			assert.NotContains(t, secret.Data, "a")
+		})
+		t.Run("honors recreate flag", func(t *testing.T) {
+			cl := clBld().
+				WithObjects(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret",
+						Namespace: "ns",
+					},
+				}).
+				Build()
+
+			deploymentTarget.GetSpecImpl = func() api.LinkableSecretSpec {
+				return api.LinkableSecretSpec{
+					Name: "secret",
+				}
+			}
+			deploymentTarget.GetClientImpl = func() client.Client {
+				return cl
+			}
+			deploymentTarget.GetTargetNamespaceImpl = func() string {
+				return "ns"
+			}
+			deploymentTarget.GetActualSecretNameImpl = func() string {
+				return "old-secret"
+			}
+
+			secret, reason, err := h.Sync(context.TODO(), token, true)
+			assert.Equal(t, "", reason)
+			assert.NoError(t, err)
+
+			assert.NotNil(t, secret)
+			assert.Equal(t, "secret", secret.Name)
 		})
 	})
 }

@@ -117,13 +117,52 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 		return nil, errorReason, err
 	}
 
-	sec, errorReason, err := secretsHandler.Sync(ctx, dataKey)
+	staleSecret, err := secretsHandler.GetStale(ctx)
+	if err != nil {
+		return nil, string(ErrorReasonSecretUpdate), err
+	}
+
+	sec, errorReason, err := secretsHandler.Sync(ctx, dataKey, staleSecret != nil)
 	if err != nil {
 		return nil, errorReason, err
 	}
 
 	if err = saHandler.LinkToSecret(ctx, serviceAccounts, sec); err != nil {
 		return nil, errorReason, err
+	}
+
+	if staleSecret != nil {
+		for _, sa := range serviceAccounts {
+			attempt := func() (client.Object, error) {
+				updated := saHandler.Unlink(staleSecret, sa)
+				if updated {
+					return sa, nil
+				} else {
+					return nil, nil
+				}
+			}
+			err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, d.Target.GetClient(), attempt, "retrying unlinking of stale secret from SA due to a conflict",
+				fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, staleSecret.Name, d.Target.GetType(), d.Target.GetTargetObjectKey()))
+
+			if err != nil {
+				return nil, string(ErrorReasonServiceAccountUpdate),
+					fmt.Errorf("failed to unlink the stale secret %s from the service account %s while processing the deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(staleSecret),
+						client.ObjectKeyFromObject(sa),
+						d.Target.GetType(),
+						d.Target.GetTargetObjectKey(),
+						err)
+			}
+		}
+
+		// now that all the SAs are unlinked, we can finally delete the secret
+		if err := d.Target.GetClient().Delete(ctx, staleSecret); err != nil {
+			return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to delete the stale secret %s when processing the deployment target (%s) %s: %w",
+				client.ObjectKeyFromObject(staleSecret),
+				d.Target.GetType(),
+				d.Target.GetTargetObjectKey(),
+				err)
+		}
 	}
 
 	deps := &Dependents{

@@ -29,11 +29,92 @@ import (
 )
 
 func TestDependentsSync(t *testing.T) {
-	// Dependents.Sync just trivially calls serviceAccountsHandler.Sync, secretHandler.Sync
-	// and serviceAccountsHandler.LinkToSecret.
-	//
-	// Not sure what and how to test there given the other three methods are covered by
-	// unit tests.
+	t.Run("removes stale secret", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		corev1.AddToScheme(scheme)
+
+		cl := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret",
+						Namespace: "default",
+					},
+				},
+				&corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "sa",
+						Namespace: "default",
+					},
+					Secrets: []corev1.ObjectReference{
+						{
+							Name: "secret",
+						},
+					},
+				},
+			).
+			Build()
+
+		h := DependentsHandler[*api.RemoteSecret]{
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client {
+					return cl
+				},
+				GetTargetNamespaceImpl: func() string {
+					return "default"
+				},
+				GetActualSecretNameImpl: func() string {
+					return "secret"
+				},
+				GetSpecImpl: func() api.LinkableSecretSpec {
+					return api.LinkableSecretSpec{
+						Name: "updated-secret",
+						LinkedTo: []api.SecretLink{
+							{
+								ServiceAccount: api.ServiceAccountLink{
+									Reference: corev1.LocalObjectReference{
+										Name: "sa",
+									},
+								},
+							},
+						},
+					}
+				},
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.RemoteSecret]{},
+			ObjectMarker:     &TestObjectMarker{},
+		}
+
+		deps, _, err := h.Sync(context.TODO(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, deps)
+		assert.Equal(t, "updated-secret", deps.Secret.Name)
+		secret := &corev1.Secret{}
+		sa := &corev1.ServiceAccount{}
+
+		err = cl.Get(context.TODO(), client.ObjectKey{Name: "secret", Namespace: "default"}, secret)
+		assert.True(t, errors.IsNotFound(err))
+
+		err = cl.Get(context.TODO(), client.ObjectKey{Name: "updated-secret", Namespace: "default"}, secret)
+		assert.NoError(t, err)
+
+		err = cl.Get(context.TODO(), client.ObjectKey{Name: "sa", Namespace: "default"}, sa)
+		assert.NoError(t, err)
+
+		hasSecretReferenceTo := func(secretName string, sa *corev1.ServiceAccount) bool {
+			for _, ref := range sa.Secrets {
+				if ref.Name == secretName {
+					return true
+				}
+			}
+
+			return false
+		}
+
+		assert.True(t, hasSecretReferenceTo("updated-secret", sa))
+		assert.False(t, hasSecretReferenceTo("secret", sa))
+	})
 }
 
 func TestDependentsCleanup(t *testing.T) {
