@@ -137,7 +137,6 @@ jobs:
         with:
           fetch-depth: 0
           repository: 'redhat-appstudio/service-provider-integration-operator'
-          clean: 'spi'
       - name: Check dir
         run: |
           ls -la
