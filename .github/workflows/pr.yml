@@ -115,7 +115,7 @@ jobs:
       - name: Codecov
         uses: codecov/codecov-action@v3
   spi-check:
-    name: Check sources
+    name: Check spi compatibility
     runs-on: ubuntu-latest
     env:
       OPERATOR_SDK_VERSION: v1.28.1
