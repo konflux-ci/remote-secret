@@ -140,7 +140,7 @@ jobs:
           path: 'spi'
       - name: Check SPI mod
         run: |
-          cat ./spi/go.mod
+          sed '3 i New Line with sed' ./spi/go.mod
       - name: Cache Operator SDK ${{ env.OPERATOR_SDK_VERSION }}
         uses: actions/cache@v3
         id: cache-operator-sdk
