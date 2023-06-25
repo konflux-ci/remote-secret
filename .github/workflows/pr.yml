@@ -140,7 +140,7 @@ jobs:
           path: 'spi'
       - name: Check SPI mod
         run: |
-          sed '4 i replace github.com/redhat-appstudio/remote-secret => ../' ./spi/go.mod
+          sed -i  '4 i replace github.com/redhat-appstudio/remote-secret => ../' ./spi/go.mod
           cd spi
           go mod tidy
           cat go.mod
