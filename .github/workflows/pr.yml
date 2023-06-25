@@ -171,6 +171,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip yq
           pwd
+          cd spi
           make test
   docker-controller:
     name: Check controller docker image build
