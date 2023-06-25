@@ -17,7 +17,7 @@ require (
 	github.com/hashicorp/vault v1.13.2
 	github.com/hashicorp/vault-plugin-secrets-kv v0.15.0
 	github.com/hashicorp/vault/api v1.9.2
-	github.com/hashicorp/vault/api/auth/approle v0.4.0
+	github.com/hashicorp/vault/api/auth/approle v0.4.1
 	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
 	github.com/hashicorp/vault/sdk v0.9.0
 	github.com/metlos/crenv v0.1.2
