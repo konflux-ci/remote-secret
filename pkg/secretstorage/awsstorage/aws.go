@@ -32,7 +32,9 @@ import (
 var _ secretstorage.SecretStorage = (*AwsSecretStorage)(nil)
 
 var (
-	errGotNilSecret = errors.New("got nil secret from aws secretmanager")
+	errGotNilSecret      = errors.New("got nil secret from aws secretmanager")
+	errAWSInvalidRequest = errors.New("invalid request reported when making request to aws")
+	errAWSUnknownError   = errors.New("not able to get secret from the aws storage for some unknown reason")
 )
 
 // awsClient is an interface grouping methods from aws secretsmanager.Client that we need for implementation of our aws tokenstorage
@@ -109,13 +111,13 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-				dbgLog.Info("invalid request to aws secret", "error", invalidRequestErr.Error())
-				return nil, fmt.Errorf("error when making request to aws: %s", invalidRequestErr.ErrorMessage())
+				dbgLog.Info("invalid request to aws secret storage", "error", invalidRequestErr.Error())
+				return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
 			}
 		}
 
 		dbgLog.Info("unknown error on reading aws secret storage", "error", err.Error())
-		return nil, errors.New("not able to get secret from the aws storage for some unknown reason")
+		return nil, errAWSUnknownError
 	}
 
 	return getResult.SecretBinary, nil
