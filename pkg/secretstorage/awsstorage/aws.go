@@ -103,16 +103,18 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 					dbgLog.Info("secret successfully migrated", "secretid", id)
 					return secretData, nil
 				} else {
-					dbgLog.Info("secret not found in aws storage", "err", notFoundErr.ErrorMessage())
-					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.Error())
+					dbgLog.Info("secret not found in aws storage", "err", notFoundErr.Error())
+					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage())
 				}
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-				return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, invalidRequestErr.Error())
+				dbgLog.Info("invalid request to aws secret", "error", invalidRequestErr.Error())
+				return nil, fmt.Errorf("error when making request to aws: %s", invalidRequestErr.ErrorMessage())
 			}
 		}
 
+		dbgLog.Info("unknown error on reading aws secret", "error", err.Error())
 		return nil, fmt.Errorf("not able to get secret from the aws storage for some unknown reason: %w", err)
 	}
 
