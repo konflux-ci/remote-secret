@@ -114,8 +114,8 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			}
 		}
 
-		dbgLog.Info("unknown error on reading aws secret", "error", err.Error())
-		return nil, fmt.Errorf("not able to get secret from the aws storage for some unknown reason: %w", err)
+		dbgLog.Info("unknown error on reading aws secret storage", "error", err.Error())
+		return nil, errors.New("not able to get secret from the aws storage for some unknown reason")
 	}
 
 	return getResult.SecretBinary, nil
