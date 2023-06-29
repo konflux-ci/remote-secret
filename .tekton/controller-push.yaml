@@ -29,7 +29,13 @@ spec:
         awk  -i inplace -v n=1 '/newTag:/ { if (++count == n) sub(/newTag:.*/, "newTag: {{ revision }}")} 1' components/remote-secret-controller/overlays/staging/base/kustomization.yaml
     - name: update-repo-script
       value: |
-        INSTALL_PKGS="go-toolset" &&  yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && rpm -V $INSTALL_PKGS;
+        yum install -y --setopt=tsflags=nodocs wget;
+        rm -rf /usr/local/go;
+        cd /tmp;
+        wget https://go.dev/dl/go1.20.5.linux-amd64.tar.gz;
+        tar -C /usr/local -xzf go1.20.5.linux-amd64.tar.gz;
+        export PATH=$PATH:/usr/local/go/bin;
+        go version;
         ./hack/set-remote-secret.sh {{ revision }} ;
     - name: update-repo-name
       value: redhat-appstudio/service-provider-integration-operator
