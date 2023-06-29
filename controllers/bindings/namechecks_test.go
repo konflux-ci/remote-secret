@@ -25,12 +25,12 @@ func TestNameCorresponds(t *testing.T) {
 		// Kubernetes docs (https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/object-meta/) specify that generateName is only taken into account if the name is not
 		// specified. We need to behave the same.
 		assert.True(t, NameCorresponds("a", "a", "asdf"))
-		assert.False(t, NameCorresponds("a-", "b", "a-suffix"))
+		assert.False(t, NameCorresponds("a-suffix", "b", "a-"))
 	})
 
 	t.Run("name check with empty generateName", func(t *testing.T) {
 		assert.True(t, NameCorresponds("a", "a", ""))
-		assert.False(t, NameCorresponds("a", "", ""))
+		assert.False(t, NameCorresponds("a", "b", ""))
 	})
 
 	t.Run("uses generate if name empty", func(t *testing.T) {
@@ -38,5 +38,9 @@ func TestNameCorresponds(t *testing.T) {
 		assert.True(t, NameCorresponds("afbsfdf", "", "a"))
 		assert.False(t, NameCorresponds("a", "", "b"))
 		assert.False(t, NameCorresponds("abbasdf", "", "b"))
+	})
+
+	t.Run("corresponds if no requirements given", func(t *testing.T) {
+		assert.True(t, NameCorresponds("a", "", ""))
 	})
 }

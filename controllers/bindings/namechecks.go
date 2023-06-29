@@ -28,5 +28,11 @@ func NameCorresponds(actualName, specificName, generateName string) bool {
 		return actualName == specificName
 	}
 
-	return generateName != "" && strings.HasPrefix(actualName, generateName)
+	if generateName != "" {
+		return strings.HasPrefix(actualName, generateName)
+	}
+
+	// both specific name and generate name are empty. This means that the actualName just is
+	// what it is and so we can only say that it corresponds to itself.
+	return true
 }
