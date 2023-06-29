@@ -835,8 +835,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5
 github.com/matttproud/golang_protobuf_extensions v1.0.4 h1:mmDVorXM7PCGKw94cs5zkfA9PSy5pEvNWRP0ET0TIVo=
 github.com/matttproud/golang_protobuf_extensions v1.0.4/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/mediocregopher/radix/v4 v4.1.1 h1:JkZBEp0y8pWGNZkmO3RR5oEO5huwd4zKKt4rh1C+P8s=
-github.com/metlos/crenv v0.1.2 h1:odkqoKhPBFl5txmiGFgjfB7fK8EjUte9C7kxkJINKd4=
-github.com/metlos/crenv v0.1.2/go.mod h1:PMHczU/zBdiNImehcwdv30pGwhSTqWDXubYZ/49XO38=
+github.com/metlos/crenv v0.1.3 h1:tUGeJWoJjCzABEBXJSUX43qHQ+onbeaXBlbCOdglcUg=
+github.com/metlos/crenv v0.1.3/go.mod h1:PMHczU/zBdiNImehcwdv30pGwhSTqWDXubYZ/49XO38=
 github.com/michaelklishin/rabbit-hole/v2 v2.12.0 h1:946p6jOYFcVJdtBBX8MwXvuBkpPjwm1Nm2Qg8oX+uFk=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/miekg/dns v1.1.41 h1:WMszZWJG0XmzbK9FEmzH2TVcqYzFesusSIB41b8KHxY=
