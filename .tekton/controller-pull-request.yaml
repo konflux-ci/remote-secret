@@ -24,7 +24,7 @@ spec:
       value: "quay.io/redhat-appstudio/pull-request-builds:remote-secret-controller-{{pull_request_number}}"
     - name: update-repo-script
       value: |
-        microdnf install tar wget gzip;
+        yum install -y --setopt=tsflags=nodocs tar wget gzip;
         export GO_DL_URL=https://golang.org/dl \
         export GO_BIN_TAR=go1.20.5.linux-amd64.tar.gz \
         export GOPATH=/root/go;
