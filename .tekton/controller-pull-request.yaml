@@ -24,15 +24,17 @@ spec:
       value: "quay.io/redhat-appstudio/pull-request-builds:remote-secret-controller-{{pull_request_number}}"
     - name: update-repo-script
       value: |
-        yum install -y --setopt=tsflags=nodocs tar wget gzip;
+        yum install -y --setopt=tsflags=nodocs wget;
         export GO_DL_URL=https://golang.org/dl \
         export GO_BIN_TAR=go1.20.5.linux-amd64.tar.gz \
-        export GOPATH=/root/go;
-        export GO_BIN_URL_x86_64=${GO_DL_URL}/${GO_BIN_TAR}
+        export GOPATH=/root/go ;
+        export GO_BIN_URL_x86_64=${GO_DL_URL}/${GO_BIN_TAR};
+        env;
         wget --directory-prefix=${TEMP_DIR} ${GO_BIN_URL_x86_64} --quiet \
         && rm -rf /usr/local/go \
         && tar -C /usr/local -xzf ${TEMP_DIR}/${GO_BIN_TAR}; 
         PATH=${PATH}:"/usr/local/go/bin":${GOPATH}/"bin";
+        env;
         ./hack/set-remote-secret.sh {{ revision }} ;
     - name: update-repo-name
       value: redhat-appstudio/service-provider-integration-operator
