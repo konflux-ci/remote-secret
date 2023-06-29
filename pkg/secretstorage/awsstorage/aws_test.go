@@ -267,6 +267,7 @@ func TestGet(t *testing.T) {
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
+		assert.Equal(t, "not able to get secret from the aws storage for some unknown reason", err.Error())
 		assert.True(t, cl.getCalled)
 		assert.Nil(t, data)
 	})
@@ -276,7 +277,7 @@ func TestGet(t *testing.T) {
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return nil, &types.ResourceNotFoundException{}
+				return nil, &types.ResourceNotFoundException{Message: aws.String("no such key exists")}
 			},
 		}
 
@@ -287,6 +288,7 @@ func TestGet(t *testing.T) {
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
 		assert.Error(t, err, secretstorage.NotFoundError)
+		assert.Equal(t, "not found: no such key exists", err.Error())
 		assert.True(t, cl.getCalled)
 		assert.Nil(t, data)
 	})
@@ -306,6 +308,7 @@ func TestGet(t *testing.T) {
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
+		assert.Equal(t, "invalid request reported when making request to aws. message: token is scheduled for deletion", err.Error())
 		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
 		assert.Nil(t, data)
