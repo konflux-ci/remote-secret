@@ -22,6 +22,19 @@ spec:
       value: "{{revision}}"
     - name: output-image
       value: "quay.io/redhat-appstudio/pull-request-builds:remote-secret-controller-{{pull_request_number}}"
+    - name: update-repo-script
+      value: |
+        GO_DL_URL=https://golang.org/dl \
+        GO_BIN_TAR=go1.20.5.linux-amd64.tar.gz \
+        GOPATH=/root/go;
+        GO_BIN_URL_x86_64=${GO_DL_URL}/${GO_BIN_TAR}
+        wget --directory-prefix=${TEMP_DIR} ${GO_BIN_URL_x86_64} --quiet \
+        && rm -rf /usr/local/go \
+        && tar -C /usr/local -xzf ${TEMP_DIR}/${GO_BIN_TAR}; 
+        PATH=${PATH}:"/usr/local/go/bin":${GOPATH}/"bin"
+        ./hack/set-remote-secret.sh {{ revision }} ;
+    - name: update-repo-name
+      value: redhat-appstudio/service-provider-integration-operator
   pipelineRef:
     name: docker-build
     bundle: quay.io/redhat-appstudio-tekton-catalog/pipeline-core-services-docker-build:latest
