@@ -72,28 +72,28 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 }
 
 func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
-	msgLog := lg(ctx).WithValues("secretID", id)
+	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
 
-	msgLog.V(logs.DebugLevel).Info("storing data")
+	dbgLog.Info("storing data")
 
 	secretName := s.generateAwsSecretName(&id)
 
-	msgLog = msgLog.WithValues("secretname", secretName)
-	ctx = log.IntoContext(ctx, msgLog)
+	dbgLog = dbgLog.WithValues("secretname", secretName)
+	ctx = log.IntoContext(ctx, dbgLog)
 
 	errCreate := s.createOrUpdateAwsSecret(ctx, secretName, data)
 	if errCreate != nil {
-		msgLog.Info("secret creation failed", "id", id, "err", errCreate.Error())
+		dbgLog.Error(errCreate, "secret creation failed")
 		return errASWSecretCreationFailed
 	}
 	return nil
 }
 
 func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
-	msgLog := lg(ctx).WithValues("secretID", id)
+	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
 
 	secretName := s.generateAwsSecretName(&id)
-	msgLog.V(logs.DebugLevel).Info("getting the token", "secretname", secretName, "secretId", id)
+	dbgLog.Info("getting the token", "secretname", secretName, "secretId", id)
 	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
@@ -102,24 +102,24 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
 				secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
 				if migrationErr != nil {
-					msgLog.Error(migrationErr, "something went wrong during migration")
+					dbgLog.Error(migrationErr, "something went wrong during migration")
 				}
 				if secretData != nil {
-					msgLog.V(logs.DebugLevel).Info("secret successfully migrated", "secretid", id)
+					dbgLog.Info("secret successfully migrated", "secretid", id)
 					return secretData, nil
 				} else {
-					msgLog.Info("secret not found in aws storage", "err", notFoundErr.Error())
+					dbgLog.Error(notFoundErr, "secret not found in aws storage")
 					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage())
 				}
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-				msgLog.Info("invalid request to aws secret storage", "error", invalidRequestErr.Error())
+				dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
 				return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
 			}
 		}
 
-		msgLog.Info("unknown error on reading aws secret storage", "error", err.Error())
+		dbgLog.Error(err, "unknown error on reading aws secret storage")
 		return nil, errAWSUnknownError
 	}
 
@@ -127,13 +127,13 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
-	msgLog := lg(ctx).WithValues("secretID", id)
-	msgLog.V(logs.DebugLevel).Info("deleting the token")
+	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
+	dbgLog.Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
 	errDelete := s.deleteAwsSecret(ctx, secretName)
 	if errDelete != nil {
-		msgLog.Info("secret deletion failed", "err", errDelete.Error())
+		dbgLog.Error(errDelete, "secret deletion failed")
 		return errASWSecretDeletionFailed
 	}
 	return nil
