@@ -32,7 +32,11 @@ import (
 var _ secretstorage.SecretStorage = (*AwsSecretStorage)(nil)
 
 var (
-	errGotNilSecret = errors.New("got nil secret from aws secretmanager")
+	errGotNilSecret            = errors.New("got nil secret from aws secretmanager")
+	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
+	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
+	errAWSInvalidRequest       = errors.New("invalid request reported when making request to aws")
+	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
 )
 
 // awsClient is an interface grouping methods from aws secretsmanager.Client that we need for implementation of our aws tokenstorage
@@ -79,7 +83,8 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	errCreate := s.createOrUpdateAwsSecret(ctx, secretName, data)
 	if errCreate != nil {
-		return fmt.Errorf("failed to create the secret: %w", errCreate)
+		dbgLog.Error(errCreate, "secret creation failed")
+		return errASWSecretCreationFailed
 	}
 	return nil
 }
@@ -103,29 +108,33 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 					dbgLog.Info("secret successfully migrated", "secretid", id)
 					return secretData, nil
 				} else {
-					dbgLog.Info("secret not found in aws storage", "err", notFoundErr.ErrorMessage())
-					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.Error())
+					dbgLog.Error(notFoundErr, "secret not found in aws storage")
+					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage())
 				}
 			}
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-				return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, invalidRequestErr.Error())
+				dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
+				return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
 			}
 		}
 
-		return nil, fmt.Errorf("not able to get secret from the aws storage for some unknown reason: %w", err)
+		dbgLog.Error(err, "unknown error on reading aws secret storage")
+		return nil, errAWSUnknownError
 	}
 
 	return getResult.SecretBinary, nil
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
-	lg(ctx).V(logs.DebugLevel).Info("deleting the token", "secretID", id)
+	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
+	dbgLog.Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
 	errDelete := s.deleteAwsSecret(ctx, secretName)
 	if errDelete != nil {
-		return fmt.Errorf("error deleting AWS secret: %w", errDelete)
+		dbgLog.Error(errDelete, "secret deletion failed")
+		return errASWSecretDeletionFailed
 	}
 	return nil
 }
