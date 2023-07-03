@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	stdErrors "errors"
 	"fmt"
 	"time"
 
@@ -49,10 +48,6 @@ const (
 	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
 	remoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
 	targetNameAnnotation       = "appstudio.redhat.com/remotesecret-target-name"
-)
-
-var (
-	targetNameNotSetError = stdErrors.New("target name not set")
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
