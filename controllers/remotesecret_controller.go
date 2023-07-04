@@ -312,8 +312,8 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 		}
 	}
 
-	for statusIndex := range namespaceClassification.Remove {
-		err := r.deleteFromNamespace(ctx, remoteSecret, statusIndex)
+	for _, statusIndex := range namespaceClassification.Remove {
+		err := r.deleteFromNamespace(ctx, remoteSecret, int(statusIndex))
 		if err != nil {
 			errorAggregate.Add(err)
 		}
