@@ -158,7 +158,7 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					// check that the secret in targetA is still there but not in targetB
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).ToNot(Succeed())
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).Error()
 				})
 			})
 
@@ -180,7 +180,7 @@ var _ = Describe("RemoteSecret", func() {
 					rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetA}, &corev1.ServiceAccount{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).ToNot(Succeed())
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).Error()
 				})
 			})
 		})
