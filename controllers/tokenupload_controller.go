@@ -47,7 +47,7 @@ import (
 const (
 	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
 	remoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
-	targetNameAnnotation       = "appstudio.redhat.com/remotesecret-target-name"
+	targetNamespaceAnnotation  = "appstudio.redhat.com/remotesecret-target-namespace"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
@@ -229,7 +229,7 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 		Spec: api.RemoteSecretSpec{},
 	}
 
-	targetName, ok := uploadSecret.Annotations[targetNameAnnotation]
+	targetName, ok := uploadSecret.Annotations[targetNamespaceAnnotation]
 	if ok {
 		targetSpec := api.RemoteSecretTarget{}
 		targetSpec.Namespace = targetName
