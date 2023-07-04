@@ -313,7 +313,7 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 	}
 
 	for _, statusIndex := range namespaceClassification.Remove {
-		err := r.deleteFromNamespace(ctx, remoteSecret, int(statusIndex))
+		err := r.deleteFromNamespace(ctx, remoteSecret, statusIndex)
 		if err != nil {
 			errorAggregate.Add(err)
 		}
@@ -426,8 +426,8 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	return rerror.AggregateNonNilErrors(syncErr, updateErr)
 }
 
-func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
-	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[targetStatusIndex])
+func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, statusTargetIndex remotesecrets.StatusTargetIndex) error {
+	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[statusTargetIndex])
 
 	if err := dep.Cleanup(ctx); err != nil {
 		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
