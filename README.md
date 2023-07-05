@@ -1,6 +1,22 @@
 # remote-secret
-// TODO(user): Add simple overview of use/purpose
+[![Code Coverage Report](https://github.com/redhat-appstudio/remote-secret/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/remote-secret/actions/workflows/codecov.yaml)
+[![codecov](https://codecov.io/gh/redhat-appstudio/remote-secret/branch/main/graph/badge.svg?token=wwN9l7BE12)](https://codecov.io/gh/redhat-appstudio/remote-secret)
 
+A Kubernetes controller/operator that manages service provider integration tasks.
+## Table of contents
+
+- [About](#About)
+- [Architecture](#architecture)
+- [Glossary](#glossary)
+- [Administration Guide](docs/ADMIN.md)
+    - [Installation](docs/ADMIN.md#installation)
+    - [Configuration](docs/ADMIN.md#configuration)
+    - [Vault](docs/ADMIN.md#vault)
+    - [Running](docs/ADMIN.md#running)
+- [User Guide](docs/USER.md)
+- [Contributing](docs/DEVELOP.md)
+- [License](LICENSE)
+- 
 ## Description
 // TODO(user): An in-depth paragraph about your project and overview of use
 
