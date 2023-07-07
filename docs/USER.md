@@ -99,6 +99,50 @@ status:
     secretName: db-credentials
 ```
 
+#### Creating RemoteSecret and target in a single action 
+
+If a remote secret is supposed to have only one simple target (containing namespace only), it can be created in a single operation by using a special annotation in the upload secret: 
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: upload-secret-data-for-remote-secret
+    namespace: default
+    labels:
+        appstudio.redhat.com/upload-secret: remotesecret
+        appstudio.redhat.com/remotesecret-target-namespace: abcd
+    annotations:
+        appstudio.redhat.com/remotesecret-name: test-remote-secret
+type: Opaque
+stringData:
+    username: u
+    password: passw0rd
+```
+The remote secret will be created and target from `appstudio.redhat.com/remotesecret-target-namespace` annotation will be set:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret: {}
+    targets:
+    - namespace: abcd
+status:
+  conditions:
+  - lastTransitionTime: "..."
+    message: ""
+    reason: DataFound
+    status: "True"
+    type: DataObtained
+  targets:
+    - namespace: default
+      secretName: test-remote-secret-secret-2nb46
+```
+
 #### Define the structure of the secrets in the targets
 
 ```yaml
