@@ -53,9 +53,47 @@ var _ = Describe("TokenUploadController", func() {
 
 			It("creates new one", func() {
 				Eventually(func(g Gomega) {
-					Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
-					Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name == "new-remote-secret").To(BeTrue())
-					Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace == "mshaposh-tenant").To(BeTrue())
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("mshaposh-tenant"))
+				})
+			})
+		})
+
+		When("secret is exists", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "new-remote-secret",
+							Namespace: "default",
+						},
+					},
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret-upload",
+							Namespace: "default",
+							Labels: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
+								"appstudio.redhat.com/remotesecret-target-namespace": "mshaposh-tenant"},
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{"a": []byte("b")},
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("adds new target", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("mshaposh-tenant"))
 				})
 			})
 		})
