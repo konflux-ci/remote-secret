@@ -75,7 +75,7 @@ var _ = Describe("TokenUploadController", func() {
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
 			})
-			
+
 			AfterEach(func() {
 				test.AfterEach(ITest.Context)
 			})
