@@ -90,6 +90,13 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			AfterEach(func() {
+				// due to a bug in crenv do a cleanup
+				Expect(ITest.Client.Delete(ITest.Context, &api.RemoteSecret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "new-remote-secret",
+						Namespace: "default",
+					},
+				})).To(Succeed())
 				test.AfterEach(ITest.Context)
 			})
 
@@ -99,13 +106,6 @@ var _ = Describe("TokenUploadController", func() {
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("ns"))
 				})
-				// due to a bug in crenv do a cleanup
-				Expect(ITest.Client.Delete(ITest.Context, &api.RemoteSecret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "new-remote-secret",
-						Namespace: "default",
-					},
-				})).To(Succeed())
 
 			})
 		})
