@@ -69,28 +69,30 @@ var _ = Describe("TokenUploadController", func() {
 							Namespace: "default",
 						},
 					},
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-remote-secret-upload",
-							Namespace: "default",
-							Labels: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
-								"appstudio.redhat.com/remotesecret-target-namespace": "mshaposh-tenant"},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{"a": []byte("b")},
-					},
 				},
 			}
 
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
 			})
-
+			
 			AfterEach(func() {
 				test.AfterEach(ITest.Context)
 			})
 
 			It("adds new target", func() {
+				o := &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-remote-secret-upload",
+						Namespace: "default",
+						Labels: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
+							"appstudio.redhat.com/remotesecret-target-namespace": "mshaposh-tenant"},
+					},
+					Type: "Opaque",
+					Data: map[string][]byte{"a": []byte("b")},
+				}
+
+				Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
 				Eventually(func(g Gomega) {
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("mshaposh-tenant"))
