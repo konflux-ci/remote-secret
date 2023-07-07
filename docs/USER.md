@@ -139,7 +139,7 @@ status:
     status: "True"
     type: DataObtained
   targets:
-    - namespace: default
+    - namespace: abcd
       secretName: test-remote-secret-secret-2nb46
 ```
 
