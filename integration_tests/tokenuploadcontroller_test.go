@@ -27,40 +27,7 @@ import (
 var _ = Describe("TokenUploadController", func() {
 	Describe("Upload token", func() {
 
-		When("no secret exists", func() {
-			test := crenv.TestSetup{
-				ToCreate: []client.Object{
-					&v1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-remote-secret-upload",
-							Namespace: "default",
-							Labels: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
-								"appstudio.redhat.com/remotesecret-target-namespace": "mshaposh-tenant"},
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{"a": []byte("b")},
-					},
-				},
-			}
-
-			BeforeEach(func() {
-				test.BeforeEach(ITest.Context, ITest.Client, nil)
-			})
-
-			AfterEach(func() {
-				test.AfterEach(ITest.Context)
-			})
-
-			It("creates new one", func() {
-				Eventually(func(g Gomega) {
-					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
-					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
-					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("mshaposh-tenant"))
-				})
-			})
-		})
-
-		When("secret is exists", func() {
+		When("remote secret is exists", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
 					&api.RemoteSecret{
@@ -85,8 +52,9 @@ var _ = Describe("TokenUploadController", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-remote-secret-upload",
 						Namespace: "default",
-						Labels: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
-							"appstudio.redhat.com/remotesecret-target-namespace": "mshaposh-tenant"},
+						Labels:    map[string]string{"appstudio.redhat.com/upload-secret": "remotesecret"},
+						Annotations: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
+							"appstudio.redhat.com/remotesecret-target-namespace": "ns"},
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{"a": []byte("b")},
@@ -95,7 +63,41 @@ var _ = Describe("TokenUploadController", func() {
 				Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
 				Eventually(func(g Gomega) {
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
-					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("mshaposh-tenant"))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("ns"))
+				})
+			})
+		})
+
+		When("no secret exists", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret-upload",
+							Namespace: "default",
+							Labels:    map[string]string{"appstudio.redhat.com/upload-secret": "remotesecret"},
+							Annotations: map[string]string{"appstudio.redhat.com/remotesecret-name": "new-remote-secret",
+								"appstudio.redhat.com/remotesecret-target-namespace": "ns"},
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{"a": []byte("b")},
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("creates new one", func() {
+				Eventually(func(g Gomega) {
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("ns"))
 				})
 			})
 		})
