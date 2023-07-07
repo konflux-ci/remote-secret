@@ -1,94 +1,41 @@
 # remote-secret
-// TODO(user): Add simple overview of use/purpose
+[![Code Coverage Report](https://github.com/redhat-appstudio/remote-secret/actions/workflows/codecov.yaml/badge.svg)](https://github.com/redhat-appstudio/remote-secret/actions/workflows/codecov.yaml)
+[![codecov](https://codecov.io/gh/redhat-appstudio/remote-secret/branch/main/graph/badge.svg?token=wwN9l7BE12)](https://codecov.io/gh/redhat-appstudio/remote-secret)
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+A Kubernetes controller/operator that manages secrets on multiple targets.
+## Table of contents
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+- [About](#About)
+- [Terminology](#terminology)
+- [Architecture](#architecture)
+- [Administration Guide](docs/ADMIN.md)
+    - [Installation](docs/ADMIN.md#installation)
+    - [Configuration parameters](docs/ADMIN.md#Configuration-parameters)
+    - [Vault](docs/ADMIN.md#vault)
+- [User Guide](docs/USER.md)
+- [Contributing](docs/DEVELOP.md)
+- [License](LICENSE)
+- 
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+### About
+TODO
 
-```sh
-kubectl apply -f config/samples/
-```
+### Terminology
 
-2. Build and push your image to the location specified by `IMG`:
+- **Upload Secret**: A short-lived Kubernetes `Secret` used to deliver confidential data to permanent storage and link it to the `RemoteSecret` CR. The Upload Secret is not a CRD.
+- `SecretData`: An object stored in permanent SecretStorage. Valid SecretData is always linked to a RemoteSecret CR.
+- `RemoteSecret`: A CRD that appears during upload and links `SecretData` + `DeploymentTarget(s)` + K8s `Secret`. `RemoteSecret` is linked to one (or zero) SecretData and manages its deleting/updating.
+- K8s `Secret`: What appears at the output and is used by consumers.
+- `SecretId`: A unique identifier of SecretData in permanent SecretStorage.
+- `SecretStorage`: A database eligible for storing `SecretData` (such as HashiCorp Vault, AWS Secret Manager). That is an internal mechanism. Only spi-operator will be able to access it directly.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/remote-secret:tag
-```
+### Architecture
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
 
-```sh
-make deploy IMG=<some-registry>/remote-secret:tag
-```
+The proposed solution is to create a new Kubernetes Custom Resource (CR) called `RemoteSecret`. It serves as a representation of the Kubernetes Secret that is stored in permanent storage, which is also referred to as `SecretStorage`. This Custom Resource includes references to targets, like Kubernetes namespaces, that may also contain the required data to connect to a remote Kubernetes. To perform an upload to permanent storage, a temporary **Upload Secret** is utilized, which is represented as a regular Kubernetes Secret with special labels and annotations that the SPI controller recognizes. Different `SecretStorage` implementations, like AWS Secret Manager or HashiCorp Vault, can be used. It is simpler to create the RemoteSecret first and then use the linked **Upload Secret** to upload secret data. However, in simple cases, the **Upload Secret**  can be used to perform both uploading and the creation of RemoteSecret in a single action. It's worth noting that the **Upload Secret** is not a core component of the framework, but rather a convenient way of creating secrets. In the future, it is possible that new methods of uploading SecretData to RemoteSecret may be added.
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+The design specifically allows for separating the upload of the secret data (using the `UploadSecret`) and delivering the secret to the target. The list of targets of the `RemoteSecret` can be initially empty and can be updated as time evolves.
 
-```sh
-make uninstall
-```
+Apart from the remote secret supporting the delivery of the secret, it is also optionally able to link this secret to the service accounts in the target. These service accounts are either managed by the remote secret (i.e. share its lifecycle) or are required to pre-exist in the target cluster and namespace.
 
-### Undeploy controller
-UnDeploy the controller from the cluster:
-
-```sh
-make undeploy
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2023.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+The remote secret is a template of a single secret that can be delivered to multiple targets. Because the target is identified by the namespace (and the URL of the cluster, if provided), there can be at most one secret delivered to a certain namespace by a single remote secret.
