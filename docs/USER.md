@@ -3,6 +3,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 ## Table of Contents
 - [Use Cases](#use-cases)
     - [Delivering the secrets interactively](#delivering-the-secrets-interactively)
+    - [Creating RemoteSecret and target in a single action](#creating-remotesecret-and-target-in-a-single-action)
     - [Define the structure of the secrets in the targets](#define-the-structure-of-the-secrets-in-the-targets)
     - [Associating the secret with a service account in the targets](#associating-the-secret-with-a-service-account-in-the-targets)
     - [RemoteSecret has to be created with target namespace and Environment](#RemoteSecret-has-to-be-created-with-target-namespace-and-Environment)
@@ -97,6 +98,50 @@ status:
   targets:
   - namespace: ns
     secretName: db-credentials
+```
+
+#### Creating RemoteSecret and target in a single action
+
+If a remote secret is supposed to have only one simple target (containing namespace only), it can be created in a single operation by using a special annotation in the upload secret: 
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: upload-secret-data-for-remote-secret
+    namespace: default
+    labels:
+        appstudio.redhat.com/upload-secret: remotesecret
+    annotations:
+        appstudio.redhat.com/remotesecret-name: test-remote-secret
+        appstudio.redhat.com/remotesecret-target-namespace: abcd
+type: Opaque
+stringData:
+    username: u
+    password: passw0rd
+```
+The remote secret will be created and target from `appstudio.redhat.com/remotesecret-target-namespace` annotation will be set:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret: {}
+    targets:
+    - namespace: abcd
+status:
+  conditions:
+  - lastTransitionTime: "..."
+    message: ""
+    reason: DataFound
+    status: "True"
+    type: DataObtained
+  targets:
+    - namespace: abcd
+      secretName: test-remote-secret-secret-2nb46
 ```
 
 #### Define the structure of the secrets in the targets

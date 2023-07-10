@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	stdErrors "errors"
 	"fmt"
 	"time"
 
@@ -48,13 +47,7 @@ import (
 const (
 	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
 	remoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
-	targetTypeAnnotation       = "appstudio.redhat.com/remotesecret-target-type"
-	targetNameAnnotation       = "appstudio.redhat.com/remotesecret-target-name"
-)
-
-var (
-	targetTypeNotSetError = stdErrors.New("target type not set")
-	targetNameNotSetError = stdErrors.New("target name not set")
+	targetNamespaceAnnotation  = "appstudio.redhat.com/remotesecret-target-namespace"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
@@ -228,30 +221,22 @@ func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecr
 }
 
 func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*api.RemoteSecret, error) {
-	targetType, ok := uploadSecret.Annotations[targetTypeAnnotation]
-	if !ok {
-		return nil, targetTypeNotSetError
-	}
-	targetName, ok := uploadSecret.Annotations[targetNameAnnotation]
-	if !ok {
-		return nil, targetNameNotSetError
-	}
-	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
-
-	targetSpec := api.RemoteSecretTarget{}
-	if targetType == "namespace" {
-		targetSpec.Namespace = targetName
-	}
 
 	remoteSecret := api.RemoteSecret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: uploadSecret.Namespace,
 		},
-		Spec: api.RemoteSecretSpec{
-			Targets: []api.RemoteSecretTarget{targetSpec},
-		},
+		Spec: api.RemoteSecretSpec{},
 	}
 
+	targetName, ok := uploadSecret.Annotations[targetNamespaceAnnotation]
+	if ok {
+		targetSpec := api.RemoteSecretTarget{}
+		targetSpec.Namespace = targetName
+		remoteSecret.Spec.Targets = []api.RemoteSecretTarget{targetSpec}
+	}
+
+	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		remoteSecret.GenerateName = "generated-"
 	} else {
@@ -260,7 +245,7 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 
 	err := r.Create(ctx, &remoteSecret)
 	if err == nil {
-		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetType", targetType, "targetName", targetName)
+		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetName", targetName)
 		return &remoteSecret, nil
 	} else {
 		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
