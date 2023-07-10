@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -95,6 +98,15 @@ type RemoteSecret struct {
 
 	Spec   RemoteSecretSpec   `json:"spec,omitempty"`
 	Status RemoteSecretStatus `json:"status,omitempty"`
+}
+
+var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
+
+func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
+	if uploadSecret.Type != rs.Spec.Secret.Type {
+		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
+	}
+	return nil
 }
 
 //+kubebuilder:object:root=true

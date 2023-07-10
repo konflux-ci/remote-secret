@@ -22,7 +22,6 @@ import (
 	"time"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -71,7 +70,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	uploadSecret := &corev1.Secret{}
 
 	if err := r.Get(ctx, req.NamespacedName, uploadSecret); err != nil {
-		if errors.IsNotFound(err) {
+		if kuberrors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("upload secret already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
 		}
@@ -120,6 +119,10 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		if err != nil {
 			return fmt.Errorf("can not create RemoteSecret: %w ", err)
 		}
+	}
+	err = remoteSecret.ValidateUploadSecretType(uploadSecret)
+	if err != nil {
+		return fmt.Errorf("validation of upload secret failed: %w ", err)
 	}
 
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
