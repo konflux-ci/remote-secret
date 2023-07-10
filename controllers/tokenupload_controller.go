@@ -45,9 +45,9 @@ import (
 )
 
 const (
-	uploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
-	remoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
-	targetNamespaceAnnotation  = "appstudio.redhat.com/remotesecret-target-namespace"
+	UploadSecretLabel          = "appstudio.redhat.com/upload-secret"     //#nosec G101 -- false positive, this is not a token
+	RemoteSecretNameAnnotation = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive, this is not a token
+	TargetNamespaceAnnotation  = "appstudio.redhat.com/remotesecret-target-namespace"
 )
 
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
@@ -140,7 +140,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      uploadSecretLabel,
+				Key:      UploadSecretLabel,
 				Values:   []string{"remotesecret"},
 				Operator: metav1.LabelSelectorOpIn,
 			},
@@ -198,7 +198,7 @@ func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName s
 }
 
 func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*api.RemoteSecret, error) {
-	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+	remoteSecretName := uploadSecret.Annotations[RemoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
 		return nil, nil
@@ -229,14 +229,14 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 		Spec: api.RemoteSecretSpec{},
 	}
 
-	targetName, ok := uploadSecret.Annotations[targetNamespaceAnnotation]
+	targetName, ok := uploadSecret.Annotations[TargetNamespaceAnnotation]
 	if ok {
 		targetSpec := api.RemoteSecretTarget{}
 		targetSpec.Namespace = targetName
 		remoteSecret.Spec.Targets = []api.RemoteSecretTarget{targetSpec}
 	}
 
-	remoteSecretName := uploadSecret.Annotations[remoteSecretNameAnnotation]
+	remoteSecretName := uploadSecret.Annotations[RemoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		remoteSecret.GenerateName = "generated-"
 	} else {
