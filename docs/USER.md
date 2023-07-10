@@ -3,6 +3,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 ## Table of Contents
 - [Use Cases](#use-cases)
     - [Delivering the secrets interactively](#delivering-the-secrets-interactively)
+    - [Creating RemoteSecret and target in a single action](#creating-remotesecret-and-target-in-a-single-action)
     - [Define the structure of the secrets in the targets](#define-the-structure-of-the-secrets-in-the-targets)
     - [Associating the secret with a service account in the targets](#associating-the-secret-with-a-service-account-in-the-targets)
     - [RemoteSecret has to be created with target namespace and Environment](#RemoteSecret-has-to-be-created-with-target-namespace-and-Environment)
@@ -99,7 +100,7 @@ status:
     secretName: db-credentials
 ```
 
-#### Creating RemoteSecret and target in a single action 
+#### Creating RemoteSecret and target in a single action
 
 If a remote secret is supposed to have only one simple target (containing namespace only), it can be created in a single operation by using a special annotation in the upload secret: 
 
@@ -111,9 +112,9 @@ metadata:
     namespace: default
     labels:
         appstudio.redhat.com/upload-secret: remotesecret
-        appstudio.redhat.com/remotesecret-target-namespace: abcd
     annotations:
         appstudio.redhat.com/remotesecret-name: test-remote-secret
+        appstudio.redhat.com/remotesecret-target-namespace: abcd
 type: Opaque
 stringData:
     username: u
