@@ -134,7 +134,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      UploadSecretLabel,
+				Key:      api.UploadSecretLabel,
 				Values:   []string{"remotesecret"},
 				Operator: metav1.LabelSelectorOpIn,
 			},
@@ -192,7 +192,7 @@ func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName s
 }
 
 func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*api.RemoteSecret, error) {
-	remoteSecretName := uploadSecret.Annotations[RemoteSecretNameAnnotation]
+	remoteSecretName := uploadSecret.Annotations[api.RemoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
 		return nil, nil
@@ -223,14 +223,14 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 		Spec: api.RemoteSecretSpec{},
 	}
 
-	targetName, ok := uploadSecret.Annotations[TargetNamespaceAnnotation]
+	targetName, ok := uploadSecret.Annotations[api.TargetNamespaceAnnotation]
 	if ok {
 		targetSpec := api.RemoteSecretTarget{}
 		targetSpec.Namespace = targetName
 		remoteSecret.Spec.Targets = []api.RemoteSecretTarget{targetSpec}
 	}
 
-	remoteSecretName := uploadSecret.Annotations[RemoteSecretNameAnnotation]
+	remoteSecretName := uploadSecret.Annotations[api.RemoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		remoteSecret.GenerateName = "generated-"
 	} else {

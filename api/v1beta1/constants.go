@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers
+package v1beta1
 
 // Caution: Modifying these constants may have unintended consequences in other projects that rely on remote-secret.
 const (
