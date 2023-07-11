@@ -100,6 +100,63 @@ status:
     secretName: db-credentials
 ```
 
+**Caution:** When you create a `RemoteSecret` with a specific secret type (`Opaque` is assumed if no type is provided), the `uploadSecret` type has to match it.
+If the types do not match the `UploadSecret` will be deleted and the data will not be stored. Instead, a Kubernetes `Event` will be created,
+explaining the error, in the same namespace and name as the `UploadSecret`.
+
+Example:`RemoteSecret` with a secret type `kubernetes.io/dockercfg`:
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret:
+        name: pull-secret
+        type: kubernetes.io/dockercfg
+    targets: []
+```
+
+An `uploadSecret` with a matching type:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: upload-secret-data-for-remote-secret
+    namespace: default
+    labels:
+        appstudio.redhat.com/upload-secret: remotesecret
+    annotations:
+        appstudio.redhat.com/remotesecret-name: test-remote-secret
+type: kubernetes.io/dockercfg
+data:
+  .dockercfg: |
+    "<base64 encoded ~/.dockercfg file>"  
+```
+
+`Event` created in case of mismatching types:
+```yaml
+apiVersion: v1
+involvedObject:
+  apiVersion: v1
+  kind: Secret
+  name: test-remote-secret-secret
+  namespace: default
+kind: Event
+lastTimestamp: "..."
+message: 'validation of upload secret failed: the type of upload secret and remote
+  secret spec do not match, uploadSecret: Opaque, remoteSecret: kubernetes.io/service-account-token '
+metadata:
+  creationTimestamp: "..."
+  name: test-remote-secret-secret
+  namespace: default
+  resourceVersion: "25579"
+  uid: d10e348b-71b9-4479-b581-01b6f21a40f7
+reason: cannot process upload secret
+type: Error
+```
+
 #### Creating RemoteSecret and target in a single action
 
 If a remote secret is supposed to have only one simple target (containing namespace only), it can be created in a single operation by using a special annotation in the upload secret: 

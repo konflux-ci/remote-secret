@@ -102,8 +102,18 @@ type RemoteSecret struct {
 
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
 
+// ValidateUploadSecretType checks weather the uploadSecret type matches the RemoteSecret type.
+// The function is in the api package because it extends the contract of the CRD.
+// In the future the function can be extended to validate other fields.
 func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
-	if uploadSecret.Type != rs.Spec.Secret.Type {
+	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
+		if secretType == "" {
+			return corev1.SecretTypeOpaque
+		}
+		return secretType
+	}
+
+	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
 		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
 	}
 	return nil
