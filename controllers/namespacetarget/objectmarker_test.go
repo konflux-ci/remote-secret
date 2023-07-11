@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,10 +44,10 @@ func TestNamespaceObjectMarker_IsManagedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation: "ns/k",
 				},
 			},
 		}
@@ -59,11 +60,11 @@ func TestNamespaceObjectMarker_IsManagedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation:      "ns/k,ns/l",
-					ManagingRemoteSecretNameAnnotation: "ns/l",
+					api.LinkedRemoteSecretsAnnotation:      "ns/k,ns/l",
+					api.ManagingRemoteSecretNameAnnotation: "ns/l",
 				},
 			},
 		}
@@ -76,11 +77,11 @@ func TestNamespaceObjectMarker_IsManagedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation:      "ns/k",
-					ManagingRemoteSecretNameAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation:      "ns/k",
+					api.ManagingRemoteSecretNameAnnotation: "ns/k",
 				},
 			},
 		}
@@ -93,11 +94,11 @@ func TestNamespaceObjectMarker_IsManagedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation:      "ns/k,ns/l",
-					ManagingRemoteSecretNameAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation:      "ns/k,ns/l",
+					api.ManagingRemoteSecretNameAnnotation: "ns/k",
 				},
 			},
 		}
@@ -122,10 +123,10 @@ func TestNamespaceObjectMarker_IsReferencedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation: "ns/k",
 				},
 			},
 		}
@@ -138,10 +139,10 @@ func TestNamespaceObjectMarker_IsReferencedBy(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k,ns/l",
+					api.LinkedRemoteSecretsAnnotation: "ns/k,ns/l",
 				},
 			},
 		}
@@ -163,7 +164,7 @@ func TestNamespaceObjectMarker_ListManagedOptions(t *testing.T) {
 	opt.ApplyToList(&lopts)
 
 	assert.True(t, lopts.LabelSelector.Matches(labels.Set{
-		LinkedByRemoteSecretLabel: "true",
+		api.LinkedByRemoteSecretLabel: "true",
 	}))
 }
 
@@ -179,7 +180,7 @@ func TestNamespaceObjectMarker_ListReferencedOptions(t *testing.T) {
 	opt.ApplyToList(&lopts)
 
 	assert.True(t, lopts.LabelSelector.Matches(labels.Set{
-		LinkedByRemoteSecretLabel: "true",
+		api.LinkedByRemoteSecretLabel: "true",
 	}))
 }
 
@@ -190,9 +191,9 @@ func TestMarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{}
 		changed, err := m.MarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[ManagingRemoteSecretNameAnnotation])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.ManagingRemoteSecretNameAnnotation])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 2)
 		assert.True(t, changed)
@@ -202,18 +203,18 @@ func TestMarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					ManagingRemoteSecretNameAnnotation: "ns/k",
-					LinkedRemoteSecretsAnnotation:      "ns/k",
+					api.ManagingRemoteSecretNameAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation:      "ns/k",
 				},
 			},
 		}
 		changed, err := m.MarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[ManagingRemoteSecretNameAnnotation])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.ManagingRemoteSecretNameAnnotation])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 2)
 		assert.NoError(t, err)
@@ -224,18 +225,18 @@ func TestMarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation: "ns/k",
 				},
 			},
 		}
 		changed, err := m.MarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[ManagingRemoteSecretNameAnnotation])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.ManagingRemoteSecretNameAnnotation])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 2)
 		assert.True(t, changed)
@@ -245,18 +246,18 @@ func TestMarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/l",
+					api.LinkedRemoteSecretsAnnotation: "ns/l",
 				},
 			},
 		}
 		changed, err := m.MarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[ManagingRemoteSecretNameAnnotation])
-		assert.Equal(t, "ns/l,ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.ManagingRemoteSecretNameAnnotation])
+		assert.Equal(t, "ns/l,ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 2)
 		assert.True(t, changed)
@@ -271,8 +272,8 @@ func TestNamespaceObjectMarker_MarkReferenced(t *testing.T) {
 		res, err := m.MarkReferenced(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.True(t, res)
@@ -282,18 +283,18 @@ func TestNamespaceObjectMarker_MarkReferenced(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation: "ns/k",
 				},
 			},
 		}
 		res, err := m.MarkReferenced(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.False(t, res)
@@ -303,18 +304,18 @@ func TestNamespaceObjectMarker_MarkReferenced(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/l",
+					api.LinkedRemoteSecretsAnnotation: "ns/l",
 				},
 			},
 		}
 		res, err := m.MarkReferenced(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/l,ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/l,ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.True(t, res)
@@ -337,18 +338,18 @@ func TestNamespaceObjectMarker_UnmarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					ManagingRemoteSecretNameAnnotation: "ns/k",
-					LinkedRemoteSecretsAnnotation:      "ns/k",
+					api.ManagingRemoteSecretNameAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation:      "ns/k",
 				},
 			},
 		}
 		changed, err := m.UnmarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.True(t, changed)
@@ -358,18 +359,18 @@ func TestNamespaceObjectMarker_UnmarkManaged(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					ManagingRemoteSecretNameAnnotation: "ns/k",
-					LinkedRemoteSecretsAnnotation:      "ns/l,ns/k",
+					api.ManagingRemoteSecretNameAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation:      "ns/l,ns/k",
 				},
 			},
 		}
 		changed, err := m.UnmarkManaged(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/l,ns/k", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/l,ns/k", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.True(t, changed)
@@ -393,10 +394,10 @@ func TestNamespaceObjectMarker_UnmarkReferenced(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/k",
+					api.LinkedRemoteSecretsAnnotation: "ns/k",
 				},
 			},
 		}
@@ -412,18 +413,18 @@ func TestNamespaceObjectMarker_UnmarkReferenced(t *testing.T) {
 		obj := corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					LinkedByRemoteSecretLabel: "true",
+					api.LinkedByRemoteSecretLabel: "true",
 				},
 				Annotations: map[string]string{
-					LinkedRemoteSecretsAnnotation: "ns/l,ns/k,ns/m",
+					api.LinkedRemoteSecretsAnnotation: "ns/l,ns/k,ns/m",
 				},
 			},
 		}
 		res, err := m.UnmarkReferenced(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "true", obj.Labels[LinkedByRemoteSecretLabel])
-		assert.Equal(t, "ns/l,ns/m", obj.Annotations[LinkedRemoteSecretsAnnotation])
+		assert.Equal(t, "true", obj.Labels[api.LinkedByRemoteSecretLabel])
+		assert.Equal(t, "ns/l,ns/m", obj.Annotations[api.LinkedRemoteSecretsAnnotation])
 		assert.Len(t, obj.Labels, 1)
 		assert.Len(t, obj.Annotations, 1)
 		assert.True(t, res)
@@ -437,10 +438,10 @@ func TestNamespaceObjectMarker_GetReferencingTargets(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "ns",
 			Labels: map[string]string{
-				LinkedByRemoteSecretLabel: "true",
+				api.LinkedByRemoteSecretLabel: "true",
 			},
 			Annotations: map[string]string{
-				LinkedRemoteSecretsAnnotation: "ns/l,ns/k,ns/m",
+				api.LinkedRemoteSecretsAnnotation: "ns/l,ns/k,ns/m",
 			},
 		},
 	}
