@@ -1,26 +1,52 @@
-
-# Prometheus Monitor Service (Metrics)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metrics-reader
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: metrics-reader
+  annotations:
+    kubernetes.io/service-account.name: metrics-reader
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: remote-secret-metrics-reader
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-remote-secret-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: remote-secret-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: metrics-reader
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  labels:
-    control-plane: controller-manager
-    app.kubernetes.io/name: servicemonitor
-    app.kubernetes.io/instance: controller-manager-metrics-monitor
-    app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: remote-secret
-    app.kubernetes.io/part-of: remote-secret
-    app.kubernetes.io/managed-by: kustomize
-  name: controller-manager-metrics-monitor
-  namespace: remotesecret
+  name: remote-secret-metrics-monitor
 spec:
   endpoints:
     - path: /metrics
-      port: https
+      port: metrics
       scheme: https
-      bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      bearerTokenSecret:
+        name: "metrics-reader"
+        key: token
       tlsConfig:
         insecureSkipVerify: true
   selector:
     matchLabels:
-      control-plane: controller-manager
+      app.kubernetes.io/part-of: remote-secret
