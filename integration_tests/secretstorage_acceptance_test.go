@@ -95,10 +95,6 @@ func TestAws(t *testing.T) {
 	testStorage(t, ctx, secretStorage)
 }
 
-//func createTokenStorage(secretStorage secretstorage.SecretStorage) secretstorage.SecretStorage {
-//	return tokenstorage.NewJSONSerializingTokenStorage(secretStorage)
-//}
-
 func testStorage(t *testing.T, ctx context.Context, storage secretstorage.SecretStorage) {
 	refreshTestData(t)
 
