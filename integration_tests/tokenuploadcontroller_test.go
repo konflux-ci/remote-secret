@@ -110,6 +110,68 @@ var _ = Describe("TokenUploadController", func() {
 			})
 		})
 
+		When("no secret types do not match", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Type: v1.SecretTypeDockercfg,
+							},
+						},
+					},
+				},
+				MonitoredObjectTypes: []client.Object{&v1.Secret{}},
+			}
+			uploadSecret := &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remote-secret-upload",
+					Namespace: "default",
+					Labels: map[string]string{
+						"appstudio.redhat.com/upload-secret": "remotesecret",
+					},
+					Annotations: map[string]string{
+						"appstudio.redhat.com/remotesecret-name": "test-remote-secret",
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{"a": []byte("b")},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("fails the upload", func() {
+				Expect(ITest.Client.Create(ITest.Context, uploadSecret)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					// Upload secret should be deleted
+					g.Expect(crenv.GetAll[*v1.Secret](&test.InCluster)).To(BeEmpty())
+					// There is only one RS present in the cluster (no new one created)
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+
+					// RS is still in awaiting data state
+					g.Expect((*crenv.First[*api.RemoteSecret](&test.InCluster)).Status.Conditions).To(HaveLen(1))
+					g.Expect((*crenv.First[*api.RemoteSecret](&test.InCluster)).Status.Conditions[0].Reason).To(Equal(string(api.RemoteSecretReasonAwaitingTokenData)))
+
+					// Error event should be created
+					event := &v1.Event{}
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: uploadSecret.Name, Namespace: uploadSecret.Namespace}, event)).To(Succeed())
+					g.Expect(event.Type).To(Equal("Error"))
+
+				})
+			})
+		})
+
 	})
 
 })
