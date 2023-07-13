@@ -77,9 +77,11 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	err := r.reconcileRemoteSecret(ctx, uploadSecret)
+
 	// we immediately delete the Secret
-	err := r.Delete(ctx, uploadSecret)
-	if err != nil {
+	delErr := r.Delete(ctx, uploadSecret)
+	if delErr != nil {
 		// We failed to delete the secret, so we error out so that we can try again in the next reconciliation round.
 		// We therefore also DON'T create the error event in this case like we do later on in this method.
 		return ctrl.Result{}, fmt.Errorf("cannot delete the Secret: %w", err)
@@ -89,8 +91,6 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// deleted the secret that is being reconciled and so its repeated reconciliation would short-circuit
 	// on the non-nil DeletionTimestamp. Therefore, in case of errors, we just create the error event and
 	// return a "success" to the controller runtime.
-
-	err = r.reconcileRemoteSecret(ctx, uploadSecret)
 
 	if err != nil {
 		r.createErrorEvent(ctx, uploadSecret, err, lg)
@@ -129,17 +129,19 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 	return nil
 }
 
+var uploadSecretSelector = metav1.LabelSelector{
+	MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      api.UploadSecretLabel,
+			Values:   []string{"remotesecret"},
+			Operator: metav1.LabelSelectorOpIn,
+		},
+	},
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred, err := predicate.LabelSelectorPredicate(metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      api.UploadSecretLabel,
-				Values:   []string{"remotesecret"},
-				Operator: metav1.LabelSelectorOpIn,
-			},
-		},
-	})
+	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
 	if err != nil {
 		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
 	}
