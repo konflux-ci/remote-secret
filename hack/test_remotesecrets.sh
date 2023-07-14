@@ -67,6 +67,7 @@ stringData:
 EOF
 kubectl wait --for=condition=Deployed -n "${RS_NAMESPACE}" remotesecret "${RS_NAME}"
 echo 'Upload secret successfully created.'
+kubectl get remotesecret "${RS_NAME}" -n "${RS_NAMESPACE}" -o yaml
 
 
 print 'Checking targets in RemoteSecret status...'

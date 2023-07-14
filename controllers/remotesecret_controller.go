@@ -157,10 +157,20 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-
-	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	var secretData stageResult[*remotesecretstorage.SecretData]
+	secretData = r.obtainData(ctx, remoteSecret)
+	dataResult, err := handleStage(ctx, r.Client, remoteSecret, secretData)
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
+	}
+
+	remoteSecret.Status.Secret.Keys = make([]string, 0)
+	for k := range *secretData.ReturnValue {
+		remoteSecret.Status.Secret.Keys = append(remoteSecret.Status.Secret.Keys, k)
+	}
+
+	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update the status with a list of keys in storage: %w", err)
 	}
 
 	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
@@ -195,7 +205,6 @@ type cancellation struct {
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
 	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
-
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
