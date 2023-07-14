@@ -39,12 +39,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -55,6 +55,7 @@ const linkedObjectsFinalizerName = "appstudio.redhat.com/linked-objects"
 
 type RemoteSecretReconciler struct {
 	client.Client
+	TargetClientFactory bindings.ClientFactory
 	Scheme              *runtime.Scheme
 	Configuration       *opconfig.OperatorConfiguration
 	RemoteSecretStorage remotesecretstorage.RemoteSecretStorage
@@ -64,6 +65,9 @@ type RemoteSecretReconciler struct {
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 
 var _ reconcile.Reconciler = (*RemoteSecretReconciler)(nil)
 
@@ -74,18 +78,19 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.finalizers.Register(storageFinalizerName, &remoteSecretStorageFinalizer{storage: r.RemoteSecretStorage}); err != nil {
 		return fmt.Errorf("failed to register the remote secret storage finalizer: %w", err)
 	}
-	if err := r.finalizers.Register(linkedObjectsFinalizerName, &remoteSecretLinksFinalizer{client: r.Client, storage: r.RemoteSecretStorage}); err != nil {
+	if err := r.finalizers.Register(linkedObjectsFinalizerName, &remoteSecretLinksFinalizer{clientFactory: r.TargetClientFactory, storage: r.RemoteSecretStorage}); err != nil {
 		return fmt.Errorf("failed to register the remote secret links finalizer: %w", err)
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			return appendLinksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o, []reconcile.Request{})
 		})).
-		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
-		})).
+		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			reqs := appendLinksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o, []reconcile.Request{})
+			return r.appendRemoteSecretsInNamespaceForAuthSA(ctx, o, reqs)
+		}), builder.OnlyMetadata).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("failed to configure the reconciler: %w", err)
@@ -93,10 +98,10 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
+func appendLinksToReconcileRequests(ctx context.Context, lg logr.Logger, scheme *runtime.Scheme, o client.Object, reqs []reconcile.Request) []reconcile.Request {
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
 
-	refs, err := nsMarker.GetReferencingTargets(context.Background(), o)
+	refs, err := nsMarker.GetReferencingTargets(ctx, o)
 	if err != nil {
 		var gvk schema.GroupVersionKind
 		gvks, _, _ := scheme.ObjectKinds(o)
@@ -106,13 +111,36 @@ func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.O
 		lg.Error(err, "failed to list the referencing targets of the object", "objectKey", client.ObjectKeyFromObject(o), "gvk", gvk)
 	}
 
-	reqs := make([]reconcile.Request, len(refs))
-	for i, r := range refs {
-		reqs[i].NamespacedName = r
+	for _, r := range refs {
+		reqs = append(reqs, reconcile.Request{NamespacedName: r})
+	}
+	return reqs
+}
+
+func (r *RemoteSecretReconciler) appendRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object, reqs []reconcile.Request) []reconcile.Request {
+	if _, ok := o.GetLabels()[bindings.RemoteSecretAuthServiceAccountLabel]; !ok {
+		return reqs
+	}
+
+	lg := log.FromContext(ctx)
+
+	// get all the remote secrets from the current namespace
+	list := api.RemoteSecretList{}
+	if err := r.Client.List(ctx, &list, client.InNamespace(o.GetNamespace())); err != nil {
+		lg.Error(err, "failed to list the remote secrets in a namespace while processing a change in authenticating service account")
+		return reqs
+	}
+
+	for i := range list.Items {
+		key := client.ObjectKeyFromObject(&list.Items[i])
+		r.TargetClientFactory.ServiceAccountChanged(key)
+
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: key,
+		})
 	}
 
 	return reqs
-
 }
 
 // Reconcile implements reconcile.Reconciler
@@ -271,12 +299,27 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 		deploymentReason = api.RemoteSecretReasonPartiallyInjected
 		deploymentStatus = metav1.ConditionFalse
 		deploymentMessage = aerr.Error()
-		// we want to retry the reconciliation because we failed to deploy to some targets
+		// we want to retry the reconciliation because we failed to deploy to some targets in a retryable way
 		result.Cancellation.Cancel = true
 		result.Cancellation.ReturnError = aerr
 	} else {
-		deploymentReason = api.RemoteSecretReasonInjected
-		deploymentStatus = metav1.ConditionTrue
+		// we might have no hard errors bubbling up but the individual targets might still have failed
+		// in a way that is not retryable. let's check for that...
+		hasErrors := false
+		for _, ts := range remoteSecret.Status.Targets {
+			if ts.Error != "" {
+				hasErrors = true
+			}
+		}
+
+		if hasErrors {
+			deploymentReason = api.RemoteSecretReasonPartiallyInjected
+			deploymentStatus = metav1.ConditionFalse
+			deploymentMessage = "some targets were not successfully deployed"
+		} else {
+			deploymentReason = api.RemoteSecretReasonInjected
+			deploymentStatus = metav1.ConditionTrue
+		}
 	}
 
 	result.Condition = metav1.Condition{
@@ -358,20 +401,33 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
 
-	depHandler := r.newDependentsHandler(remoteSecret, targetSpec, targetStatus)
+	var depErr, checkPointErr, syncErr, updateErr error
 
-	checkPoint, syncErr := depHandler.CheckPoint(ctx)
-	if syncErr != nil {
-		return fmt.Errorf("failed to construct a checkpoint before dependent objects deployment: %w", syncErr)
+	depHandler, depErr := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
+	if depErr != nil {
+		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
-	deps, _, syncErr := depHandler.Sync(ctx, remoteSecret)
+	var checkPoint bindings.CheckPoint
+	if depHandler != nil {
+		checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
+		if checkPointErr != nil {
+			debugLog.Error(checkPointErr, "failed to construct a checkpoint to rollback to in case of target deployment error")
+		}
+	}
+
+	var deps *bindings.Dependents
+
+	if depHandler != nil && checkPointErr == nil {
+		deps, _, syncErr = depHandler.Sync(ctx, remoteSecret)
+	}
 
 	targetStatus.ApiUrl = targetSpec.ApiUrl
+	targetStatus.ClusterCredentialsSecret = targetSpec.ClusterCredentialsSecret
 
 	inconsistent := false
 
-	if syncErr == nil {
+	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
 		targetStatus.SecretName = deps.Secret.Name
 
@@ -384,13 +440,13 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		targetStatus.Namespace = targetSpec.Namespace
 		targetStatus.SecretName = ""
 		targetStatus.ServiceAccountNames = []string{}
-		targetStatus.Error = syncErr.Error()
+		targetStatus.Error = rerror.AggregateNonNilErrors(depErr, checkPointErr, syncErr).Error()
 		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
 			inconsistent = true
 		}
 	}
 
-	updateErr := r.Client.Status().Update(ctx, remoteSecret)
+	updateErr = r.Client.Status().Update(ctx, remoteSecret)
 	if syncErr != nil || updateErr != nil {
 		if syncErr != nil {
 			if inconsistent {
@@ -407,7 +463,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
 			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 		}
-	} else if debugLog.Enabled() {
+	} else if debugLog.Enabled() && depErr == nil && checkPointErr == nil {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			saks[i] = client.ObjectKeyFromObject(sa)
@@ -420,17 +476,22 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	if inconsistent {
 		syncErr = nil
 	}
-	//TODO Think about proper fix. this fix is not working.
-	//return fmt.Errorf("aggregate error: %w", rerror.AggregateNonNilErrors(syncErr, updateErr))
-	//nolint:wrapcheck
-	return rerror.AggregateNonNilErrors(syncErr, updateErr)
+	err := rerror.AggregateNonNilErrors(syncErr, updateErr)
+	if err != nil {
+		err = fmt.Errorf("failed to deploy to the namespace %s: %w", targetSpec.Namespace, err)
+	}
+
+	return err
 }
 
 func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, statusTargetIndex remotesecrets.StatusTargetIndex) error {
-	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[statusTargetIndex])
+	dep, err := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, nil, &remoteSecret.Status.Targets[statusTargetIndex])
+	if err != nil {
+		return fmt.Errorf("failed to construct the handler to use for target cleanup: %w", err)
+	}
 
-	if err := dep.Cleanup(ctx); err != nil {
-		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+	if err = dep.Cleanup(ctx); err != nil {
+		return fmt.Errorf("failed to clean up dependent objects: %w", err)
 	}
 
 	// unlike in deployToNamespace, we DO NOT update the status here straight away. That is because doing that would mess up the indices
@@ -442,39 +503,25 @@ func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remote
 	return nil
 }
 
-func (r *RemoteSecretReconciler) newDependentsHandler(remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) bindings.DependentsHandler[*api.RemoteSecret] {
-	var apiUrl string
-	if targetSpec != nil {
-		apiUrl = targetSpec.ApiUrl
-	} else if targetStatus != nil {
-		apiUrl = targetStatus.ApiUrl
+func newDependentsHandler(ctx context.Context, cf bindings.ClientFactory, st remotesecretstorage.RemoteSecretStorage, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (*bindings.DependentsHandler[*api.RemoteSecret], error) {
+	cl, err := cf.GetClient(ctx, remoteSecret.Namespace, targetSpec, targetStatus)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct a client to use for deploying to target: %w", err)
 	}
-	return bindings.DependentsHandler[*api.RemoteSecret]{
+
+	return &bindings.DependentsHandler[*api.RemoteSecret]{
 		Target: &namespacetarget.NamespaceTarget{
-			Client:       r.clientForUrl(apiUrl),
+			Client:       cl,
 			TargetKey:    client.ObjectKeyFromObject(remoteSecret),
 			SecretSpec:   &remoteSecret.Spec.Secret,
 			TargetSpec:   targetSpec,
 			TargetStatus: targetStatus,
 		},
 		SecretDataGetter: &remotesecrets.SecretDataGetter{
-			Storage: r.RemoteSecretStorage,
+			Storage: st,
 		},
 		ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
-	}
-}
-
-func (r *RemoteSecretReconciler) clientForUrl(apiUrl string) client.Client {
-	if apiUrl == "" {
-		return r.Client
-	}
-
-	// TODO: this should construct a client that connects to the ApiUrl of the target using the token stored in the secret.
-	// This client only needs to store secrets and serviceaccounts so we should construct a minimal client without API discovery
-	// as we do in the oauth client to limit the time it takes to create the client and also to limit the memory consumption.
-	// We could also think about caching the clients.
-
-	return r.Client
+	}, nil
 }
 
 type remoteSecretStorageFinalizer struct {
@@ -492,8 +539,8 @@ func (f *remoteSecretStorageFinalizer) Finalize(ctx context.Context, obj client.
 }
 
 type remoteSecretLinksFinalizer struct {
-	client  client.Client
-	storage remotesecretstorage.RemoteSecretStorage
+	clientFactory bindings.ClientFactory
+	storage       remotesecretstorage.RemoteSecretStorage
 }
 
 //var _ finalizer.Finalizer = (*linkedObjectsFinalizer)(nil)
@@ -514,19 +561,15 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 
 	for i := range remoteSecret.Status.Targets {
 		ts := remoteSecret.Status.Targets[i]
-		dep := bindings.DependentsHandler[*api.RemoteSecret]{
-			Target: &namespacetarget.NamespaceTarget{
-				Client:       f.client,
-				TargetKey:    key,
-				SecretSpec:   &remoteSecret.Spec.Secret,
-				TargetStatus: &ts,
-			},
-			SecretDataGetter: &remotesecrets.SecretDataGetter{
-				Storage: f.storage,
-			},
-			ObjectMarker: &namespacetarget.NamespaceObjectMarker{},
+		if ts.Error != "" {
+			continue
 		}
-
+		dep, err := newDependentsHandler(ctx, f.clientFactory, f.storage, remoteSecret, nil, &ts)
+		if err != nil {
+			// we're in the finalizer and we failed to even construct the dependents handler.
+			lg.Error(err, "failed to construct the dependents handler to clean up the target in the finalizer")
+			return res, fmt.Errorf("failed to construct the dependents handler to clean up the target in the finalizer: %w", err)
+		}
 		if err := dep.Cleanup(ctx); err != nil {
 			lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
 			return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)

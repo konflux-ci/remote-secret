@@ -8,7 +8,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [Associating the secret with a service account in the targets](#associating-the-secret-with-a-service-account-in-the-targets)
     - [RemoteSecret has to be created with target namespace and Environment](#RemoteSecret-has-to-be-created-with-target-namespace-and-Environment)
     - [RemoteSecret has to be created all Environments of certain component and application](#RemoteSecret-has-to-be-created-all-Environments-of-certain-component-and-application)
-
+- Security
 
 ### Use Cases
 #### Delivering the secrets interactively
@@ -451,3 +451,15 @@ status:
     status: "False"
     type: DataObtained
 ```
+
+### Security
+
+The remote secret operator places some constraints on the targets where the remote secret can be deployed to. After all, it would be bad if anyone that would be able to modify a remote secret be effectively able to create secrets in any namespace in the cluster.
+
+Therefore, the following limitations are put in place:
+
+. A target can always point to the namespace of the remote secret. This means that anyone that is able to update remote secrets (and therefore modify its targets), is thefore also able to create secrets in the same namespace by using remote secret targets. We feel this is a reasonable thing to do because remote secrets are in a sense just secret "dispatcher" and if, in a certain namespace, you are able to modify former, you should also be able to modify the latter.
+
+. Each target can specify the `clusterCredentialsSecret`. This is the name of a secret in the same namespace that contains the kubeconfig to use to construct an appropriately authorized client that is able to deploy to the target. If you also specify the `apiUrl` on the target, this effectively enables the remote secrets to deploy to a different cluster.
+
+. By default, deploying to a different namespace in the same cluster is disallowed. If you want to enable it, you need to create a service account labeled as `appstudio.redhat.com/remotesecret-auth-sa

@@ -36,23 +36,29 @@ func New(client client.Client) Syncer {
 // Returns true if the object was created or updated, false if there was no change detected.
 func (s *Syncer) Sync(ctx context.Context, owner client.Object, blueprint client.Object, diffOpts cmp.Option) (bool, client.Object, error) {
 	lg := log.FromContext(ctx)
-	actual, err := s.newWithSameKind(blueprint)
-	if err != nil {
-		lg.Error(err, "failed to create an empty object with GVK", "GVK", blueprint.GetObjectKind().GroupVersionKind())
-		return false, nil, err
-	}
 
-	key := client.ObjectKeyFromObject(blueprint)
-	if err = s.client.Get(ctx, key, actual); err != nil {
-		if !errors.IsNotFound(err) {
-			lg.Error(err, "failed to read object to be synced", "ObjectKey", key)
-			return false, nil, fmt.Errorf("error getting the object %+v: %w", key, err)
+	var actual client.Object
+	var err error
+
+	if blueprint.GetName() != "" {
+		actual, err = s.newWithSameKind(blueprint)
+		if err != nil {
+			lg.Error(err, "failed to create an empty object with GVK", "GVK", blueprint.GetObjectKind().GroupVersionKind())
+			return false, nil, err
 		}
-		actual = nil
+
+		key := client.ObjectKeyFromObject(blueprint)
+		if err = s.client.Get(ctx, key, actual); err != nil {
+			if !errors.IsNotFound(err) {
+				lg.Error(err, "failed to read object to be synced", "ObjectKey", key)
+				return false, nil, fmt.Errorf("error getting the object %+v: %w", key, err)
+			}
+			actual = nil
+		}
 	}
 
 	if actual == nil {
-		actual, err := s.create(ctx, owner, blueprint)
+		actual, err = s.create(ctx, owner, blueprint)
 		if err != nil {
 			return false, actual, err
 		}
