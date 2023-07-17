@@ -97,7 +97,6 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &corev1.Secret{}},
 			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
 			builder.WithPredicates(pred, predicate.Funcs{
-				UpdateFunc: func(ue event.UpdateEvent) bool { return true },
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).

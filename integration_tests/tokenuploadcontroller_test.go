@@ -29,7 +29,7 @@ import (
 var _ = Describe("TokenUploadController", func() {
 	Describe("Upload token", func() {
 
-		When("remote secret is exists", func() {
+		When("RemoteSecret exists", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
 					&api.RemoteSecret{
@@ -38,6 +38,9 @@ var _ = Describe("TokenUploadController", func() {
 							Namespace: "default",
 						},
 					},
+				},
+				MonitoredObjectTypes: []client.Object{
+					&v1.Secret{},
 				},
 			}
 
@@ -49,7 +52,7 @@ var _ = Describe("TokenUploadController", func() {
 				test.AfterEach(ITest.Context)
 			})
 
-			It("adds new target", func() {
+			It("adds new target from uploadSecret annotation", func() {
 				o := &v1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-remote-secret-upload",
@@ -70,7 +73,7 @@ var _ = Describe("TokenUploadController", func() {
 			})
 		})
 
-		When("no secret exists", func() {
+		When("no RemoteSecret exists", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
 					&v1.Secret{
@@ -102,7 +105,7 @@ var _ = Describe("TokenUploadController", func() {
 				test.AfterEach(ITest.Context)
 			})
 
-			It("creates new one", func() {
+			It("creates a new RemoteSecret", func() {
 				Eventually(func(g Gomega) {
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
@@ -111,7 +114,7 @@ var _ = Describe("TokenUploadController", func() {
 
 			})
 		})
-		When("when secret data are already present", func() {
+		When("secret data are already present", func() {
 			var test crenv.TestSetup
 			var target string
 			oldSecretData := map[string][]byte{
@@ -169,19 +172,21 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			It("updates the target secret with new data", func() {
-				// check that target secret is created in each target
+				// check that target secret contains the old data
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
-					var secret = &v1.Secret{}
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: target}, secret)).To(Succeed())
-					g.Expect(secret.Data).To(Equal(oldSecretData))
+					secrets := crenv.GetAll[*v1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					g.Expect(secrets[0].Data).To(Equal(oldSecretData))
 				})
 
+				// create upload secret
 				Expect(ITest.Client.Create(ITest.Context, uploadSecret)).To(Succeed())
 
+				// check that after uploading, the data in secret are updated
 				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					var secret = &v1.Secret{}
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: target}, secret)).To(Succeed())
-					g.Expect(secret.Data).To(Equal(newSecretData))
+					secrets := crenv.GetAll[*v1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					g.Expect(secrets[0].Data).To(Equal(newSecretData))
 				})
 			})
 		})
