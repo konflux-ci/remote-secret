@@ -17,6 +17,7 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
+- ../webhook
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
@@ -24,3 +25,6 @@ patchesStrategicMerge:
 # endpoint w/o any authn/z, please comment the following line.
 - manager_auth_proxy_patch.yaml
 
+# Webhook
+- manager_webhook_patch.yaml
+#- webhookcabundle_patch.yaml.1

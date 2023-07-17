@@ -95,6 +95,17 @@ type RemoteSecret struct {
 
 	Spec   RemoteSecretSpec   `json:"spec,omitempty"`
 	Status RemoteSecretStatus `json:"status,omitempty"`
+	// Temporary optional field for data to upload during create/update RemoteSecret
+	// It it is processed by Mutating Webhook and must not be persisted,
+	// to make sure (in a case if something happened with Webhook) it is constrained
+	// by MaxItems=0, made as array of objects since it looks like it does not work for map
+	//+kubebuilder:validation:MaxItems=0
+	UploadData []KeyValue `json:"data,omitempty"`
+}
+
+type KeyValue struct {
+	Key   string `json:"key,omitempty"`
+	Value []byte `json:"value,omitempty"`
 }
 
 //+kubebuilder:object:root=true
