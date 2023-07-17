@@ -19,15 +19,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/go-logr/logr"
 
@@ -43,6 +42,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var uploadSecretSelector = metav1.LabelSelector{
+	MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      api.UploadSecretLabel,
+			Values:   []string{"remotesecret"},
+			Operator: metav1.LabelSelectorOpIn,
+		},
+	},
+}
+
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
@@ -54,6 +63,22 @@ type TokenUploadReconciler struct {
 	// RemoteSecretStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
 	// secret storage mechanism
 	RemoteSecretStorage remotesecretstorage.RemoteSecretStorage
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
+	if err != nil {
+		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
+	}
+
+	if err := ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Secret{}, builder.WithPredicates(pred)).
+		Complete(r); err != nil {
+		err = fmt.Errorf("failed to build the controller manager: %w", err)
+		return err
+	}
+	return nil
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -129,32 +154,6 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 	}
 	auditLog.Info("manual secret upload completed")
 
-	return nil
-}
-
-var uploadSecretSelector = metav1.LabelSelector{
-	MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      api.UploadSecretLabel,
-			Values:   []string{"remotesecret"},
-			Operator: metav1.LabelSelectorOpIn,
-		},
-	},
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
-	if err != nil {
-		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
-	}
-
-	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Secret{}, builder.WithPredicates(pred)).
-		Complete(r); err != nil {
-		err = fmt.Errorf("failed to build the controller manager: %w", err)
-		return err
-	}
 	return nil
 }
 
