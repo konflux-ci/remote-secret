@@ -101,6 +101,9 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	// We first find/create the RemoteSecret since we need it to store the data. Only after we have stored the data
+	// in secretStorage can we delete the uploadSecret. The deletion triggers RS reconciliation in which the data is
+	// fetched from the storage and propagated to the targets by RS controller.
 	err := r.reconcileRemoteSecret(ctx, uploadSecret)
 
 	// we immediately delete the Secret
