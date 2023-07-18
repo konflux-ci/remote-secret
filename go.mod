@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/vault-plugin-secrets-kv v0.14.3
 	github.com/hashicorp/vault/api v1.9.2
 	github.com/hashicorp/vault/api/auth/approle v0.4.0
-	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
+	github.com/hashicorp/vault/api/auth/kubernetes v0.4.1
 	github.com/hashicorp/vault/sdk v0.8.1
 	github.com/metlos/crenv v0.1.5
 	github.com/mitchellh/go-testing-interface v1.14.1
