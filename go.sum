@@ -697,8 +697,8 @@ github.com/hashicorp/vault-plugin-secrets-azure v0.15.0 h1:R/3KLTOwvPIZenMrmeSIB
 github.com/hashicorp/vault-plugin-secrets-gcp v0.15.0 h1:SfYIFmgFg/8p4fgLCV8YxxkI+iQN0c4gSjMJhg9vFJw=
 github.com/hashicorp/vault-plugin-secrets-gcpkms v0.14.0 h1:eUC5ltK+1bkc+SVMzAUq4tBeNrsDXyCuITH8jeajXcM=
 github.com/hashicorp/vault-plugin-secrets-kubernetes v0.3.0 h1:Joz9SBwjpEOGu+Ynv60JC3fAA4UuLJzu7NcrKm6wMMs=
-github.com/hashicorp/vault-plugin-secrets-kv v0.14.3 h1:6hV/p/yXff50v540Kc6RexOP4z3My398NRmSI5xaX90=
-github.com/hashicorp/vault-plugin-secrets-kv v0.14.3/go.mod h1:tQ87Y0wm1JhliWuiXReCvh6uM0lpFXyrEkuWsFJUR6o=
+github.com/hashicorp/vault-plugin-secrets-kv v0.15.0 h1:S2d1t4m4ilDNJRdMUzNUimvyu/+ll8huq5QncVgYz+s=
+github.com/hashicorp/vault-plugin-secrets-kv v0.15.0/go.mod h1:xu/eiT+BB2b2Gh/AZFJ1xCS8E7S29gOQcuh9VMxros8=
 github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.9.1 h1:WkW8fyHxEdz1wGSTxCnSCrzXvgLXqXr8Iqp7upa/s4E=
 github.com/hashicorp/vault-plugin-secrets-openldap v0.10.1 h1:EN3/iEjPPmcpX9yihybQNHvewc+YoJw7aoKsio1WK5s=
 github.com/hashicorp/vault-plugin-secrets-terraform v0.7.0 h1:jgJpVKhV0Eh6EjpUEIf7VYH2D6D0xW2Lry9/3PI8hy0=
@@ -709,8 +709,8 @@ github.com/hashicorp/vault/api/auth/approle v0.4.0 h1:tjJHoUkPx8zRoFlFy86uvgg/1g
 github.com/hashicorp/vault/api/auth/approle v0.4.0/go.mod h1:D2gEpR0aS/F/MEcSjmhUlOsuK1RMVZojsnIQAEf0EV0=
 github.com/hashicorp/vault/api/auth/kubernetes v0.4.0 h1:f6OIOF9012JIdqYvOeeewxhtQdJosnog2CHzh33j41s=
 github.com/hashicorp/vault/api/auth/kubernetes v0.4.0/go.mod h1:tMewM2hPyFNKP1EXdWbc0dUHHoS5V/0qS04BEaxuy78=
-github.com/hashicorp/vault/sdk v0.8.1 h1:bdlhIpxBmJuOZ5Anumao1xeiLocR2eQrBRuJynZfTac=
-github.com/hashicorp/vault/sdk v0.8.1/go.mod h1:kEpyfUU2ECGWf6XohKVFzvJ97ybSnXvxsTsBkbeVcQg=
+github.com/hashicorp/vault/sdk v0.9.0 h1:Cbu9ezaZafZTXnen98QKVmufEPquhZ+r1ORZ7csNLFU=
+github.com/hashicorp/vault/sdk v0.9.0/go.mod h1:VX9d+xF62YBNtiEc4l3Z2aea9HVtAS49EoniuXzHtC4=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 h1:O/pT5C1Q3mVXMyuqg7yuAWUg/jMZR1/0QTzTRdNR6Uw=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443/go.mod h1:bEpDU35nTu0ey1EXjwNwPjI9xErAsoOCmcMb9GKvyxo=
 github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 h1:xixZ2bWeofWV68J+x6AzmKuVM/JWCQwkWm6GW/MUR6I=
