@@ -88,6 +88,9 @@ var _ = Describe("TokenUploadController", func() {
 						Data: map[string][]byte{"a": []byte("b")},
 					},
 				},
+				MonitoredObjectTypes: []client.Object{
+					&api.RemoteSecret{},
+				},
 			}
 
 			BeforeEach(func() {
@@ -95,13 +98,6 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			AfterEach(func() {
-				// due to a bug in crenv do a cleanup
-				Expect(ITest.Client.Delete(ITest.Context, &api.RemoteSecret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "new-remote-secret",
-						Namespace: "default",
-					},
-				})).To(Succeed())
 				test.AfterEach(ITest.Context)
 			})
 
