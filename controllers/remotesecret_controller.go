@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -111,18 +112,19 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretForUploadSecret(secret client.Object) []reconcile.Request {
-	requests := make([]reconcile.Request, 0)
-
 	remoteSecretName := secret.GetAnnotations()[api.RemoteSecretNameAnnotation]
-	if remoteSecretName != "" {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      remoteSecretName,
-				Namespace: secret.GetNamespace(),
-			},
-		})
+	if remoteSecretName == "" {
+		return []reconcile.Request{}
 	}
-	return requests
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: secret.GetNamespace(),
+				Name:      remoteSecretName,
+			},
+		},
+	}
 }
 
 func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {

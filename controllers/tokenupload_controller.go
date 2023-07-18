@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"time"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
