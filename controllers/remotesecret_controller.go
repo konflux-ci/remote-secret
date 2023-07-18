@@ -21,6 +21,12 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/go-logr/logr"
@@ -78,11 +84,23 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to register the remote secret links finalizer: %w", err)
 	}
 
-	err := ctrl.NewControllerManagedBy(mgr).
+	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
+	if err != nil {
+		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
 		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
 		})).
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
+			builder.WithPredicates(pred, predicate.Funcs{
+				DeleteFunc: func(de event.DeleteEvent) bool { return true },
+			}),
+		).
 		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
 			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
 		})).
@@ -91,6 +109,22 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to configure the reconciler: %w", err)
 	}
 	return nil
+}
+
+func (r *RemoteSecretReconciler) findRemoteSecretForUploadSecret(secret client.Object) []reconcile.Request {
+	remoteSecretName := secret.GetAnnotations()[api.RemoteSecretNameAnnotation]
+	if remoteSecretName == "" {
+		return []reconcile.Request{}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: secret.GetNamespace(),
+				Name:      remoteSecretName,
+			},
+		},
+	}
 }
 
 func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
