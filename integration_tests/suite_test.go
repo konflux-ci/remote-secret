@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/controllers"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -71,10 +70,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	storage := &memorystorage.MemoryStorage{}
-	ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&remotesecretstorage.NotifyingRemoteSecretStorage{
-		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: ITest.Client},
-		SecretStorage: storage,
-	})
+	ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(storage)
 
 	Expect(ITest.Storage.Initialize(ITest.Context)).To(Succeed())
 

@@ -142,7 +142,7 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("should remove the target secret", func() {
 				// check that secret is created in each target
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).To(Succeed())
 				})
@@ -164,7 +164,7 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("should remove the managed service account", func() {
 				// check that service account is created in each target
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetA}, &corev1.ServiceAccount{})).To(Succeed())
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).To(Succeed())
 				})

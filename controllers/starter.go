@@ -21,7 +21,6 @@ import (
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
-	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
@@ -47,17 +46,14 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	}
 
 	if cfg.EnableTokenUpload {
-		remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&remotesecretstorage.NotifyingRemoteSecretStorage{SecretStorage: secretStorage,
-			ClientFactory: kubernetesclient.SingleInstanceClientFactory{
-				Client: mgr.GetClient()}})
+		remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
 		if err := remoteSecretStorage.Initialize(ctx); err != nil {
 			return fmt.Errorf("failed to initialize the notifying remote secret storage: %w", err)
 		}
 
 		if err := (&TokenUploadReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-			//			TokenStorage:        notifTokenStorage,
+			Client:              mgr.GetClient(),
+			Scheme:              mgr.GetScheme(),
 			RemoteSecretStorage: remoteSecretStorage,
 		}).SetupWithManager(mgr); err != nil {
 			return err

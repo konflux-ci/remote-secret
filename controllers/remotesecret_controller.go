@@ -21,6 +21,12 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/go-logr/logr"
@@ -39,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -82,14 +87,28 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to register the remote secret links finalizer: %w", err)
 	}
 
-	err := ctrl.NewControllerManagedBy(mgr).
+	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
+	if err != nil {
+		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return appendLinksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o, []reconcile.Request{})
+			return linksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o)
+		})).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
+			builder.WithPredicates(pred, predicate.Funcs{
+				DeleteFunc: func(de event.DeleteEvent) bool { return true },
+			}),
+		).
+		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			return linksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o)
 		})).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			reqs := appendLinksToReconcileRequests(ctx, mgr.GetLogger(), mgr.GetScheme(), o, []reconcile.Request{})
-			return r.appendRemoteSecretsInNamespaceForAuthSA(ctx, o, reqs)
+			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
 		}), builder.OnlyMetadata).
 		Complete(r)
 	if err != nil {
@@ -98,7 +117,23 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func appendLinksToReconcileRequests(ctx context.Context, lg logr.Logger, scheme *runtime.Scheme, o client.Object, reqs []reconcile.Request) []reconcile.Request {
+func (r *RemoteSecretReconciler) findRemoteSecretForUploadSecret(_ context.Context, secret client.Object) []reconcile.Request {
+	remoteSecretName := secret.GetAnnotations()[api.RemoteSecretNameAnnotation]
+	if remoteSecretName == "" {
+		return []reconcile.Request{}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: secret.GetNamespace(),
+				Name:      remoteSecretName,
+			},
+		},
+	}
+}
+
+func linksToReconcileRequests(ctx context.Context, lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
 
 	refs, err := nsMarker.GetReferencingTargets(ctx, o)
@@ -111,15 +146,21 @@ func appendLinksToReconcileRequests(ctx context.Context, lg logr.Logger, scheme 
 		lg.Error(err, "failed to list the referencing targets of the object", "objectKey", client.ObjectKeyFromObject(o), "gvk", gvk)
 	}
 
-	for _, r := range refs {
-		reqs = append(reqs, reconcile.Request{NamespacedName: r})
+	if len(refs) == 0 {
+		return nil
 	}
-	return reqs
+
+	ret := make([]reconcile.Request, len(refs))
+
+	for i, r := range refs {
+		ret[i] = reconcile.Request{NamespacedName: r}
+	}
+	return ret
 }
 
-func (r *RemoteSecretReconciler) appendRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object, reqs []reconcile.Request) []reconcile.Request {
+func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
 	if _, ok := o.GetLabels()[bindings.RemoteSecretAuthServiceAccountLabel]; !ok {
-		return reqs
+		return nil
 	}
 
 	lg := log.FromContext(ctx)
@@ -128,19 +169,15 @@ func (r *RemoteSecretReconciler) appendRemoteSecretsInNamespaceForAuthSA(ctx con
 	list := api.RemoteSecretList{}
 	if err := r.Client.List(ctx, &list, client.InNamespace(o.GetNamespace())); err != nil {
 		lg.Error(err, "failed to list the remote secrets in a namespace while processing a change in authenticating service account")
-		return reqs
+		return nil
 	}
+
+	ret := make([]reconcile.Request, len(list.Items))
 
 	for i := range list.Items {
-		key := client.ObjectKeyFromObject(&list.Items[i])
-		r.TargetClientFactory.ServiceAccountChanged(key)
-
-		reqs = append(reqs, reconcile.Request{
-			NamespacedName: key,
-		})
+		ret[i] = reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])}
 	}
-
-	return reqs
+	return ret
 }
 
 // Reconcile implements reconcile.Reconciler
