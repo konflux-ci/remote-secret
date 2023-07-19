@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	auth "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -123,10 +125,13 @@ func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace 
 		cf.cache = cache.NewExpiring()
 	}
 
+	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
+
 	var err error
 	var configGetter restConfigGetter
 	// if a kubeconfig was specified, use it regardless of whether we're connecting to a remote cluster or the local cluster.
 	if kubeConfigSecretName != "" {
+		debugLog.Info("using kubeconfig secret for deployment of target", "apiUrl", apiUrl, "targetNs", targetNamespace)
 		configGetter = &kubeConfigRestConfigGetter{
 			ApiUrl:               apiUrl,
 			Client:               cf.LocalCluster.Client,
@@ -134,6 +139,7 @@ func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace 
 			KubeConfigSecretName: kubeConfigSecretName,
 		}
 	} else if localConnection {
+		debugLog.Info("using SA for deployment of target", "saNs", currentNamespace, "apiUrl", apiUrl, "targetNs", targetNamespace)
 		configGetter = &inNamespaceServiceAccountRestConfigGetter{
 			CurrentNamespace: currentNamespace,
 			Client:           cf.LocalCluster.Client,
@@ -273,11 +279,16 @@ func (g *inNamespaceServiceAccountRestConfigGetter) GetRestConfig(ctx context.Co
 
 	cfg = rest.CopyConfig(g.Config)
 	cfg.BearerToken = tr.Status.Token
+	cfg.BearerTokenFile = ""
 	// invalidate all other means of authentication
 	cfg.TLSClientConfig.CertData = nil
 	cfg.TLSClientConfig.CertFile = ""
+	cfg.TLSClientConfig.KeyData = nil
+	cfg.TLSClientConfig.KeyFile = ""
 	cfg.Username = ""
 	cfg.Password = ""
+	cfg.AuthProvider = nil
+	cfg.ExecProvider = nil
 	cfg.Impersonate = rest.ImpersonationConfig{}
 
 	ttl = time.Until(tr.Status.ExpirationTimestamp.Time)
@@ -304,6 +315,8 @@ func (g *inNamespaceServiceAccountRestConfigGetter) ensureSA(ctx context.Context
 	}
 
 	g.sa = &list.Items[0]
+
+	log.FromContext(ctx).V(logs.DebugLevel).Info("SA to auth as", "sa", g.sa.Name)
 
 	return nil
 }
