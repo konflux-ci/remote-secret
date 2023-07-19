@@ -25,10 +25,11 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 		return fmt.Errorf("expected a RemoteSecret but got a %T", obj)
 	}
 
-	secretData := make(map[string][]byte, len(rs.UploadData))
-	for _, kv := range rs.UploadData {
-		secretData[kv.Key] = kv.Value
-	}
+	secretData := rs.UploadData
+	//	make(map[string][]byte, len(rs.UploadData))
+	//for _, kv := range rs.UploadData {
+	//	secretData[kv.Key] = kv.Value
+	//}
 
 	if len(secretData) != 0 {
 		log.Info("Data DETECTED, upload it and delete from here", "Data", secretData)
@@ -57,7 +58,8 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 		/////////////////
 
 		// clean upload data
-		rs.UploadData = []v1beta1.KeyValue{}
+		rs.UploadData = map[string]string{}
+		//[]v1beta1.KeyValue{}
 	}
 
 	return nil

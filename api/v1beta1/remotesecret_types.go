@@ -99,8 +99,8 @@ type RemoteSecret struct {
 	// It it is processed by Mutating Webhook and must not be persisted,
 	// to make sure (in a case if something happened with Webhook) it is constrained
 	// by MaxItems=0, made as array of objects since it looks like it does not work for map
-	//+kubebuilder:validation:MaxItems=0
-	UploadData []KeyValue `json:"data,omitempty"`
+	//+kubebuilder:validation:MaxProperties=0
+	UploadData map[string]string `json:"data,omitempty"`
 }
 
 type KeyValue struct {
