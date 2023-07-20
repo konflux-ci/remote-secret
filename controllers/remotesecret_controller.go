@@ -477,6 +477,8 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		targetStatus.Namespace = targetSpec.Namespace
 		targetStatus.SecretName = ""
 		targetStatus.ServiceAccountNames = []string{}
+		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
+		// target.
 		targetStatus.Error = rerror.AggregateNonNilErrors(depErr, checkPointErr, syncErr).Error()
 		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
 			inconsistent = true
@@ -598,6 +600,13 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 
 	for i := range remoteSecret.Status.Targets {
 		ts := remoteSecret.Status.Targets[i]
+		// the error is set in the deployToNamespace function and is non-empty if we were unable to even
+		// start deploying or if the deployment failed.
+		// We never set this in the deleteFromNamespace function, which means that a failure to clean up
+		// a target will still force another clean up attempt here.
+		//
+		// Therefore, it is safe to just skip this target, if it has a non-empty error. We can be sure
+		// nothing exists in the target namespace.
 		if ts.Error != "" {
 			continue
 		}
