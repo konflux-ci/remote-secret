@@ -46,7 +46,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if cfg.EnableTokenUpload {
 		remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
 		if err := remoteSecretStorage.Initialize(ctx); err != nil {
-			return fmt.Errorf("failed to initialize the notifying remote secret storage: %w", err)
+			return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
 		}
 
 		if err := (&TokenUploadReconciler{
