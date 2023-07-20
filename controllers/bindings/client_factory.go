@@ -50,7 +50,7 @@ var (
 type ClientFactory interface {
 	// GetClient returns a client that can be used to deploy to a target described by the targetSpec and targetStatus from a remote secret in the provided namespace
 	GetClient(ctx context.Context, currentNamespace string, targetSpec *v1beta1.RemoteSecretTarget, targetStatus *v1beta1.TargetStatus) (client.Client, error)
-	// ServiceAccountChanged signals to the client factory that give service account changed. The client factory might react by revoking the client associated with
+	// ServiceAccountChanged signals to the client factory that the service account changed. The client factory might react by revoking the client associated with
 	// the service account from a cache, if any, etc.
 	ServiceAccountChanged(sa client.ObjectKey)
 }
