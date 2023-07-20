@@ -31,8 +31,7 @@ if [ "${INSECURE}" != "null" ]; then
 echo "    insecure-skip-tls-verify: ${INSECURE}"
 fi
 if [ "${CA}" != "null" ]; then
-echo "    certificate-authority-data: |+"
-sed 's/^/      /'   < "${CA}"
+echo "    certificate-authority-data: $(base64 -w0 < "${CA}")"
 fi
 echo "    server: ${SERVER}"
 echo "users:"

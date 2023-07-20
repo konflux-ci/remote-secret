@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 
-# This script assumes 4 params:
+# This script assumes 3 or 4 params:
 # 1. the kubeconfig context where the created kubeconfig should be pointing to
-# 2. the name of the cluster where the secret should be created (one of the clusters in the kube config)
-# 3. the name of the secret
-# 4. the namespace for the secret
-
-# NOTE that this script only works if the target context (i.e. the first parameter) is pointing to an OpenShift cluster.
+# 2. the name of the secret
+# 3. the namespace for the secret
+# 4. optionally, the name of the service account in the namespace of the context specified in the first parameter to use the token of. If not specified, OpenShift is assumed and the token of the current user is used.
 
 THIS_DIR="$(dirname "$(realpath "$0")")"
 
 KUBECONFIG=${KUBECONFIG:-${HOME}/.kube/config}
-TOKEN=$(oc --kubeconfig="${KUBECONFIG}" --context="$1" whoami -t)
+if [ -z "$4" ]; then
+    TOKEN=$(oc --kubeconfig="${KUBECONFIG}" --context="$1" whoami -t)
+else
+    TOKEN=$(kubectl --kubeconfig="${KUBECONFIG}" --context="$1" create token "$4")
+fi
+
+CLUSTER_NAME=$(yq ".contexts[] | select(.name == \"$1\") | .context.cluster" < "${KUBECONFIG}")
 
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 metadata:
-  name: $3
-  namespace: $4
+  name: $2
+  namespace: $3
 data:
-  kubeconfig: $(echo "${TOKEN}" | "${THIS_DIR}"/create-kubeconfig.sh "$2" | base64 -w0)
+  kubeconfig: $(echo "${TOKEN}" | "${THIS_DIR}"/create-kubeconfig.sh "${CLUSTER_NAME}" | base64 -w0)
 EOF
 
