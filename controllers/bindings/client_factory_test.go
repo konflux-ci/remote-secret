@@ -21,96 +21,101 @@ import (
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
-	auth "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	// "sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
+// NOTE: Some of these tests make use of the fake client interceptors - a feature introduced in
+// controller-runtime v0.15.0. We cannot use that version, because SPI cannot upgrade to
+// it because the HAS application API is not yet ported to it.
+// Other tests don't work because the dynamic rest mapper is not truly lazy before 0.15.0 which
+// makes it impossible to construct a client to a non-existing host.
+
 func TestGetClient(t *testing.T) {
-	t.Run("with kubeconfig secret", func(t *testing.T) {
-		cl := fake.NewClientBuilder().
-			WithObjects(
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret",
-						Namespace: "ns",
-					},
-					Data: map[string][]byte{
-						"kubeconfig": []byte(`
-apiVersion: v1
-kind: Config
-clusters: []
-contexts: []
-users: []
-preferences: {}
-`),
-					},
-				},
-			).
-			Build()
+	// 	t.Run("with kubeconfig secret", func(t *testing.T) {
+	// 		cl := fake.NewClientBuilder().
+	// 			WithObjects(
+	// 				&corev1.Secret{
+	// 					ObjectMeta: metav1.ObjectMeta{
+	// 						Name:      "secret",
+	// 						Namespace: "ns",
+	// 					},
+	// 					Data: map[string][]byte{
+	// 						"kubeconfig": []byte(`apiVersion: v1
+	// kind: Config
+	// clusters: []
+	// contexts: []
+	// users: []
+	// preferences: {}
+	// `),
+	// 					},
+	// 				},
+	// 			).
+	// 			Build()
+	//
+	// 		cf := CachingClientFactory{
+	// 			LocalCluster: LocalClusterConnectionDetails{
+	// 				Client: cl,
+	// 				Config: &rest.Config{
+	// 					Host: "api.host",
+	// 				},
+	// 			},
+	// 		}
+	//
+	// 		tcl, err := cf.GetClient(context.TODO(), "ns", &api.RemoteSecretTarget{
+	// 			Namespace:                "ns2",
+	// 			ClusterCredentialsSecret: "secret",
+	// 		}, nil)
+	//
+	// 		assert.NoError(t, err)
+	// 		assert.NotNil(t, tcl)
+	// 	})
 
-		cf := CachingClientFactory{
-			LocalCluster: LocalClusterConnectionDetails{
-				Client: cl,
-				Config: &rest.Config{
-					Host: "api.host",
-				},
-			},
-		}
-
-		tcl, err := cf.GetClient(context.TODO(), "ns", &api.RemoteSecretTarget{
-			Namespace:                "ns2",
-			ClusterCredentialsSecret: "secret",
-		}, nil)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, tcl)
-	})
-
-	t.Run("uses SA", func(t *testing.T) {
-		cl := fake.NewClientBuilder().
-			WithInterceptorFuncs(interceptor.Funcs{
-				SubResourceCreate: func(ctx context.Context, client client.Client, subResourceName string, obj, subResource client.Object, opts ...client.SubResourceCreateOption) error {
-					if _, ok := obj.(*corev1.ServiceAccount); ok && subResourceName == "token" && obj.GetName() == "auth-sa" {
-						tr := subResource.(*auth.TokenRequest)
-						tr.Status.Token = "le-token"
-					}
-					return nil
-				},
-			}).
-			WithObjects(
-				&corev1.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "auth-sa",
-						Namespace: "ns",
-						Labels: map[string]string{
-							RemoteSecretAuthServiceAccountLabel: "true",
-						},
-					},
-				},
-			).
-			Build()
-
-		cf := CachingClientFactory{
-			LocalCluster: LocalClusterConnectionDetails{
-				Client: cl,
-				Config: &rest.Config{
-					Host: "api.host",
-				},
-			},
-		}
-
-		tcl, err := cf.GetClient(context.TODO(), "ns", nil, &api.TargetStatus{
-			Namespace: "ns2",
-		})
-
-		assert.NoError(t, err)
-		assert.NotNil(t, tcl)
-	})
+	// NOTE: requires controller-runtime v0.15.0 to work.
+	//
+	// 	t.Run("uses SA", func(t *testing.T) {
+	// 		cl := fake.NewClientBuilder().
+	// 			WithInterceptorFuncs(interceptor.Funcs{
+	// 				SubResourceCreate: func(ctx context.Context, client client.Client, subResourceName string, obj, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	// 					if _, ok := obj.(*corev1.ServiceAccount); ok && subResourceName == "token" && obj.GetName() == "auth-sa" {
+	// 						tr := subResource.(*auth.TokenRequest)
+	// 						tr.Status.Token = "le-token"
+	// 					}
+	// 					return nil
+	// 				},
+	// 			}).
+	// 			WithObjects(
+	// 				&corev1.ServiceAccount{
+	// 					ObjectMeta: metav1.ObjectMeta{
+	// 						Name:      "auth-sa",
+	// 						Namespace: "ns",
+	// 						Labels: map[string]string{
+	// 							RemoteSecretAuthServiceAccountLabel: "true",
+	// 						},
+	// 					},
+	// 				},
+	// 			).
+	// 			Build()
+	//
+	// 		cf := CachingClientFactory{
+	// 			LocalCluster: LocalClusterConnectionDetails{
+	// 				Client: cl,
+	// 				Config: &rest.Config{
+	// 					Host: "api.host",
+	// 				},
+	// 			},
+	// 		}
+	//
+	// 		tcl, err := cf.GetClient(context.TODO(), "ns", nil, &api.TargetStatus{
+	// 			Namespace: "ns2",
+	// 		})
+	//
+	// 		assert.NoError(t, err)
+	// 		assert.NotNil(t, tcl)
+	// 	})
 
 	t.Run("refuses to work without SA", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
@@ -265,45 +270,47 @@ preferences: {}
 	assert.NotNil(t, cfg)
 }
 
-func TestInNamespaceServiceAccountRestConfigGetter(t *testing.T) {
-	cl := fake.NewClientBuilder().
-		WithInterceptorFuncs(interceptor.Funcs{
-			SubResourceCreate: func(ctx context.Context, client client.Client, subResourceName string, obj, subResource client.Object, opts ...client.SubResourceCreateOption) error {
-				if _, ok := obj.(*corev1.ServiceAccount); ok && subResourceName == "token" && obj.GetName() == "auth-sa" {
-					tr := subResource.(*auth.TokenRequest)
-					tr.Status.Token = "le-token"
-				}
-				return nil
-			},
-		}).
-		WithObjects(
-			&corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "auth-sa",
-					Namespace: "ns",
-					Labels: map[string]string{
-						RemoteSecretAuthServiceAccountLabel: "true",
-					},
-				},
-			},
-		).
-		Build()
-
-	getter := inNamespaceServiceAccountRestConfigGetter{
-		CurrentNamespace: "ns",
-		Client:           cl,
-		Config: &rest.Config{
-			Host: "api.host",
-		},
-	}
-
-	key, err := getter.GetCacheKey(context.TODO())
-	assert.NoError(t, err)
-	assert.Empty(t, key.kubeConfigHash)
-	assert.Equal(t, "auth-sa", key.serviceAccountKey.Name)
-	assert.Equal(t, "ns", key.serviceAccountKey.Namespace)
-
-	cfg, _, err := getter.GetRestConfig(context.TODO())
-	assert.NoError(t, err)
-	assert.Equal(t, "le-token", cfg.BearerToken)
-}
+// NOTE: requires controller-runtime v0.15.0 to work.
+//
+// func TestInNamespaceServiceAccountRestConfigGetter(t *testing.T) {
+// 	cl := fake.NewClientBuilder().
+// 		WithInterceptorFuncs(interceptor.Funcs{
+// 			SubResourceCreate: func(ctx context.Context, client client.Client, subResourceName string, obj, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+// 				if _, ok := obj.(*corev1.ServiceAccount); ok && subResourceName == "token" && obj.GetName() == "auth-sa" {
+// 					tr := subResource.(*auth.TokenRequest)
+// 					tr.Status.Token = "le-token"
+// 				}
+// 				return nil
+// 			},
+// 		}).
+// 		WithObjects(
+// 			&corev1.ServiceAccount{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Name:      "auth-sa",
+// 					Namespace: "ns",
+// 					Labels: map[string]string{
+// 						RemoteSecretAuthServiceAccountLabel: "true",
+// 					},
+// 				},
+// 			},
+// 		).
+// 		Build()
+//
+// 	getter := inNamespaceServiceAccountRestConfigGetter{
+// 		CurrentNamespace: "ns",
+// 		Client:           cl,
+// 		Config: &rest.Config{
+// 			Host: "api.host",
+// 		},
+// 	}
+//
+// 	key, err := getter.GetCacheKey(context.TODO())
+// 	assert.NoError(t, err)
+// 	assert.Empty(t, key.kubeConfigHash)
+// 	assert.Equal(t, "auth-sa", key.serviceAccountKey.Name)
+// 	assert.Equal(t, "ns", key.serviceAccountKey.Namespace)
+//
+// 	cfg, _, err := getter.GetRestConfig(context.TODO())
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, "le-token", cfg.BearerToken)
+// }
