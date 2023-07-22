@@ -103,11 +103,6 @@ type RemoteSecret struct {
 	UploadData map[string]string `json:"data,omitempty"`
 }
 
-type KeyValue struct {
-	Key   string `json:"key,omitempty"`
-	Value []byte `json:"value,omitempty"`
-}
-
 //+kubebuilder:object:root=true
 
 // RemoteSecretList contains a list of RemoteSecret

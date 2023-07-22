@@ -26,10 +26,6 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 	}
 
 	secretData := rs.UploadData
-	//	make(map[string][]byte, len(rs.UploadData))
-	//for _, kv := range rs.UploadData {
-	//	secretData[kv.Key] = kv.Value
-	//}
 
 	if len(secretData) != 0 {
 		log.Info("Data DETECTED, upload it and delete from here", "Data", secretData)

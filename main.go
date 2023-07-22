@@ -104,7 +104,7 @@ func main() {
 	rs := &api.RemoteSecret{}
 	err = ctrl.NewWebhookManagedBy(mgr).
 		WithDefaulter(&webhook.RemoteSecretMutator{Storage: secretStorage2}).
-		//WithValidator(&rsValidator{}).
+		WithValidator(&webhook.RemoteSecretValidator{}).
 		For(rs).
 		Complete()
 	if err != nil {
