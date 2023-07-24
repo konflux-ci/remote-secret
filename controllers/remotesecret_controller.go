@@ -74,6 +74,7 @@ type RemoteSecretReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
 //+kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
+//+kubebuilder:rbac:groups="",resources=events,verbs=create
 
 var _ reconcile.Reconciler = (*RemoteSecretReconciler)(nil)
 
@@ -84,7 +85,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.finalizers.Register(storageFinalizerName, &remoteSecretStorageFinalizer{storage: r.RemoteSecretStorage}); err != nil {
 		return fmt.Errorf("failed to register the remote secret storage finalizer: %w", err)
 	}
-	if err := r.finalizers.Register(linkedObjectsFinalizerName, &remoteSecretLinksFinalizer{clientFactory: r.TargetClientFactory, storage: r.RemoteSecretStorage}); err != nil {
+	if err := r.finalizers.Register(linkedObjectsFinalizerName, &remoteSecretLinksFinalizer{localClient: r.Client, clientFactory: r.TargetClientFactory, storage: r.RemoteSecretStorage}); err != nil {
 		return fmt.Errorf("failed to register the remote secret links finalizer: %w", err)
 	}
 
@@ -582,6 +583,7 @@ func (f *remoteSecretStorageFinalizer) Finalize(ctx context.Context, obj client.
 }
 
 type remoteSecretLinksFinalizer struct {
+	localClient   client.Client
 	clientFactory bindings.ClientFactory
 	storage       remotesecretstorage.RemoteSecretStorage
 }
@@ -596,11 +598,11 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 		return res, unexpectedObjectTypeError
 	}
 
-	lg := log.FromContext(ctx).V(logs.DebugLevel)
-
 	key := client.ObjectKeyFromObject(remoteSecret)
 
-	lg.Info("linked objects finalizer starting to clean up dependent objects", "remoteSecret", key)
+	lg := log.FromContext(ctx).V(logs.DebugLevel).WithValues("remoteSecret", key)
+
+	lg.Info("linked objects finalizer starting to clean up dependent objects")
 
 	for i := range remoteSecret.Status.Targets {
 		ts := remoteSecret.Status.Targets[i]
@@ -617,16 +619,91 @@ func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Ob
 		dep, err := newDependentsHandler(ctx, f.clientFactory, f.storage, remoteSecret, nil, &ts)
 		if err != nil {
 			// we're in the finalizer and we failed to even construct the dependents handler.
-			lg.Error(err, "failed to construct the dependents handler to clean up the target in the finalizer")
-			return res, fmt.Errorf("failed to construct the dependents handler to clean up the target in the finalizer: %w", err)
+			lg.Error(err, "failed to construct the dependents handler to clean up the target in the finalizer", "target", ts)
+			if eerr := f.createErrorEvent(ctx, key, ts, err); eerr != nil {
+				lg.Error(eerr, "failed to create the error event informing about the failure to cleanup", "target", ts)
+			}
+			return res, nil
 		}
 		if err := dep.Cleanup(ctx); err != nil {
 			lg.Error(err, "failed to clean up the dependent objects in the finalizer", "binding", client.ObjectKeyFromObject(remoteSecret))
-			return res, fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)
+			if eerr := f.createErrorEvent(ctx, key, ts, err); eerr != nil {
+				lg.Error(eerr, "failed to create the error event ifnorming about the failure to cleanup", "target", ts)
+				return res, nil
+			}
 		}
 	}
 
-	lg.Info("linked objects finalizer completed without failure", "binding", key)
+	lg.Info("linked objects finalizer completed without failure")
 
 	return res, nil
+}
+
+func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs client.ObjectKey, target api.TargetStatus, err error) error {
+	message := fmt.Sprintf("failed to delete the secret deployed to the cluster. The error message was: %s", err.Error())
+
+	retErr := rerror.NewAggregatedError()
+
+	secretEv := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: rs.Name + "-",
+			Namespace:    rs.Namespace,
+		},
+		Message:        message,
+		Reason:         "target cleanup failed",
+		InvolvedObject: corev1.ObjectReference{Namespace: rs.Namespace, Name: rs.Name, Kind: "RemoteSecret", APIVersion: api.GroupVersion.String()},
+		Related: &corev1.ObjectReference{
+			Kind:       "Secret",
+			Namespace:  target.Namespace,
+			Name:       target.SecretName,
+			APIVersion: "v1",
+		},
+		Type:          "Warning",
+		LastTimestamp: metav1.NewTime(time.Now()),
+	}
+
+	if target.ApiUrl != "" {
+		secretEv.Annotations = map[string]string{
+			api.ObjectClusterUrlAnnotation: target.ApiUrl,
+		}
+	}
+
+	if cerr := f.localClient.Create(ctx, secretEv); cerr != nil {
+		retErr.Add(fmt.Errorf("secret: %w", cerr))
+	}
+
+	message = fmt.Sprintf("failed to delete the service account deployed to the cluster. The error message was: %s", err.Error())
+
+	for _, saName := range target.ServiceAccountNames {
+		saEv := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: rs.Name + "-",
+				Namespace:    rs.Namespace,
+			},
+			Message:        message,
+			Reason:         "target cleanup failed",
+			InvolvedObject: corev1.ObjectReference{Namespace: rs.Namespace, Name: rs.Name, Kind: "RemoteSecret", APIVersion: api.GroupVersion.String()},
+			Related: &corev1.ObjectReference{
+				Kind:       "ServiceAccount",
+				Namespace:  target.Namespace,
+				Name:       saName,
+				APIVersion: "v1",
+			},
+			Type:          "Warning",
+			LastTimestamp: metav1.NewTime(time.Now()),
+		}
+		if target.ApiUrl != "" {
+			secretEv.Annotations = map[string]string{
+				api.ObjectClusterUrlAnnotation: target.ApiUrl,
+			}
+		}
+		if cerr := f.localClient.Create(ctx, saEv); cerr != nil {
+			retErr.Add(fmt.Errorf("service account %s: %w", saName, cerr))
+		}
+	}
+
+	if retErr.HasErrors() {
+		return fmt.Errorf("failed to create the cleanup failure event(s): %w", retErr)
+	}
+	return nil
 }

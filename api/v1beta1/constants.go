@@ -24,4 +24,5 @@ const (
 	TargetNamespaceAnnotation          = "appstudio.redhat.com/remotesecret-target-namespace"
 	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret" //#nosec G101 -- false positive
 	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"  //#nosec G101 -- false positive
+	ObjectClusterUrlAnnotation         = "appstudio.redhat.com/object-cluster-url"
 )
