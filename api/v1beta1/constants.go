@@ -16,8 +16,9 @@ package v1beta1
 
 // Caution: Modifying these constants may have unintended consequences in other projects that rely on remote-secret.
 const (
-	UploadSecretLabel         = "appstudio.redhat.com/upload-secret"           //#nosec G101 -- false positive, this is just a label
-	LinkedByRemoteSecretLabel = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
+	UploadSecretLabel                   = "appstudio.redhat.com/upload-secret"           //#nosec G101 -- false positive, this is just a label
+	LinkedByRemoteSecretLabel           = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
+	RemoteSecretAuthServiceAccountLabel = "appstudio.redhat.com/remotesecret-auth-sa"
 
 	RemoteSecretNameAnnotation         = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive
 	TargetNamespaceAnnotation          = "appstudio.redhat.com/remotesecret-target-namespace"

@@ -163,7 +163,7 @@ func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.O
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(o client.Object) []reconcile.Request {
 	ctx := context.Background()
 
-	if _, ok := o.GetLabels()[bindings.RemoteSecretAuthServiceAccountLabel]; !ok {
+	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
 

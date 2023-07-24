@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	auth "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +35,12 @@ import (
 )
 
 const (
-	RemoteSecretAuthServiceAccountLabel = "appstudio.redhat.com/remotesecret-auth-sa"
-	DefaultMaxClientCacheTTL            = 30 * time.Second
+	DefaultMaxClientCacheTTL = 30 * time.Second
 )
 
 var (
-	noAuthServiceAccountFound                         = errors.New("No service account labeled with '" + RemoteSecretAuthServiceAccountLabel + "' was found that could be used to authenticate deployments to targets in the local cluster")
-	onlyOneAuthServiceAccountPerNamespaceAllowed      = errors.New("there can be only one service account labeled with '" + RemoteSecretAuthServiceAccountLabel + "' in a namespace")
+	noAuthServiceAccountFound                         = errors.New("No service account labeled with '" + api.RemoteSecretAuthServiceAccountLabel + "' was found that could be used to authenticate deployments to targets in the local cluster")
+	onlyOneAuthServiceAccountPerNamespaceAllowed      = errors.New("there can be only one service account labeled with '" + api.RemoteSecretAuthServiceAccountLabel + "' in a namespace")
 	noKubeConfigSpecifiedForConnectionToRemoteCluster = errors.New("a secret with kubeconfig with credentials for connecting to a remote cluster is required")
 )
 
@@ -49,7 +48,7 @@ var (
 // implementation is the CachingClientFactory but is hidden behind an interface so that this can be mocked out in the tests.
 type ClientFactory interface {
 	// GetClient returns a client that can be used to deploy to a target described by the targetSpec and targetStatus from a remote secret in the provided namespace
-	GetClient(ctx context.Context, currentNamespace string, targetSpec *v1beta1.RemoteSecretTarget, targetStatus *v1beta1.TargetStatus) (client.Client, error)
+	GetClient(ctx context.Context, currentNamespace string, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (client.Client, error)
 	// ServiceAccountChanged signals to the client factory that the service account changed. The client factory might react by revoking the client associated with
 	// the service account from a cache, if any, etc.
 	ServiceAccountChanged(sa client.ObjectKey)
@@ -94,7 +93,7 @@ func (cf *CachingClientFactory) ServiceAccountChanged(sa client.ObjectKey) {
 	cf.cache.Delete(key)
 }
 
-func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace string, targetSpec *v1beta1.RemoteSecretTarget, targetStatus *v1beta1.TargetStatus) (client.Client, error) {
+func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace string, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (client.Client, error) {
 	var apiUrl string
 	var kubeConfigSecretName string
 	var targetNamespace string
@@ -302,7 +301,7 @@ func (g *inNamespaceServiceAccountRestConfigGetter) ensureSA(ctx context.Context
 	}
 
 	list := &corev1.ServiceAccountList{}
-	if err := g.Client.List(ctx, list, client.InNamespace(g.CurrentNamespace), client.HasLabels{RemoteSecretAuthServiceAccountLabel}); err != nil {
+	if err := g.Client.List(ctx, list, client.InNamespace(g.CurrentNamespace), client.HasLabels{api.RemoteSecretAuthServiceAccountLabel}); err != nil {
 		return fmt.Errorf("failed to list the potential SAs to use for remote secret deployment: %w", err)
 	}
 
