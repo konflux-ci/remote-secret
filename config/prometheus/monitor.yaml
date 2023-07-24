@@ -30,7 +30,7 @@ metadata:
 spec:
   endpoints:
     - path: /metrics
-      port: metrics
+      port: https
       scheme: https
       bearerTokenSecret:
         name: "metrics-reader"
@@ -39,4 +39,4 @@ spec:
         insecureSkipVerify: true
   selector:
     matchLabels:
-      app.kubernetes.io/part-of: remote-secret
+      control-plane: controller-manager
