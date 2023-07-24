@@ -116,8 +116,8 @@ var _ = Describe("RemoteSecret", func() {
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					Expect(rs).NotTo(BeNil())
-					Expect(rs.Status.Secret.Keys).To(HaveLen(1))
-					Expect(rs.Status.Secret.Keys[0]).To(Equal("a"))
+					Expect(rs.Status.SecretStatus.Keys).To(HaveLen(1))
+					Expect(rs.Status.SecretStatus.Keys[0]).To(Equal("a"))
 				})
 			})
 		})

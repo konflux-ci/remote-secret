@@ -279,10 +279,10 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 	}
 
 	// put keys of the secret data in status
-	remoteSecret.Status.Secret.Keys = make([]string, len(*secretData))
+	remoteSecret.Status.SecretStatus.Keys = make([]string, len(*secretData))
 	idx := 0
 	for k := range *secretData {
-		remoteSecret.Status.Secret.Keys[idx] = k
+		remoteSecret.Status.SecretStatus.Keys[idx] = k
 		idx++
 	}
 
