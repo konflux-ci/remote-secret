@@ -191,20 +191,9 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-	var secretData stageResult[*remotesecretstorage.SecretData]
-	secretData = r.obtainData(ctx, remoteSecret)
-	dataResult, err := handleStage(ctx, r.Client, remoteSecret, secretData)
+	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
-	}
-
-	remoteSecret.Status.Secret.Keys = make([]string, 0)
-	for k := range *secretData.ReturnValue {
-		remoteSecret.Status.Secret.Keys = append(remoteSecret.Status.Secret.Keys, k)
-	}
-
-	if err := r.Client.Status().Update(ctx, remoteSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update the status with a list of keys in storage: %w", err)
 	}
 
 	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
@@ -287,6 +276,14 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 		Type:   string(api.RemoteSecretConditionTypeDataObtained),
 		Status: metav1.ConditionTrue,
 		Reason: string(api.RemoteSecretReasonDataFound),
+	}
+
+	// put keys of the secret data in status
+	remoteSecret.Status.Secret.Keys = make([]string, len(*secretData))
+	idx := 0
+	for k := range *secretData {
+		remoteSecret.Status.Secret.Keys[idx] = k
+		idx++
 	}
 
 	result.ReturnValue = secretData
