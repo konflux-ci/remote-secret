@@ -60,9 +60,7 @@ var uploadSecretSelector = metav1.LabelSelector{
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	// RemoteSecretStorage IMPORTANT, for the correct function, this needs to use the secretstorage.NotifyingSecretStorage as the underlying
-	// secret storage mechanism
+	Scheme              *runtime.Scheme
 	RemoteSecretStorage remotesecretstorage.RemoteSecretStorage
 }
 
