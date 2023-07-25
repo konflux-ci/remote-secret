@@ -191,7 +191,6 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-
 	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
@@ -229,7 +228,6 @@ type cancellation struct {
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
 	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
-
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
@@ -278,6 +276,14 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 		Type:   string(api.RemoteSecretConditionTypeDataObtained),
 		Status: metav1.ConditionTrue,
 		Reason: string(api.RemoteSecretReasonDataFound),
+	}
+
+	// put keys of the secret data in status
+	remoteSecret.Status.SecretStatus.Keys = make([]string, len(*secretData))
+	idx := 0
+	for k := range *secretData {
+		remoteSecret.Status.SecretStatus.Keys[idx] = k
+		idx++
 	}
 
 	result.ReturnValue = secretData
