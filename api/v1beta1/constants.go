@@ -24,5 +24,8 @@ const (
 	TargetNamespaceAnnotation          = "appstudio.redhat.com/remotesecret-target-namespace"
 	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret" //#nosec G101 -- false positive
 	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"  //#nosec G101 -- false positive
-	ObjectClusterUrlAnnotation         = "appstudio.redhat.com/object-cluster-url"
+	// ObjectClusterUrlAnnotation is put on the events that are created when we fail to clean up the deployed secrets during the RemoteSecret
+	// finalization. It specifies the API URL of the cluster where the secrets were deployed to (because there is no other good place to put
+	// this information on the Event object).
+	ObjectClusterUrlAnnotation = "appstudio.redhat.com/object-cluster-url"
 )
