@@ -114,25 +114,16 @@ type RemoteSecret struct {
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
 var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
 
-// ValidateUploadSecret checks weather the uploadSecret type matches the RemoteSecret type.
+// ValidateUploadSecret checks weather the uploadSecret type matches the RemoteSecret type and whether upload secret
+// contains required keys.
 // The function is in the api package because it extends the contract of the CRD.
-// In the future the function can be extended to validate other fields.
 func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error {
-	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
-		if secretType == "" {
-			return corev1.SecretTypeOpaque
-		}
-		return secretType
+	if err := checkMatchingSecretTypes(rs.Spec.Secret.Type, uploadSecret.Type); err != nil {
+		return err
 	}
-
-	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
-		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
-	}
-
 	if err := rs.ValidateSecretData(uploadSecret.Data); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -170,29 +161,6 @@ func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
 
 	// TODO: Think about if upload secret can have additional keys which are not required.
 	return nil
-}
-
-// getKeysForSecretType returns the list of keys that are required for a given secret type.
-// The required keys are taken from https://pkg.go.dev/k8s.io/api/core/v1.
-// Contract: The outer slice contains elements which should be ANDed together.
-// The inner slice contains elements which should be ORed together.
-func getKeysForSecretType(secretType corev1.SecretType) [][]string {
-	switch secretType {
-	case corev1.SecretTypeServiceAccountToken:
-		return [][]string{{corev1.ServiceAccountTokenKey}}
-	case corev1.SecretTypeDockercfg:
-		return [][]string{{corev1.DockerConfigKey}}
-	case corev1.SecretTypeDockerConfigJson:
-		return [][]string{{corev1.DockerConfigJsonKey}}
-	case corev1.SecretTypeBasicAuth:
-		return [][]string{{corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey}} // requires at leas one of the keys
-	case corev1.SecretTypeSSHAuth:
-		return [][]string{{corev1.SSHAuthPrivateKey}}
-	case corev1.SecretTypeTLS:
-		return [][]string{{corev1.TLSCertKey}, {corev1.TLSPrivateKeyKey}} // requires both keys
-	default:
-		return [][]string{{}} // Opaque, bootstrap.kubernetes.io/token, and others: no expected keys
-	}
 }
 
 //+kubebuilder:object:root=true
@@ -293,3 +261,40 @@ const (
 	RemoteSecretErrorReasonTokenRetrieval RemoteSecretErrorReason = "TokenRetrieval"
 	RemoteSecretErrorReasonNoError        RemoteSecretErrorReason = ""
 )
+
+func checkMatchingSecretTypes(rsSecretType, uploadSecretType corev1.SecretType) error {
+	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
+		if secretType == "" {
+			return corev1.SecretTypeOpaque
+		}
+		return secretType
+	}
+
+	if defaultize(uploadSecretType) != defaultize(rsSecretType) {
+		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecretType, rsSecretType)
+	}
+	return nil
+}
+
+// getKeysForSecretType returns the list of keys that are required for a given secret type.
+// The mapping is inferred from https://pkg.go.dev/k8s.io/api/core/v1.
+// Contract: The outer slice contains elements which should be ANDed together.
+// The inner slice contains elements which should be ORed together.
+func getKeysForSecretType(secretType corev1.SecretType) [][]string {
+	switch secretType {
+	case corev1.SecretTypeServiceAccountToken:
+		return [][]string{{corev1.ServiceAccountTokenKey}}
+	case corev1.SecretTypeDockercfg:
+		return [][]string{{corev1.DockerConfigKey}}
+	case corev1.SecretTypeDockerConfigJson:
+		return [][]string{{corev1.DockerConfigJsonKey}}
+	case corev1.SecretTypeBasicAuth:
+		return [][]string{{corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey}} // requires at leas one of the keys
+	case corev1.SecretTypeSSHAuth:
+		return [][]string{{corev1.SSHAuthPrivateKey}}
+	case corev1.SecretTypeTLS:
+		return [][]string{{corev1.TLSCertKey}, {corev1.TLSPrivateKeyKey}} // requires both keys
+	default:
+		return [][]string{{}} // Opaque, bootstrap.kubernetes.io/token, and others: no expected keys
+	}
+}
