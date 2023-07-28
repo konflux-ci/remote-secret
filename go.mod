@@ -6,7 +6,7 @@ require (
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go-v2 v1.18.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.6
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.10
 	github.com/aws/smithy-go v1.13.5
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/go-logr/logr v1.2.4
@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/vault/api/auth/approle v0.4.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
 	github.com/hashicorp/vault/sdk v0.8.1
-	github.com/metlos/crenv v0.1.3
+	github.com/metlos/crenv v0.1.5
 	github.com/mitchellh/go-testing-interface v1.14.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.7
@@ -83,7 +83,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible // indirect
 	github.com/circonus-labs/circonusllhist v0.1.3 // indirect
-	github.com/cloudflare/circl v1.1.0 // indirect
+	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denverdino/aliyungo v0.0.0-20190125010748-a747050bb1ba // indirect
 	github.com/dgryski/go-metro v0.0.0-20180109044635-280f6062b5bc // indirect
@@ -257,7 +257,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.27.2 // indirect
 	k8s.io/component-base v0.27.2 // indirect
-	k8s.io/cri-api v0.27.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect

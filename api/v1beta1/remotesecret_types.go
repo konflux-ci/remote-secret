@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -51,6 +54,13 @@ type RemoteSecretStatus struct {
 	// Targets is the list of the deployment statuses for individual targets in the spec.
 	// +optional
 	Targets []TargetStatus `json:"targets,omitempty"`
+	// SecretStatus describes the shape of the secret which is currently stored in SecretStorage.
+	// +optional
+	SecretStatus SecretStatus `json:"secret,omitempty"`
+}
+
+type SecretStatus struct {
+	Keys []string `json:"keys,omitempty"`
 }
 
 type TargetStatus struct {
@@ -95,6 +105,25 @@ type RemoteSecret struct {
 
 	Spec   RemoteSecretSpec   `json:"spec,omitempty"`
 	Status RemoteSecretStatus `json:"status,omitempty"`
+}
+
+var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
+
+// ValidateUploadSecretType checks weather the uploadSecret type matches the RemoteSecret type.
+// The function is in the api package because it extends the contract of the CRD.
+// In the future the function can be extended to validate other fields.
+func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
+	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
+		if secretType == "" {
+			return corev1.SecretTypeOpaque
+		}
+		return secretType
+	}
+
+	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
+		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
+	}
+	return nil
 }
 
 //+kubebuilder:object:root=true

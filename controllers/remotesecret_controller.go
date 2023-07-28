@@ -21,6 +21,12 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/go-logr/logr"
@@ -44,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -77,13 +84,25 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to register the remote secret links finalizer: %w", err)
 	}
 
-	err := ctrl.NewControllerManagedBy(mgr).
+	pred, err := predicate.LabelSelectorPredicate(uploadSecretSelector)
+	if err != nil {
+		return fmt.Errorf("failed to construct the predicate for matching secrets. This should not happen: %w", err)
+	}
+
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 		})).
-		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
+		Watches(
+			&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
+			builder.WithPredicates(pred, predicate.Funcs{
+				DeleteFunc: func(de event.DeleteEvent) bool { return true },
+			}),
+		).
+		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
 		})).
 		Complete(r)
 	if err != nil {
@@ -92,7 +111,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
+func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
 	lg := log.FromContext(ctx)
 	refs, err := nsMarker.GetReferencingTargets(ctx, o)
@@ -156,7 +175,6 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-
 	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
@@ -194,7 +212,6 @@ type cancellation struct {
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
 	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
-
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
@@ -243,6 +260,14 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 		Type:   string(api.RemoteSecretConditionTypeDataObtained),
 		Status: metav1.ConditionTrue,
 		Reason: string(api.RemoteSecretReasonDataFound),
+	}
+
+	// put keys of the secret data in status
+	remoteSecret.Status.SecretStatus.Keys = make([]string, len(*secretData))
+	idx := 0
+	for k := range *secretData {
+		remoteSecret.Status.SecretStatus.Keys[idx] = k
+		idx++
 	}
 
 	result.ReturnValue = secretData
@@ -311,7 +336,7 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 		}
 	}
 
-	for statusIndex := range namespaceClassification.Remove {
+	for _, statusIndex := range namespaceClassification.Remove {
 		err := r.deleteFromNamespace(ctx, remoteSecret, statusIndex)
 		if err != nil {
 			errorAggregate.Add(err)
@@ -425,8 +450,8 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	return rerror.AggregateNonNilErrors(syncErr, updateErr)
 }
 
-func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetStatusIndex int) error {
-	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[targetStatusIndex])
+func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, statusTargetIndex remotesecrets.StatusTargetIndex) error {
+	dep := r.newDependentsHandler(remoteSecret, nil, &remoteSecret.Status.Targets[statusTargetIndex])
 
 	if err := dep.Cleanup(ctx); err != nil {
 		return fmt.Errorf("failed to clean up dependent objects in the finalizer: %w", err)

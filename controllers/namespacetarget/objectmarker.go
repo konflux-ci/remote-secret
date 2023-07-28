@@ -18,16 +18,11 @@ import (
 	"context"
 	"strings"
 
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	LinkedByRemoteSecretLabel          = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
-	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret"  //#nosec G101 -- false positive, this is just a label
-	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"   //#nosec G101 -- false positive, this is just a label
 )
 
 type NamespaceObjectMarker struct {
@@ -39,7 +34,7 @@ var _ bindings.ObjectMarker = (*NamespaceObjectMarker)(nil)
 func (m *NamespaceObjectMarker) IsManagedBy(ctx context.Context, rs client.ObjectKey, obj client.Object) (bool, error) {
 	annos := obj.GetAnnotations()
 	refed, _ := m.IsReferencedBy(ctx, rs, obj)
-	return refed && annos[ManagingRemoteSecretNameAnnotation] == rs.String(), nil
+	return refed && annos[api.ManagingRemoteSecretNameAnnotation] == rs.String(), nil
 }
 
 // IsReferenced implements bindings.ObjectMarker
@@ -47,11 +42,11 @@ func (m *NamespaceObjectMarker) IsReferencedBy(ctx context.Context, rs client.Ob
 	annos := obj.GetAnnotations()
 	labels := obj.GetLabels()
 
-	if labels[LinkedByRemoteSecretLabel] != "true" {
+	if labels[api.LinkedByRemoteSecretLabel] != "true" {
 		return false, nil
 	}
 
-	return commaseparated.Value(annos[LinkedRemoteSecretsAnnotation]).Contains(rs.String()), nil
+	return commaseparated.Value(annos[api.LinkedRemoteSecretsAnnotation]).Contains(rs.String()), nil
 }
 
 // ListManagedOptions implements bindings.ObjectMarker
@@ -63,7 +58,7 @@ func (m *NamespaceObjectMarker) ListManagedOptions(ctx context.Context, rs clien
 func (m *NamespaceObjectMarker) ListReferencedOptions(ctx context.Context, rs client.ObjectKey) ([]client.ListOption, error) {
 	return []client.ListOption{
 		client.MatchingLabels{
-			LinkedByRemoteSecretLabel: "true",
+			api.LinkedByRemoteSecretLabel: "true",
 		},
 	}, nil
 }
@@ -81,11 +76,11 @@ func (m *NamespaceObjectMarker) MarkManaged(ctx context.Context, rs client.Objec
 		obj.SetAnnotations(annos)
 		shouldChange = true
 	} else {
-		shouldChange = annos[ManagingRemoteSecretNameAnnotation] != value
+		shouldChange = annos[api.ManagingRemoteSecretNameAnnotation] != value
 	}
 
 	if shouldChange {
-		annos[ManagingRemoteSecretNameAnnotation] = value
+		annos[api.ManagingRemoteSecretNameAnnotation] = value
 	}
 
 	return refChanged || shouldChange, nil
@@ -100,10 +95,10 @@ func (m *NamespaceObjectMarker) MarkReferenced(ctx context.Context, rs client.Ob
 		obj.SetLabels(labels)
 		shouldChange = true
 	} else {
-		shouldChange = labels[LinkedByRemoteSecretLabel] != "true"
+		shouldChange = labels[api.LinkedByRemoteSecretLabel] != "true"
 	}
 
-	labels[LinkedByRemoteSecretLabel] = "true"
+	labels[api.LinkedByRemoteSecretLabel] = "true"
 
 	annos := obj.GetAnnotations()
 	if annos == nil {
@@ -114,12 +109,12 @@ func (m *NamespaceObjectMarker) MarkReferenced(ctx context.Context, rs client.Ob
 
 	link := rs.String()
 
-	val := commaseparated.Value(annos[LinkedRemoteSecretsAnnotation])
+	val := commaseparated.Value(annos[api.LinkedRemoteSecretsAnnotation])
 	shouldChange = !val.Contains(link) || shouldChange
 
 	if shouldChange {
 		val.Add(link)
-		annos[LinkedRemoteSecretsAnnotation] = val.String()
+		annos[api.LinkedRemoteSecretsAnnotation] = val.String()
 	}
 
 	return shouldChange, nil
@@ -132,10 +127,10 @@ func (m *NamespaceObjectMarker) UnmarkManaged(ctx context.Context, rs client.Obj
 		return false, nil
 	}
 
-	val := annos[ManagingRemoteSecretNameAnnotation]
+	val := annos[api.ManagingRemoteSecretNameAnnotation]
 
 	if val == rs.String() {
-		delete(annos, ManagingRemoteSecretNameAnnotation)
+		delete(annos, api.ManagingRemoteSecretNameAnnotation)
 		return true, nil
 	}
 
@@ -153,7 +148,7 @@ func (m *NamespaceObjectMarker) UnmarkReferenced(ctx context.Context, rs client.
 
 	link := rs.String()
 
-	val := commaseparated.Value(annos[LinkedRemoteSecretsAnnotation])
+	val := commaseparated.Value(annos[api.LinkedRemoteSecretsAnnotation])
 	containsLink := val.Contains(link)
 
 	if containsLink {
@@ -163,13 +158,13 @@ func (m *NamespaceObjectMarker) UnmarkReferenced(ctx context.Context, rs client.
 	unlabeled := false
 	if val.Len() == 0 {
 		labels := obj.GetLabels()
-		if labels != nil && labels[LinkedByRemoteSecretLabel] == "true" {
-			delete(labels, LinkedByRemoteSecretLabel)
+		if labels != nil && labels[api.LinkedByRemoteSecretLabel] == "true" {
+			delete(labels, api.LinkedByRemoteSecretLabel)
 			unlabeled = true
 		}
-		delete(annos, LinkedRemoteSecretsAnnotation)
+		delete(annos, api.LinkedRemoteSecretsAnnotation)
 	} else {
-		annos[LinkedRemoteSecretsAnnotation] = val.String()
+		annos[api.LinkedRemoteSecretsAnnotation] = val.String()
 	}
 
 	return unlabeled || wasManaged || containsLink, nil
@@ -177,7 +172,7 @@ func (m *NamespaceObjectMarker) UnmarkReferenced(ctx context.Context, rs client.
 
 // GetReferencingTargets implements bindings.ObjectMarker
 func (*NamespaceObjectMarker) GetReferencingTargets(ctx context.Context, obj client.Object) ([]types.NamespacedName, error) {
-	val := commaseparated.Value(obj.GetAnnotations()[LinkedRemoteSecretsAnnotation])
+	val := commaseparated.Value(obj.GetAnnotations()[api.LinkedRemoteSecretsAnnotation])
 
 	ret := make([]types.NamespacedName, val.Len())
 
