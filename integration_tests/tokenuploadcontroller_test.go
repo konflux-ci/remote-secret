@@ -249,6 +249,9 @@ var _ = Describe("TokenUploadController", func() {
 				})
 			})
 		})
+	})
 
+	Describe("Partial Update", func() {
+		// TODO: implement
 	})
 })

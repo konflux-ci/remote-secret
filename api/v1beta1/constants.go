@@ -23,4 +23,13 @@ const (
 	TargetNamespaceAnnotation          = "appstudio.redhat.com/remotesecret-target-namespace"
 	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret" //#nosec G101 -- false positive
 	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"  //#nosec G101 -- false positive
+
+	// RemoteSecretPartialUpdateAnnotation if present on the upload secret, this marks the upload secret as performing a partial update of the already existing secret data
+	// of the remote secret that the upload secret refers to using the RemoteSecretNameAnnotation annotation. The value of this annotation is not important but should be documented
+	// as "true". The data of the upload secret is used to update the secret data (i.e. the keys from the upload secret overwrite the keys in the secret data (adding new keys if not
+	// present in the secret data)).
+	RemoteSecretPartialUpdateAnnotation = "appstudio.redhat.com/remotesecret-partial-update"
+	// RemoteSecretDeletedKeysAnnotation should be placed on an upload secret if the user want to remove some keys from the secret data of an already existing remote secret. It
+	// contains the comma-separated list of keys that should be removed.
+	RemoteSecretDeletedKeysAnnotation = "appstudio.redhat.com/remotesecret-deleted-keys"
 )
