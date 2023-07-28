@@ -115,9 +115,9 @@ var _ = Describe("RemoteSecret", func() {
 				// Check that status contains the key from secret data
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
-					Expect(rs).NotTo(BeNil())
-					Expect(rs.Status.SecretStatus.Keys).To(HaveLen(1))
-					Expect(rs.Status.SecretStatus.Keys[0]).To(Equal("a"))
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.SecretStatus.Keys).To(HaveLen(1))
+					g.Expect(rs.Status.SecretStatus.Keys[0]).To(Equal("a"))
 				})
 			})
 		})
