@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,11 +112,12 @@ type RemoteSecret struct {
 }
 
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
+var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
 
-// ValidateUploadSecretType checks weather the uploadSecret type matches the RemoteSecret type.
+// ValidateUploadSecret checks weather the uploadSecret type matches the RemoteSecret type.
 // The function is in the api package because it extends the contract of the CRD.
 // In the future the function can be extended to validate other fields.
-func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
+func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error {
 	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
 		if secretType == "" {
 			return corev1.SecretTypeOpaque
@@ -126,7 +128,71 @@ func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) er
 	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
 		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
 	}
+
+	if err := rs.ValidateSecretData(uploadSecret.Data); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// ValidateSecretData checks weather the secret data contains all the keys required by the secret type and specified
+// in the RemoteSecret spec. If we assumed this function is called only for upload secrets, we could avoid checking the
+// keys required by the secret type because Kubernetes API server would reject the upload secret if it did not contain
+// the required keys. However, this function is also meant for validating the secret data that is already stored.
+func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
+	// Keys based on secret type.
+	requiredSetsOfKeys := getKeysForSecretType(rs.Spec.Secret.Type)
+
+	// Keys based on RemoteSecret spec.
+	for _, key := range rs.Spec.Secret.RequiredKeys {
+		requiredSetsOfKeys = append(requiredSetsOfKeys, []string{key.Name})
+	}
+
+	// Check if the secret data contains all the required keys. Outer slice is ANDed, inner slice is ORed.
+	var notFoundKeys []string
+	for _, keys := range requiredSetsOfKeys {
+		found := false
+		for _, k := range keys {
+			if _, ok := secretData[k]; ok {
+				found = true
+				break
+			}
+		}
+		if !found {
+			notFoundKeys = append(notFoundKeys, strings.Join(keys, " neither "))
+		}
+	}
+
+	if len(notFoundKeys) > 0 {
+		return fmt.Errorf("%w: %s", secretDataKeysMissingError, strings.Join(notFoundKeys, ", "))
+	}
+
+	// TODO: Think about if upload secret can have additional keys which are not required.
+	return nil
+}
+
+// getKeysForSecretType returns the list of keys that are required for a given secret type.
+// The required keys are taken from https://pkg.go.dev/k8s.io/api/core/v1.
+// Contract: The outer slice contains elements which should be ANDed together.
+// The inner slice contains elements which should be ORed together.
+func getKeysForSecretType(secretType corev1.SecretType) [][]string {
+	switch secretType {
+	case corev1.SecretTypeServiceAccountToken:
+		return [][]string{{corev1.ServiceAccountTokenKey}}
+	case corev1.SecretTypeDockercfg:
+		return [][]string{{corev1.DockerConfigKey}}
+	case corev1.SecretTypeDockerConfigJson:
+		return [][]string{{corev1.DockerConfigJsonKey}}
+	case corev1.SecretTypeBasicAuth:
+		return [][]string{{corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey}} // requires at leas one of the keys
+	case corev1.SecretTypeSSHAuth:
+		return [][]string{{corev1.SSHAuthPrivateKey}}
+	case corev1.SecretTypeTLS:
+		return [][]string{{corev1.TLSCertKey}, {corev1.TLSPrivateKeyKey}} // requires both keys
+	default:
+		return [][]string{{}} // Opaque, bootstrap.kubernetes.io/token, and others: no expected keys
+	}
 }
 
 //+kubebuilder:object:root=true
@@ -159,9 +225,15 @@ type LinkableSecretSpec struct {
 	// are supported. All other secret types need to have their mapping specified manually using the Fields.
 	Type corev1.SecretType `json:"type,omitempty"`
 
+	// RequiredKeys are the...
+	RequiredKeys []SecretKey `json:"keys,omitempty"`
 	// LinkedTo specifies the objects that the secret is linked to. Currently, only service accounts are supported.
 	LinkedTo []SecretLink `json:"linkedTo,omitempty"`
 }
+type SecretKey struct {
+	Name string `json:"name,omitempty"`
+}
+
 type SecretLink struct {
 	// ServiceAccounts lists the service accounts that the secret is linked to.
 	ServiceAccount ServiceAccountLink `json:"serviceAccount,omitempty"`

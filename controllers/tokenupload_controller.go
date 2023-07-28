@@ -147,7 +147,7 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		return remoteSecretDoesntExist
 	}
 
-	err = remoteSecret.ValidateUploadSecretType(uploadSecret)
+	err = remoteSecret.ValidateUploadSecret(uploadSecret)
 	if err != nil {
 		return fmt.Errorf("validation of upload secret failed: %w ", err)
 	}
