@@ -44,7 +44,7 @@ func TestVaultStorage(t *testing.T) {
 	assert.NoError(t, storage.Initialize(ctx))
 	defer cluster.Cleanup()
 
-	testStorage(t, ctx, storage)
+	StorageTCK(t, ctx, storage)
 }
 
 // TestInMemoryStorage runs against our testing in-memory implementation of the TokenStorage.
@@ -54,7 +54,7 @@ func TestInMemoryStorage(t *testing.T) {
 	ctx := context.TODO()
 	assert.NoError(t, storage.Initialize(ctx))
 
-	testStorage(t, ctx, storage)
+	StorageTCK(t, ctx, storage)
 }
 
 // TestAws runs against real AWS secret manager.
@@ -90,58 +90,69 @@ func TestAws(t *testing.T) {
 	err := secretStorage.Initialize(ctx)
 	assert.NoError(t, err)
 
-	testStorage(t, ctx, secretStorage)
+	StorageTCK(t, ctx, secretStorage)
 }
 
-func testStorage(t *testing.T, ctx context.Context, storage secretstorage.SecretStorage) {
+func StorageTCK(t *testing.T, ctx context.Context, storage secretstorage.SecretStorage) {
 	refreshTestData(t)
 
-	// get non-existing
-	gettedSecretData, err := storage.Get(ctx, secretId)
-	assert.ErrorIs(t, err, secretstorage.NotFoundError)
-	assert.Nil(t, gettedSecretData)
+	t.Run("get non-existing", func(t *testing.T) {
+		gettedSecretData, err := storage.Get(ctx, secretId)
+		assert.ErrorIs(t, err, secretstorage.NotFoundError)
+		assert.Nil(t, gettedSecretData)
+	})
 
-	// delete non-existing
-	err = storage.Delete(ctx, secretId)
-	assert.NoError(t, err)
+	t.Run("get non-existing", func(t *testing.T) {
+		err := storage.Delete(ctx, secretId)
+		assert.NoError(t, err)
+	})
 
-	// create
-	err = storage.Store(ctx, secretId, testSecretData)
-	assert.NoError(t, err)
+	t.Run("create", func(t *testing.T) {
+		err := storage.Store(ctx, secretId, testSecretData)
+		assert.NoError(t, err)
+	})
+
+	// write, let's wait a bit
+	time.Sleep(1 * time.Second)
+
+	t.Run("get", func(t *testing.T) {
+		actualSecretData, err := storage.Get(ctx, secretId)
+		assert.NoError(t, err)
+		assert.NotNil(t, actualSecretData)
+		assert.EqualValues(t, testSecretData, actualSecretData)
+	})
+
+	t.Run("update", func(t *testing.T) {
+		err := storage.Store(ctx, secretId, updatedSecretData)
+		assert.NoError(t, err)
+	})
 
 	// write, let's wait a bit
 	time.Sleep(1 * time.Second)
 
 	// get
-	actualSecretData, err := storage.Get(ctx, secretId)
-	assert.NoError(t, err)
-	assert.NotNil(t, actualSecretData)
-	assert.EqualValues(t, testSecretData, actualSecretData)
-
-	// update
-	err = storage.Store(ctx, secretId, updatedSecretData)
-	assert.NoError(t, err)
-
-	// write, let's wait a bit
-	time.Sleep(1 * time.Second)
-
-	// get
-	gettedSecretData, err = storage.Get(ctx, secretId)
-	assert.NoError(t, err)
-	assert.NotNil(t, gettedSecretData)
-	assert.EqualValues(t, updatedSecretData, gettedSecretData)
+	t.Run("update", func(t *testing.T) {
+		gettedSecretData, err := storage.Get(ctx, secretId)
+		assert.NoError(t, err)
+		assert.NotNil(t, gettedSecretData)
+		assert.EqualValues(t, updatedSecretData, gettedSecretData)
+	})
 
 	// delete
-	err = storage.Delete(ctx, secretId)
-	assert.NoError(t, err)
+	t.Run("delete", func(t *testing.T) {
+		err := storage.Delete(ctx, secretId)
+		assert.NoError(t, err)
+	})
 
 	// write, let's wait a bit
 	time.Sleep(1 * time.Second)
 
 	// get deleted
-	gettedSecretData, err = storage.Get(ctx, secretId)
-	assert.ErrorIs(t, err, secretstorage.NotFoundError)
-	assert.Nil(t, gettedSecretData)
+	t.Run("get deleted", func(t *testing.T) {
+		gettedSecretData, err := storage.Get(ctx, secretId)
+		assert.ErrorIs(t, err, secretstorage.NotFoundError)
+		assert.Nil(t, gettedSecretData)
+	})
 
 }
 
