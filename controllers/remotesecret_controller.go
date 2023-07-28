@@ -50,7 +50,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -95,14 +94,16 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 		})).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+				return r.findRemoteSecretForUploadSecret(o)
+			}),
 			builder.WithPredicates(pred, predicate.Funcs{
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).
-		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
+		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 		})).
 		Complete(r)
 	if err != nil {
@@ -111,7 +112,23 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
+func (r *RemoteSecretReconciler) findRemoteSecretForUploadSecret(secret client.Object) []reconcile.Request {
+	remoteSecretName := secret.GetAnnotations()[api.RemoteSecretNameAnnotation]
+	if remoteSecretName == "" {
+		return []reconcile.Request{}
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: secret.GetNamespace(),
+				Name:      remoteSecretName,
+			},
+		},
+	}
+}
+
+func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
 	lg := log.FromContext(ctx)
 	refs, err := nsMarker.GetReferencingTargets(ctx, o)
