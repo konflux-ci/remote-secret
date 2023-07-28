@@ -25,14 +25,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 var testData = []byte("test_data")
 
 var testSecretID = secretstorage.SecretID{
-	Uid:       uuid.NewUUID(),
-	Name:      "testSpiAccessToken",
+	Name:      "testRemoteSecret",
 	Namespace: "testNamespace",
 }
 
@@ -52,21 +50,22 @@ func TestInitialize(t *testing.T) {
 
 func TestInitSecretNameFormat(t *testing.T) {
 	s := AwsSecretStorage{
-		SpiInstanceId: "blabol",
+		InstanceId: "blabol",
 	}
 	assert.Contains(t, s.initSecretNameFormat(), "blabol")
 }
 
 func TestGenerateSecretName(t *testing.T) {
 	s := AwsSecretStorage{
-		secretNameFormat: "%s",
+		secretNameFormat: "%s/%s",
 	}
 
-	uid := uuid.NewUUID()
-	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Uid: uid})
+	namespace := "foo"
+	name := "rs-test"
+	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Namespace: namespace, Name: name})
 
 	assert.NotNil(t, secretName)
-	assert.Contains(t, *secretName, uid)
+	assert.Equal(t, *secretName, "foo/rs-test")
 }
 
 func TestCheckCredentials(t *testing.T) {
@@ -394,8 +393,8 @@ func TestMigrate(t *testing.T) {
 		}
 
 		strg := AwsSecretStorage{
-			client:        cl,
-			SpiInstanceId: "spi-test",
+			client:     cl,
+			InstanceId: "rs-test",
 		}
 
 		data, err := strg.tryMigrateSecret(ctx, testSecretID)

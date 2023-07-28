@@ -51,8 +51,8 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	SpiInstanceId string
-	Config        *aws.Config
+	InstanceId string
+	Config     *aws.Config
 
 	secretNameFormat string
 	client           awsClient
@@ -76,12 +76,9 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	dbgLog.Info("storing data")
 
-	secretName := s.generateAwsSecretName(&id)
-
-	dbgLog = dbgLog.WithValues("secretname", secretName)
 	ctx = log.IntoContext(ctx, dbgLog)
 
-	errCreate := s.createOrUpdateAwsSecret(ctx, secretName, data)
+	errCreate := s.createOrUpdateAwsSecret(ctx, &id, data)
 	if errCreate != nil {
 		dbgLog.Error(errCreate, "secret creation failed")
 		return errASWSecretCreationFailed
@@ -148,13 +145,25 @@ func (s *AwsSecretStorage) checkCredentials(ctx context.Context) error {
 	return nil
 }
 
-func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, name *string, data []byte) error {
+func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId *secretstorage.SecretID, data []byte) error {
 	dbgLog := lg(ctx)
 	dbgLog.Info("creating the AWS secret")
+
+	name := s.generateAwsSecretName(secretId)
+	dbgLog = dbgLog.WithValues("secretname", name)
 
 	createInput := &secretsmanager.CreateSecretInput{
 		Name:         name,
 		SecretBinary: data,
+		Tags: []types.Tag{
+			{
+				Key:   aws.String("namespace"),
+				Value: aws.String(secretId.Namespace),
+			}, {
+				Key:   aws.String("name"),
+				Value: aws.String(secretId.Name),
+			},
+		},
 	}
 
 	_, errCreate := s.client.CreateSecret(ctx, createInput)
@@ -224,14 +233,14 @@ func (s *AwsSecretStorage) deleteAwsSecret(ctx context.Context, secretName *stri
 }
 
 func (s *AwsSecretStorage) generateAwsSecretName(secretId *secretstorage.SecretID) *string {
-	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Uid))
+	return aws.String(fmt.Sprintf(s.secretNameFormat, secretId.Namespace, secretId.Name))
 }
 
 func (s *AwsSecretStorage) initSecretNameFormat() string {
-	if s.SpiInstanceId == "" {
-		return "%s"
+	if s.InstanceId == "" {
+		return "%s/%s"
 	} else {
-		return s.SpiInstanceId + "/%s"
+		return s.InstanceId + "/%s/%s"
 	}
 }
 
@@ -241,11 +250,11 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	lg(ctx).Info("trying to migrate AWS secret", "secretid", secretId)
 	dbLog := lg(ctx).V(logs.DebugLevel).WithValues("secretId", secretId)
 
-	legacyNameFormat := "%s/%s"
-	if s.SpiInstanceId != "" {
-		legacyNameFormat = s.SpiInstanceId + "/%s/%s"
+	legacyNameFormat := "%s"
+	if s.InstanceId != "" {
+		legacyNameFormat = s.InstanceId + "/%s"
 	}
-	legacySecretName := aws.String(fmt.Sprintf(legacyNameFormat, secretId.Namespace, secretId.Name))
+	legacySecretName := aws.String(fmt.Sprintf(legacyNameFormat, secretId.Uid))
 
 	// first try to get legacy secret, if it is not there, we just stop migration
 	getOutput, errGetSecret := s.getAwsSecret(ctx, legacySecretName)
@@ -264,7 +273,7 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	dbLog.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
 
 	// create secret with new name
-	errCreate := s.createOrUpdateAwsSecret(ctx, newSecretName, getOutput.SecretBinary)
+	errCreate := s.createOrUpdateAwsSecret(ctx, &secretId, getOutput.SecretBinary)
 	if errCreate != nil {
 		return nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
 	}
