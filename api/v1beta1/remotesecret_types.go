@@ -54,6 +54,13 @@ type RemoteSecretStatus struct {
 	// Targets is the list of the deployment statuses for individual targets in the spec.
 	// +optional
 	Targets []TargetStatus `json:"targets,omitempty"`
+	// SecretStatus describes the shape of the secret which is currently stored in SecretStorage.
+	// +optional
+	SecretStatus SecretStatus `json:"secret,omitempty"`
+}
+
+type SecretStatus struct {
+	Keys []string `json:"keys,omitempty"`
 }
 
 type TargetStatus struct {
