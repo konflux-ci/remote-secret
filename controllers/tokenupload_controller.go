@@ -131,29 +131,14 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func determineActions(annos map[string]string) (createOrUpdate bool, partialUpdate bool, partialDelete bool) {
-	if _, partialUpdate = annos[api.RemoteSecretPartialUpdateAnnotation]; partialUpdate {
-		_, partialDelete = annos[api.RemoteSecretDeletedKeysAnnotation]
-		// if we declare partial update, the createOrUpdate can never be true
-		return
-	}
-
-	createOrUpdate = true
-	return
-}
-
-func getKeysToDelete(annos map[string]string) []string {
-	return commaseparated.Value(annos[api.RemoteSecretDeletedKeysAnnotation]).Values()
-}
-
 func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
-	createOrUpdate, partialUpdate, partialDelete := determineActions(uploadSecret.Annotations)
+	_, partialUpdate := uploadSecret.Annotations[api.RemoteSecretPartialUpdateAnnotation]
 
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret)
 	if err != nil {
 		return fmt.Errorf("attempt to find the remote secret failed: %w", err)
 	}
-	if createOrUpdate && remoteSecret == nil {
+	if !partialUpdate && remoteSecret == nil {
 		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret)
 		if err != nil {
 			return fmt.Errorf("failed to create the remote secret: %w", err)
@@ -171,7 +156,23 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(remoteSecret))
 
-	if createOrUpdate {
+	if partialUpdate {
+		auditLog.Info("manual secret partial update initiated", "action", "UPDATE")
+
+		keysToDelete := commaseparated.Value(uploadSecret.Annotations[api.RemoteSecretDeletedKeysAnnotation]).Values()
+
+		if err := r.RemoteSecretStorage.PartialUpdate(ctx, remoteSecret, &uploadSecret.Data, keysToDelete); err != nil {
+			err = fmt.Errorf("failed to partially update the secret data: %w", err)
+			auditLog.Error(err, "manual secret partial update failed")
+			return err
+		}
+		if err != nil {
+			err = fmt.Errorf("failed to read the secret data: %w", err)
+			auditLog.Error(err, "manual secret partial update failed")
+			return err
+		}
+		auditLog.Info("manual secret partial update completed")
+	} else {
 		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
 		err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
 		if err != nil {
@@ -180,33 +181,6 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 			return err
 		}
 		auditLog.Info("manual secret upload completed")
-	}
-
-	if partialUpdate {
-		auditLog.Info("manual secret partial update initiated", "action", "READ")
-		data, err := r.RemoteSecretStorage.Get(ctx, remoteSecret)
-		if err != nil {
-			err = fmt.Errorf("failed to read the secret data: %w", err)
-			auditLog.Error(err, "manual secret partial update failed")
-			return err
-		}
-
-		for key, val := range uploadSecret.Data {
-			(*data)[key] = val
-		}
-
-		if partialDelete {
-			for _, key := range getKeysToDelete(uploadSecret.Annotations) {
-				delete(*data, key)
-			}
-		}
-		auditLog.Info("manual secret partial update", "action", "UPDATE")
-		err = r.RemoteSecretStorage.Store(ctx, remoteSecret, data)
-		if err != nil {
-			err = fmt.Errorf("failed to store the secret data: %w", err)
-			auditLog.Error(err, "manual secret partial update failed")
-			return err
-		}
 	}
 
 	return nil
