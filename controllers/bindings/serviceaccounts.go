@@ -293,21 +293,26 @@ func (h *serviceAccountHandler) ensureManagedServiceAccount(ctx context.Context,
 	var err error
 	sa := &corev1.ServiceAccount{}
 
-	if err = h.Target.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: h.Target.GetTargetNamespace()}, sa); err != nil {
-		if errors.IsNotFound(err) {
-			sa = &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:         name,
-					Namespace:    h.Target.GetTargetNamespace(),
-					GenerateName: spec.GenerateName,
-				},
-			}
-			_, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), sa)
-			if err == nil {
-				err = h.Target.GetClient().Create(ctx, sa)
-			}
+	doCreate := name == ""
+
+	if !doCreate {
+		err = h.Target.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: h.Target.GetTargetNamespace()}, sa)
+		doCreate = errors.IsNotFound(err)
+	}
+
+	if doCreate {
+		sa = &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:         name,
+				Namespace:    h.Target.GetTargetNamespace(),
+				GenerateName: spec.GenerateName,
+			},
 		}
-	} else {
+		_, err = h.ObjectMarker.MarkManaged(ctx, h.Target.GetTargetObjectKey(), sa)
+		if err == nil {
+			err = h.Target.GetClient().Create(ctx, sa)
+		}
+	} else if err == nil {
 		// The service account already exists. We need to make sure that it is associated with this target,
 		// otherwise we error out because we found a pre-existing SA that should be managed.
 		// Note that the managed SAs always also are marked as referenced by contract of the object marker.

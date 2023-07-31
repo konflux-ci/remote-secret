@@ -16,13 +16,19 @@ package v1beta1
 
 // Caution: Modifying these constants may have unintended consequences in other projects that rely on remote-secret.
 const (
-	UploadSecretLabel         = "appstudio.redhat.com/upload-secret"           //#nosec G101 -- false positive, this is just a label
-	LinkedByRemoteSecretLabel = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
+	UploadSecretLabel                   = "appstudio.redhat.com/upload-secret"           //#nosec G101 -- false positive, this is just a label
+	LinkedByRemoteSecretLabel           = "appstudio.redhat.com/linked-by-remote-secret" //#nosec G101 -- false positive, this is just a label
+	RemoteSecretAuthServiceAccountLabel = "appstudio.redhat.com/remotesecret-auth-sa"
 
 	RemoteSecretNameAnnotation         = "appstudio.redhat.com/remotesecret-name" //#nosec G101 -- false positive
 	TargetNamespaceAnnotation          = "appstudio.redhat.com/remotesecret-target-namespace"
 	ManagingRemoteSecretNameAnnotation = "appstudio.redhat.com/managing-remote-secret" //#nosec G101 -- false positive
 	LinkedRemoteSecretsAnnotation      = "appstudio.redhat.com/linked-remote-secrets"  //#nosec G101 -- false positive
+
+	// ObjectClusterUrlAnnotation is put on the events that are created when we fail to clean up the deployed secrets during the RemoteSecret
+	// finalization. It specifies the API URL of the cluster where the secrets were deployed to (because there is no other good place to put
+	// this information on the Event object).
+	ObjectClusterUrlAnnotation = "appstudio.redhat.com/object-cluster-url"
 
 	// RemoteSecretPartialUpdateAnnotation if present on the upload secret, this marks the upload secret as performing a partial update of the already existing secret data
 	// of the remote secret that the upload secret refers to using the RemoteSecretNameAnnotation annotation. The value of this annotation is not important but should be documented
