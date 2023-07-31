@@ -73,6 +73,9 @@ type TargetStatus struct {
 	// ServiceAccountNames is the names of the service accounts that have been deployed to the target namespace
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
+	// ClusterCredentialsSecret is the name of the secret in the same namespace as the RemoteSecret that contains the token
+	// to use to authenticate with the remote Kubernetes cluster. This is ignored if `apiUrl` is empty.
+	ClusterCredentialsSecret string `json:"clusterCredentialsSecret,omitempty"`
 	// Error the optional error message if the deployment of either the secret or the service accounts failed.
 	// +optional
 	Error string `json:"error,omitempty"`

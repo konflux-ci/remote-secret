@@ -23,6 +23,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/remote-secret/controllers"
+	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -92,7 +93,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage); err != nil {
+	cf := &bindings.CachingClientFactory{
+		LocalCluster: bindings.LocalClusterConnectionDetails{
+			Client: mgr.GetClient(),
+			Config: mgr.GetConfig(),
+		},
+	}
+
+	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, cf); err != nil {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
