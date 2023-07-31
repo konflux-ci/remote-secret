@@ -161,21 +161,15 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 
 		keysToDelete := commaseparated.Value(uploadSecret.Annotations[api.RemoteSecretDeletedKeysAnnotation]).Values()
 
-		if err := r.RemoteSecretStorage.PartialUpdate(ctx, remoteSecret, &uploadSecret.Data, keysToDelete); err != nil {
+		if err = r.RemoteSecretStorage.PartialUpdate(ctx, remoteSecret, &uploadSecret.Data, keysToDelete); err != nil {
 			err = fmt.Errorf("failed to partially update the secret data: %w", err)
-			auditLog.Error(err, "manual secret partial update failed")
-			return err
-		}
-		if err != nil {
-			err = fmt.Errorf("failed to read the secret data: %w", err)
 			auditLog.Error(err, "manual secret partial update failed")
 			return err
 		}
 		auditLog.Info("manual secret partial update completed")
 	} else {
 		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
-		err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
-		if err != nil {
+		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data)); err != nil {
 			err = fmt.Errorf("failed to store the remote secret data: %w", err)
 			auditLog.Error(err, "manual secret upload failed")
 			return err
