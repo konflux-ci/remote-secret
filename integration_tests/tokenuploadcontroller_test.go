@@ -188,24 +188,11 @@ var _ = Describe("TokenUploadController", func() {
 				})
 			})
 		})
-
-		When("no secret types do not match", func() {
+		When("upload secret is invalid ", func() {
 			test := crenv.TestSetup{
-				ToCreate: []client.Object{
-					&api.RemoteSecret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "test-remote-secret",
-							Namespace: "default",
-						},
-						Spec: api.RemoteSecretSpec{
-							Secret: api.LinkableSecretSpec{
-								Type: corev1.SecretTypeDockercfg,
-							},
-						},
-					},
-				},
-				MonitoredObjectTypes: []client.Object{&corev1.Secret{}},
+				MonitoredObjectTypes: []client.Object{&corev1.Secret{}, &corev1.Event{}},
 			}
+			// Create the secret here to avoid repetition and only overwrite the specific parts in each test case.
 			uploadSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-remote-secret-upload",
@@ -217,21 +204,9 @@ var _ = Describe("TokenUploadController", func() {
 						"appstudio.redhat.com/remotesecret-name": "test-remote-secret",
 					},
 				},
-				Type: "Opaque",
-				Data: map[string][]byte{"a": []byte("b")},
 			}
 
-			BeforeEach(func() {
-				test.BeforeEach(ITest.Context, ITest.Client, nil)
-			})
-
-			AfterEach(func() {
-				test.AfterEach(ITest.Context)
-			})
-
-			It("fails the upload", func() {
-				Expect(ITest.Client.Create(ITest.Context, uploadSecret)).To(Succeed())
-
+			expectUploadFailed := func() {
 				test.SettleWithCluster(ITest.Context, func(g Gomega) {
 					// Upload secret should be deleted
 					g.Expect(crenv.GetAll[*corev1.Secret](&test.InCluster)).To(BeEmpty())
@@ -244,9 +219,54 @@ var _ = Describe("TokenUploadController", func() {
 
 					// Error event should be created
 					event := &corev1.Event{}
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: uploadSecret.Name, Namespace: uploadSecret.Namespace}, event)).To(Succeed())
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKeyFromObject(uploadSecret), event)).To(Succeed())
 					g.Expect(event.Type).To(Equal("Error"))
+				})
+			}
 
+			BeforeEach(func() {
+				test.ToCreate = []client.Object{ // new RS for each test
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Type:         corev1.SecretTypeSSHAuth,
+								RequiredKeys: []api.SecretKey{{Name: "foo"}},
+							},
+						},
+					},
+				}
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			When("secret types do not match", func() {
+				// Requirements for data would be satisfied but types do not match.
+				uploadSecret := uploadSecret.DeepCopy()
+				uploadSecret.Type = corev1.SecretTypeOpaque
+				uploadSecret.Data = map[string][]byte{corev1.SSHAuthPrivateKey: []byte("ssh..."), "foo": []byte("bar")}
+
+				It("fails the upload", func() {
+					Expect(ITest.Client.Create(ITest.Context, uploadSecret)).To(Succeed())
+					expectUploadFailed()
+				})
+			})
+
+			When("upload secret does not have required key foo", func() {
+				// Types match but data do not have the foo key.
+				uploadSecret := uploadSecret.DeepCopy()
+				uploadSecret.Type = corev1.SecretTypeSSHAuth
+				uploadSecret.Data = map[string][]byte{corev1.SSHAuthPrivateKey: []byte("ssh...")}
+
+				It("fails the upload", func() {
+					Expect(ITest.Client.Create(ITest.Context, uploadSecret)).To(Succeed())
+					expectUploadFailed()
 				})
 			})
 		})

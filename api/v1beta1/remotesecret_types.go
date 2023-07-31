@@ -143,7 +143,7 @@ func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
 	// Check if the secret data contains all the required keys. Outer slice is ANDed, inner slice is ORed.
 	var notFoundKeys []string
 	for _, keys := range requiredSetsOfKeys {
-		found := false
+		found := len(keys) == 0 // If this set of required keys is empty, then this is an empty constraint and we "found" it.
 		for _, k := range keys {
 			if _, ok := secretData[k]; ok {
 				found = true
@@ -159,7 +159,6 @@ func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
 		return fmt.Errorf("%w: %s", secretDataKeysMissingError, strings.Join(notFoundKeys, ", "))
 	}
 
-	// TODO: Think about if upload secret can have additional keys which are not required.
 	return nil
 }
 

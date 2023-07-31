@@ -94,6 +94,15 @@ func TestValidateUploadSecret(t *testing.T) {
 }
 
 func TestValidateSecretData(t *testing.T) {
+	t.Run("no required keys", func(t *testing.T) {
+		rs := RemoteSecret{Spec: RemoteSecretSpec{Secret: LinkableSecretSpec{
+			Type: corev1.SecretTypeOpaque,
+		}}}
+		secretData := map[string][]byte{"foo": []byte("whatever"), "kuku": []byte("other")}
+
+		err := rs.ValidateSecretData(secretData)
+		assert.NoError(t, err)
+	})
 	t.Run("does not contain key from RemoteSecret spec", func(t *testing.T) {
 		rs := RemoteSecret{Spec: RemoteSecretSpec{Secret: LinkableSecretSpec{
 			Type:         corev1.SecretTypeDockercfg,
