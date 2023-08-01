@@ -601,3 +601,65 @@ status:
 ```
 
 Note that if you don't specify the `apiUrl` on the target, the current cluster is assumed. Therefore, you can also use kubeconfig-style connections to deploy to the current cluster.
+
+### Partial Updates of the Secret Data
+
+With remote secrets, you can review the set of keys that are present in the secret data (but you cannot retrieve the values which are only ever deployed as secrets in the targets). To be able to amend the keys in a remote secret without knowing the values of all keys in it, one can do a partial update of the data. Using this approach, one can only modify the keys to which the values are known while not touching the pre-existing keys.
+
+The partial update is done using the upload secret as any other secret data manipulation. The upload secret needs to be annotated as providing a partial update and contain only the actual changes to the data as illustrated in the below examples.
+
+#### Creating new keys in the secret data
+
+In the below example, let's assume there already exists a remote secret called `my-remote-secret` that already has some data uploaded to it. We want to add two new keys to its data, `my-new-key` and `passphrase`, and assign values to them.
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-upload-secret
+  labels:
+    appstudio.redhat.com/upload-secret: remotesecret
+  annotations:
+    appstudio.redhat.com/remotesecret-name: my-remote-secret
+    appstudio.redhat.com/remotesecret-partial-update: true
+data:
+  my-new-key: secret_value
+  passphrase: "f0urty 2"
+```
+
+#### Updating existing keys in the secret data
+
+Updating existing keys is essentially the same as creating the new ones. You just specify a key value pair where the key already exists in the data of the remote secret. So let's update the value of the `my-new-key` key from the previous example:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-upload-secret
+  labels:
+    appstudio.redhat.com/upload-secret: remotesecret
+  annotations:
+    appstudio.redhat.com/remotesecret-name: my-remote-secret
+    appstudio.redhat.com/remotesecret-partial-update: true
+data:
+  my-new-key: another_secret_value
+```
+
+#### Deleting existing keys from the secret data
+
+Deleting a key is done differently to the update. This is so that you can combine updates and deletions of the keys in one go. So let's say we now want to remove the `my-new-key` because we made a typo, and it should have been `my-secret-key`. Let's also remote the `passphrase` because we don't want it in the secret data of this remote secret anymore.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-upload-secret
+  labels:
+    appstudio.redhat.com/upload-secret: remotesecret
+  annotations:
+    appstudio.redhat.com/remotesecret-name: my-remote-secret
+    appstudio.redhat.com/remotesecret-partial-update: true
+    appstudio.redhat.com/remotesecret-delete-keys: my-new_key, passphrase
+data:
+  my-secret-key: another_secret_value
+```
+
