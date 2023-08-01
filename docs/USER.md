@@ -663,3 +663,4 @@ data:
   my-secret-key: another_secret_value
 ```
 
+Note that the deleted keys take precedence over the keys in the data. So if you specify the same key both in the value of the `appstudio.redhat.com/remotesecret-delete-keys` annotation and in the data of the upload secret, the key is deleted from the secret data.
