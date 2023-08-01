@@ -270,7 +270,7 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	}
 
 	newSecretName := s.generateAwsSecretName(&secretId)
-	dbLog.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
+	lg(ctx).Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
 
 	// create secret with new name
 	errCreate := s.createOrUpdateAwsSecret(ctx, &secretId, getOutput.SecretBinary)
