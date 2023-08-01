@@ -132,10 +132,7 @@ func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error 
 // keys required by the secret type because Kubernetes API server would reject the upload secret if it did not contain
 // the required keys. However, this function is also meant for validating the secret data that is already stored.
 func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
-	// Keys based on secret type.
 	requiredSetsOfKeys := getKeysForSecretType(rs.Spec.Secret.Type)
-
-	// Keys based on RemoteSecret spec.
 	for _, key := range rs.Spec.Secret.RequiredKeys {
 		requiredSetsOfKeys = append(requiredSetsOfKeys, []string{key.Name})
 	}

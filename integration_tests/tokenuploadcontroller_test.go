@@ -192,7 +192,7 @@ var _ = Describe("TokenUploadController", func() {
 			test := crenv.TestSetup{
 				MonitoredObjectTypes: []client.Object{&corev1.Secret{}, &corev1.Event{}},
 			}
-			// Create the secret here to avoid repetition and only overwrite the specific parts in each test case.
+			// Define the secret here to avoid repetition and only overwrite the specific parts in each test case.
 			uploadSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-remote-secret-upload",
@@ -247,7 +247,6 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			When("secret types do not match", func() {
-				// Requirements for data would be satisfied but types do not match.
 				uploadSecret := uploadSecret.DeepCopy()
 				uploadSecret.Type = corev1.SecretTypeOpaque
 				uploadSecret.Data = map[string][]byte{corev1.SSHAuthPrivateKey: []byte("ssh..."), "foo": []byte("bar")}
@@ -259,7 +258,6 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			When("upload secret does not have required key foo", func() {
-				// Types match but data do not have the foo key.
 				uploadSecret := uploadSecret.DeepCopy()
 				uploadSecret.Type = corev1.SecretTypeSSHAuth
 				uploadSecret.Data = map[string][]byte{corev1.SSHAuthPrivateKey: []byte("ssh...")}
