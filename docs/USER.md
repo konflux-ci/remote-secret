@@ -157,6 +157,103 @@ reason: cannot process upload secret
 type: Error
 ```
 
+#### Creating RemoteSecret with a set of required keys
+In this example we will create a RemoteSecret with set of required keys. This means that secret deployed to targets 
+must contain the two keys: `usr` and `pass`. However, the secret may contain additional keys other than these two.
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret:
+        name: deployed-secret
+        keys: 
+        - name: usr
+        - name: pass
+    targets: []
+```
+
+To upload the data for this RemoteSecret we can create the following UploadSecret:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: upload-secret-data-for-remote-secret
+    namespace: default
+    labels:
+        appstudio.redhat.com/upload-secret: remotesecret
+    annotations:
+        appstudio.redhat.com/remotesecret-name: test-remote-secret
+type: Opaque
+stringData:
+    usr: myself
+    pass: passwrd
+    somekey: somevalue
+```
+If we failed to provide either the `usr` or `pass` key, the data would not be saved and an error Event
+would be created, such as this one:
+
+```yaml
+apiVersion: v1                                                                                                                                                                                                                              
+eventTime: null                                                                                                                                                                                                                             
+firstTimestamp: null                                                                                                                                                                                                                        
+involvedObject:                                                                                                                                                                                                                             
+  apiVersion: v1                                                                                                                                                                                                                            
+  kind: Secret                                                                                                                                                                                                                              
+  name: test-remote-secret-secret                                                                                                                                                                                                           
+  namespace: default                                                                                                                                                                                                                        
+kind: Event                                                                                                                                                                                                                                 
+lastTimestamp: "2023-08-01T13:36:52Z"                                                                                                                                                                                                       
+message: 'validation of upload secret failed: the secret data does not contain the                                                                                                                                                          
+  required keys: pass '                                                                                                                                                                                                                     
+metadata:                                                                                                                                                                                                                                   
+  name: test-remote-secret-secret                                                                                                                                                                                                           
+  namespace: default                                                                                                                                                                                                                        
+reason: cannot process upload secret                                                                                                                                                                                                        
+reportingComponent: ""                                                                                                                                                                                                                      
+reportingInstance: ""                                                                                                                                                                                                                       
+source: {}                                                                                                                                                                                                                                  
+type: Error 
+```
+
+The second example below shows RemoteSecret that has a specific type defined in the spec (other than the default `Opaque`).
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret:
+        type: kubernetes.io/ssh-auth
+        name: deployed-secret
+        keys: 
+        - name: usr
+        - name: pass
+    targets: []
+```
+To upload the data for this RemoteSecret, we need to create an UploadSecret which type is `kubernetes.io/ssh-auth`.
+Because secrets of type `kubernetes.io/ssh-auth` must have the `ssh-privatekey` key (required by Kubernetes), this means that the UploadSecret
+must have at least these three keys: `ssh-privatekey`, `usr`, and `pass`, just like the UploadSecret below:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: upload-secret-data-for-remote-secret
+    namespace: default
+    labels:
+        appstudio.redhat.com/upload-secret: remotesecret
+    annotations:
+        appstudio.redhat.com/remotesecret-name: test-remote-secret
+type: kubernetes.io/ssh-auth
+stringData:
+    usr: myself
+    pass: passwrd
+    ssh-privatekey: ssh-key...
+```
+
 #### Creating RemoteSecret and target in a single action
 
 If a remote secret is supposed to have only one simple target (containing namespace only), it can be created in a single operation by using a special annotation in the upload secret: 

@@ -188,8 +188,9 @@ type LinkableSecretSpec struct {
 	// Only kubernetes.io/service-account-token, kubernetes.io/dockercfg, kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth
 	// are supported. All other secret types need to have their mapping specified manually using the Fields.
 	Type corev1.SecretType `json:"type,omitempty"`
-
-	// RequiredKeys are the...
+	// RequiredKeys are the keys which need to be present in the UploadSecret to successfully upload the SecretData.
+	// Furthermore, the UploadSecret needs to contain the keys which are inferred from the UploadSecret's type and may
+	// contain any additional keys.
 	RequiredKeys []SecretKey `json:"keys,omitempty"`
 	// LinkedTo specifies the objects that the secret is linked to. Currently, only service accounts are supported.
 	LinkedTo []SecretLink `json:"linkedTo,omitempty"`
