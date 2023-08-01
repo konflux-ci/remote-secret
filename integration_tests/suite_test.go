@@ -90,7 +90,14 @@ var _ = BeforeSuite(func() {
 		EnableRemoteSecrets: true,
 	}
 
-	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage)).To(Succeed())
+	ITest.ClientFactory = TestClientFactory{
+		GetClientImpl: func(_ context.Context, _ string, _ *api.RemoteSecretTarget, _ *api.TargetStatus) (client.Client, error) {
+			// effectively, this switches off any support for auth or deployment to remote clusters in the integration tests..
+			return mgr.GetClient(), nil
+		},
+	}
+
+	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage, &ITest.ClientFactory)).To(Succeed())
 
 	go func() {
 		err = mgr.Start(ITest.Context)

@@ -53,9 +53,9 @@ var uploadSecretSelector = metav1.LabelSelector{
 	},
 }
 
-// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=get;list;watch;create;update;patch;delete
 
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
