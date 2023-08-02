@@ -114,7 +114,7 @@ type RemoteSecret struct {
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
 var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
 
-// ValidateUploadSecret checks weather the uploadSecret type matches the RemoteSecret type and whether upload secret
+// ValidateUploadSecret checks whether the uploadSecret type matches the RemoteSecret type and whether upload secret
 // contains required keys.
 // The function is in the api package because it extends the contract of the CRD.
 func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error {
@@ -127,7 +127,7 @@ func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error 
 	return nil
 }
 
-// ValidateSecretData checks weather the secret data contains all the keys required by the secret type and specified
+// ValidateSecretData checks whether the secret data contains all the keys required by the secret type and specified
 // in the RemoteSecret spec. If we assumed this function is called only for upload secrets, we could avoid checking the
 // keys required by the secret type because Kubernetes API server would reject the upload secret if it did not contain
 // the required keys. However, this function is also meant for validating the secret data that is already stored.
@@ -140,6 +140,7 @@ func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
 	// Check if the secret data contains all the required keys. Outer slice is ANDed, inner slice is ORed.
 	var notFoundKeys []string
 	for _, keys := range requiredSetsOfKeys {
+		// If the set of required keys is empty, such is the case when type in RemoteSecret is Opaque, then this is an empty constraint
 		found := len(keys) == 0 // If this set of required keys is empty, then this is an empty constraint and we "found" it.
 		for _, k := range keys {
 			if _, ok := secretData[k]; ok {
@@ -180,17 +181,16 @@ type LinkableSecretSpec struct {
 	GenerateName string `json:"generateName,omitempty"`
 	// Labels contains the labels that the created secret should be labeled with.
 	Labels map[string]string `json:"labels,omitempty"`
-	// Annotations is the keys and values that the create secret should be annotated with.
+	// Annotations is the keys and values that the created secret should be annotated with.
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Type is the type of the secret to be created. If left empty, the default type used in the cluster is assumed (typically Opaque).
-	// The type of the secret defines the automatic mapping of the token record fields to keys in the secret data
-	// according to the documentation https://kubernetes.io/docs/concepts/configuration/secret/#secret-types.
-	// Only kubernetes.io/service-account-token, kubernetes.io/dockercfg, kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth
-	// are supported. All other secret types need to have their mapping specified manually using the Fields.
+	// Type is the type of the secret to be created in targets. If left empty, the default type used in the cluster is assumed (typically Opaque).
+	// The Type has to match type of the UploadSecret. This constraint ensures that the requirements on keys,
+	// put forth by Kubernetes (https://kubernetes.io/docs/concepts/configuration/secret/#secret-types), are met and
+	// secret can be properly created in targets.
 	Type corev1.SecretType `json:"type,omitempty"`
 	// RequiredKeys are the keys which need to be present in the UploadSecret to successfully upload the SecretData.
-	// Furthermore, the UploadSecret needs to contain the keys which are inferred from the UploadSecret's type and may
-	// contain any additional keys.
+	// Furthermore, the UploadSecret needs to contain the keys which are inferred from the Type
+	// (and UploadSecret's type, since these have to match) and may contain any additional keys.
 	RequiredKeys []SecretKey `json:"keys,omitempty"`
 	// LinkedTo specifies the objects that the secret is linked to. Currently, only service accounts are supported.
 	LinkedTo []SecretLink `json:"linkedTo,omitempty"`
