@@ -140,8 +140,12 @@ func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
 	// Check if the secret data contains all the required keys. Outer slice is ANDed, inner slice is ORed.
 	var notFoundKeys []string
 	for _, keys := range requiredSetsOfKeys {
-		// If the set of required keys is empty, such is the case when type in RemoteSecret is Opaque, then this is an empty constraint
-		found := len(keys) == 0 // If this set of required keys is empty, then this is an empty constraint and we "found" it.
+		// If the current set of required keys is empty, such is the case when type in RemoteSecret is Opaque,
+		// then this is an empty constraint, and we can skip the iteration.
+		if len(keys) == 0 {
+			continue
+		}
+		found := false
 		for _, k := range keys {
 			if _, ok := secretData[k]; ok {
 				found = true
