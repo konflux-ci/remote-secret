@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
@@ -27,7 +29,6 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 var _ secretstorage.SecretStorage = (*AwsSecretStorage)(nil)
@@ -138,7 +139,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 			}
 			// not a known AWS error, return as-is
 			dbgLog.Error(err, "unknown error on reading aws secret storage")
-			return nil, backoff.Permanent(errAWSUnknownError)
+			return nil, backoff.Permanent(errAWSUnknownError) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 		}
 
 		return getResult.SecretBinary, nil
