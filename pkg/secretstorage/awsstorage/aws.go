@@ -44,10 +44,10 @@ const (
 	// Reading or creating AWS secret right after the secret with the same ID was deleted may take some time, until the
 	// old one is clear completely.
 	// Repeats have exponential time between tries, see https://github.com/cenkalti/backoff/blob/v4/exponential.go
-	secretReadRetryCount                    = 10
-	secretCreationRetryCount                = 10
-	secretMarkedForDeletionOnGetErrorMsg    = "You can't perform this operation on the secret because it was marked for deletion"
-	secretMarkedForDeletionOnCreateErrorMsg = "ou can't create this secret because a secret with this name is already scheduled for deletion"
+	secretReadRetryCount          = 10
+	secretCreationRetryCount      = 10
+	secretMarkedForDeletionMsg    = "marked for deletion"
+	secretScheduledForDeletionMsg = "scheduled for deletion"
 )
 
 // awsClient is an interface grouping methods from aws secretsmanager.Client that we need for implementation of our aws tokenstorage
@@ -127,7 +127,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 				}
 
 				if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-					if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionOnGetErrorMsg) {
+					if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionMsg) {
 						dbgLog.Info("AWS secret data deletion is expected, trying one more time")
 						return nil, invalidRequestErr
 					} else {
@@ -212,7 +212,7 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 				return nil
 			}
 			if errInvalidRequest, ok := awsError.(*types.InvalidRequestException); ok {
-				if strings.Contains(errInvalidRequest.ErrorMessage(), secretMarkedForDeletionOnCreateErrorMsg) {
+				if strings.Contains(errInvalidRequest.ErrorMessage(), secretScheduledForDeletionMsg) {
 					dbgLog.Info("AWS secrets conflict found, trying one more time")
 					return errInvalidRequest
 				} else {
