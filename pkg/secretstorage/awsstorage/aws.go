@@ -122,7 +122,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 						return secretData, nil
 					} else {
 						dbgLog.Error(notFoundErr, "secret not found in aws storage")
-						return nil, backoff.Permanent(fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage()))
+						return nil, backoff.Permanent(fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage())) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 					}
 				}
 
@@ -132,7 +132,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 						return nil, invalidRequestErr
 					} else {
 						dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
-						return nil, backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage()))
+						return nil, backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 					}
 				}
 			}
@@ -143,7 +143,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 
 		return getResult.SecretBinary, nil
 
-	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 
 	return data, err
 }
@@ -175,8 +175,6 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 	dbgLog.Info("creating the AWS secret")
 
 	name := s.generateAwsSecretName(secretId)
-	dbgLog = dbgLog.WithValues("secretname", name)
-
 	createInput := &secretsmanager.CreateSecretInput{
 		Name:         name,
 		SecretBinary: data,
@@ -195,6 +193,7 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 
 func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *secretsmanager.CreateSecretInput, retryTries uint64) error {
 	dbgLog := lg(ctx).V(logs.DebugLevel)
+	dbgLog = dbgLog.WithValues("secretname", createInput.Name)
 	err := backoff.Retry(func() error {
 		_, errCreate := s.client.CreateSecret(ctx, createInput)
 		if errCreate == nil {
@@ -207,7 +206,7 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 				dbgLog.Info("AWS secret already exists, trying to update")
 				updateErr := s.updateAwsSecret(ctx, createInput.Name, createInput.SecretBinary)
 				if updateErr != nil {
-					return backoff.Permanent(fmt.Errorf("failed to update the secret: %w", updateErr))
+					return backoff.Permanent(fmt.Errorf("failed to update the secret: %w", updateErr)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 				}
 				return nil
 			}
@@ -217,14 +216,14 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 					return errInvalidRequest
 				} else {
 					dbgLog.Error(errInvalidRequest, "invalid creation request to aws secret storage")
-					return backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, errInvalidRequest.ErrorMessage()))
+					return backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, errInvalidRequest.ErrorMessage())) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 				}
 			}
-			return backoff.Permanent(fmt.Errorf("unexpected AWS error on creating the secret: %w", errCreate))
+			return backoff.Permanent(fmt.Errorf("unexpected AWS error on creating the secret: %w", errCreate)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 
 		}
 		// not a known AWS error, return as-is
-		return backoff.Permanent(fmt.Errorf("error creating the secret: %w", errCreate))
+		return backoff.Permanent(fmt.Errorf("error creating the secret: %w", errCreate)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 
 	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
 
