@@ -18,15 +18,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/smithy-go"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 )
 
 var _ secretstorage.SecretStorage = (*AwsSecretStorage)(nil)
@@ -37,6 +38,16 @@ var (
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
 	errAWSInvalidRequest       = errors.New("invalid request reported when making request to aws")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
+)
+
+const (
+	// Reading or creating AWS secret right after the secret with the same ID was deleted may take some time, until the
+	// old one is clear completely.
+	// Repeats have exponential time between tries, see https://github.com/cenkalti/backoff/blob/v4/exponential.go
+	secretReadRetryCount                    = 10
+	secretCreationRetryCount                = 10
+	secretMarkedForDeletionOnGetErrorMsg    = "You can't perform this operation on the secret because it was marked for deletion"
+	secretMarkedForDeletionOnCreateErrorMsg = "ou can't create this secret because a secret with this name is already scheduled for deletion"
 )
 
 // awsClient is an interface grouping methods from aws secretsmanager.Client that we need for implementation of our aws tokenstorage
@@ -87,40 +98,54 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 }
 
 func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
-	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
+	return s.doGetWithRetry(ctx, id, secretReadRetryCount)
+}
 
+func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.SecretID, retryTries uint64) ([]byte, error) {
+	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
 	secretName := s.generateAwsSecretName(&id)
 	dbgLog.Info("getting the token", "secretname", secretName, "secretId", id)
-	getResult, err := s.getAwsSecret(ctx, secretName)
 
-	if err != nil {
-		var awsError smithy.APIError
-		if errors.As(err, &awsError) {
-			if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
-				secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
-				if migrationErr != nil {
-					dbgLog.Error(migrationErr, "something went wrong during migration")
+	data, err := backoff.RetryWithData(func() ([]byte, error) {
+		getResult, err := s.getAwsSecret(ctx, secretName)
+
+		if err != nil {
+			var awsError smithy.APIError
+			if errors.As(err, &awsError) {
+				if notFoundErr, ok := awsError.(*types.ResourceNotFoundException); ok {
+					secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
+					if migrationErr != nil {
+						dbgLog.Error(migrationErr, "something went wrong during migration")
+					}
+					if secretData != nil {
+						dbgLog.Info("secret successfully migrated", "secretid", id)
+						return secretData, nil
+					} else {
+						dbgLog.Error(notFoundErr, "secret not found in aws storage")
+						return nil, backoff.Permanent(fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage()))
+					}
 				}
-				if secretData != nil {
-					dbgLog.Info("secret successfully migrated", "secretid", id)
-					return secretData, nil
-				} else {
-					dbgLog.Error(notFoundErr, "secret not found in aws storage")
-					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, notFoundErr.ErrorMessage())
+
+				if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
+					if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionOnGetErrorMsg) {
+						dbgLog.Info("AWS secret data deletion is expected, trying one more time")
+						return nil, invalidRequestErr
+					} else {
+						dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
+						return nil, backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage()))
+					}
 				}
 			}
-
-			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-				dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
-				return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
-			}
+			// not a known AWS error, return as-is
+			dbgLog.Error(err, "unknown error on reading aws secret storage")
+			return nil, backoff.Permanent(errAWSUnknownError)
 		}
 
-		dbgLog.Error(err, "unknown error on reading aws secret storage")
-		return nil, errAWSUnknownError
-	}
+		return getResult.SecretBinary, nil
 
-	return getResult.SecretBinary, nil
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
+
+	return data, err
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
@@ -165,24 +190,47 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 			},
 		},
 	}
+	return s.doCreateWithRetry(ctx, createInput, secretCreationRetryCount)
+}
 
-	_, errCreate := s.client.CreateSecret(ctx, createInput)
-	if errCreate != nil {
+func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *secretsmanager.CreateSecretInput, retryTries uint64) error {
+	dbgLog := lg(ctx).V(logs.DebugLevel)
+	err := backoff.Retry(func() error {
+		_, errCreate := s.client.CreateSecret(ctx, createInput)
+		if errCreate == nil {
+			return nil
+		}
 		var awsError smithy.APIError
 		if errors.As(errCreate, &awsError) {
 			// if secret with same name already exists in AWS, we try to update it
-			if errAlreadyExists, ok := awsError.(*types.ResourceExistsException); ok {
+			if _, ok := awsError.(*types.ResourceExistsException); ok {
 				dbgLog.Info("AWS secret already exists, trying to update")
 				updateErr := s.updateAwsSecret(ctx, createInput.Name, createInput.SecretBinary)
 				if updateErr != nil {
-					return fmt.Errorf("failed to update the secret: %w", errAlreadyExists)
+					return backoff.Permanent(fmt.Errorf("failed to update the secret: %w", updateErr))
 				}
 				return nil
 			}
-		}
-		return fmt.Errorf("error creating the secret: %w", errCreate)
-	}
+			if errInvalidRequest, ok := awsError.(*types.InvalidRequestException); ok {
+				if strings.Contains(errInvalidRequest.ErrorMessage(), secretMarkedForDeletionOnCreateErrorMsg) {
+					dbgLog.Info("AWS secrets conflict found, trying one more time")
+					return errInvalidRequest
+				} else {
+					dbgLog.Error(errInvalidRequest, "invalid creation request to aws secret storage")
+					return backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, errInvalidRequest.ErrorMessage()))
+				}
+			}
+			return backoff.Permanent(fmt.Errorf("unexpected AWS error on creating the secret: %w", errCreate))
 
+		}
+		// not a known AWS error, return as-is
+		return backoff.Permanent(fmt.Errorf("error creating the secret: %w", errCreate))
+
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
+
+	if err != nil {
+		return fmt.Errorf("failed to create the secret after %d retries: %w", retryTries, err)
+	}
 	return nil
 }
 
