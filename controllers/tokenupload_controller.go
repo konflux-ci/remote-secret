@@ -22,27 +22,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	kuberrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	kuberrors "k8s.io/apimachinery/pkg/api/errors"
-
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
-	"github.com/go-logr/logr"
-
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"k8s.io/apimachinery/pkg/types"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var uploadSecretSelector = metav1.LabelSelector{
@@ -145,6 +140,9 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		}
 	}
 
+	// When we're doing the full upload, the remote secret is created if it doesn't exist.
+	// When we're doing a partial update, the remote secret is not create though and therefore
+	// we need to check that we have a remote secret to work with here before continuing.
 	if remoteSecret == nil {
 		return remoteSecretDoesntExist
 	}
@@ -169,7 +167,7 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		auditLog.Info("manual secret partial update completed")
 	} else {
 		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
-		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data)); err != nil {
+		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, &uploadSecret.Data); err != nil {
 			err = fmt.Errorf("failed to store the remote secret data: %w", err)
 			auditLog.Error(err, "manual secret upload failed")
 			return err
@@ -200,7 +198,6 @@ func (r *TokenUploadReconciler) createErrorEvent(ctx context.Context, secret *co
 	if err != nil {
 		lg.Error(err, "event creation failed for upload secret")
 	}
-
 }
 
 // Contract: having exactly one event if upload failed and no events if uploaded.
