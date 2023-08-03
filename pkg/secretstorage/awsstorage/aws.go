@@ -143,9 +143,9 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 
 		return getResult.SecretBinary, nil
 
-	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
 
-	return data, err
+	return data, err //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
