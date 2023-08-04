@@ -17,6 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -51,6 +54,13 @@ type RemoteSecretStatus struct {
 	// Targets is the list of the deployment statuses for individual targets in the spec.
 	// +optional
 	Targets []TargetStatus `json:"targets,omitempty"`
+	// SecretStatus describes the shape of the secret which is currently stored in SecretStorage.
+	// +optional
+	SecretStatus SecretStatus `json:"secret,omitempty"`
+}
+
+type SecretStatus struct {
+	Keys []string `json:"keys,omitempty"`
 }
 
 type TargetStatus struct {
@@ -63,6 +73,9 @@ type TargetStatus struct {
 	// ServiceAccountNames is the names of the service accounts that have been deployed to the target namespace
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
+	// ClusterCredentialsSecret is the name of the secret in the same namespace as the RemoteSecret that contains the token
+	// to use to authenticate with the remote Kubernetes cluster. This is ignored if `apiUrl` is empty.
+	ClusterCredentialsSecret string `json:"clusterCredentialsSecret,omitempty"`
 	// Error the optional error message if the deployment of either the secret or the service accounts failed.
 	// +optional
 	Error string `json:"error,omitempty"`
@@ -101,6 +114,25 @@ type RemoteSecret struct {
 	// by MaxItems=0, made as array of objects since it looks like it does not work for map
 	//+kubebuilder:validation:MaxProperties=0
 	UploadData map[string]string `json:"data,omitempty"`
+}
+
+var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
+
+// ValidateUploadSecretType checks weather the uploadSecret type matches the RemoteSecret type.
+// The function is in the api package because it extends the contract of the CRD.
+// In the future the function can be extended to validate other fields.
+func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
+	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
+		if secretType == "" {
+			return corev1.SecretTypeOpaque
+		}
+		return secretType
+	}
+
+	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
+		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
+	}
+	return nil
 }
 
 //+kubebuilder:object:root=true

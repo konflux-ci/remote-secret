@@ -84,6 +84,43 @@ var _ = Describe("RemoteSecret", func() {
 				Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
 			})
 		})
+
+		When("secret data uploaded", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should have secret data keys in status", func() {
+				// Store secret data
+				data := &remotesecretstorage.SecretData{
+					"a": []byte("b"),
+				}
+				Expect(ITest.Storage.Store(ITest.Context, *crenv.First[*api.RemoteSecret](&test.InCluster), data)).To(Succeed())
+
+				// Check that status contains the key from secret data
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.SecretStatus.Keys).To(HaveLen(1))
+					g.Expect(rs.Status.SecretStatus.Keys[0]).To(Equal("a"))
+				})
+			})
+		})
 	})
 
 	Describe("Update", func() {
@@ -142,7 +179,7 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("should remove the target secret", func() {
 				// check that secret is created in each target
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).To(Succeed())
 				})
@@ -164,7 +201,7 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("should remove the managed service account", func() {
 				// check that service account is created in each target
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetA}, &corev1.ServiceAccount{})).To(Succeed())
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).To(Succeed())
 				})

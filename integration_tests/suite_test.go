@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/controllers"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/kubernetesclient"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -71,10 +70,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	storage := &memorystorage.MemoryStorage{}
-	ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&remotesecretstorage.NotifyingRemoteSecretStorage{
-		ClientFactory: kubernetesclient.SingleInstanceClientFactory{Client: ITest.Client},
-		SecretStorage: storage,
-	})
+	ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(storage)
 
 	Expect(ITest.Storage.Initialize(ITest.Context)).To(Succeed())
 
@@ -94,7 +90,14 @@ var _ = BeforeSuite(func() {
 		EnableRemoteSecrets: true,
 	}
 
-	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage)).To(Succeed())
+	ITest.ClientFactory = TestClientFactory{
+		GetClientImpl: func(_ context.Context, _ string, _ *api.RemoteSecretTarget, _ *api.TargetStatus) (client.Client, error) {
+			// effectively, this switches off any support for auth or deployment to remote clusters in the integration tests..
+			return mgr.GetClient(), nil
+		},
+	}
+
+	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage, &ITest.ClientFactory)).To(Succeed())
 
 	go func() {
 		err = mgr.Start(ITest.Context)
