@@ -437,5 +437,36 @@ var _ = Describe("TokenUploadController", func() {
 				g.Expect((*data)["c"]).To(Equal([]byte("vc")))
 			})
 		})
+		It("create update delete with different secret type than remote secret", func() {
+			Expect(ITest.Client.Create(ITest.Context, &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sec",
+					Namespace: "default",
+					Labels: map[string]string{
+						api.UploadSecretLabel: "remotesecret",
+					},
+					Annotations: map[string]string{
+						api.RemoteSecretNameAnnotation:          "rs",
+						api.RemoteSecretPartialUpdateAnnotation: "true",
+						api.RemoteSecretDeletedKeysAnnotation:   "b",
+					},
+				},
+				Type: corev1.SecretTypeSSHAuth,
+				Data: map[string][]byte{
+					"a":                      []byte("va_new"),
+					corev1.SSHAuthPrivateKey: []byte("vsshkey"),
+				},
+			})).To(Succeed())
+
+			testSetup.SettleWithCluster(ITest.Context, func(g Gomega) {
+				rs := *crenv.First[*api.RemoteSecret](&testSetup.InCluster)
+				data, err := ITest.Storage.Get(ITest.Context, rs)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(*data).To(HaveLen(2))
+				g.Expect((*data)["a"]).To(Equal([]byte("va_new")))
+				g.Expect((*data)[corev1.SSHAuthPrivateKey]).To(Equal([]byte("vsshkey")))
+			})
+		})
 	})
 })

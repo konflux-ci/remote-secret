@@ -9,7 +9,8 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [Associating the secret with a service account in the targets](#associating-the-secret-with-a-service-account-in-the-targets)
     - [RemoteSecret has to be created with target namespace and Environment](#RemoteSecret-has-to-be-created-with-target-namespace-and-Environment)
     - [RemoteSecret has to be created all Environments of certain component and application](#RemoteSecret-has-to-be-created-all-Environments-of-certain-component-and-application)
-- Security
+- [Security](#Security)
+- [Partial Updates of the Secret Data](#Partial-Updates-of-the-Secret-Data)
 
 ### Use Cases
 #### Delivering the secrets interactively
@@ -713,6 +714,10 @@ With remote secrets, you can review the set of keys that are present in the secr
 
 The partial update is done using the upload secret as any other secret data manipulation. The upload secret needs to be annotated as providing a partial update and contain only the actual changes to the data as illustrated in the below examples.
 
+Note that the type of the Partial Upload Secret does not need to match the type specified in RemoteSecret's spec
+as is the case with Upload Secret (read more in [Delivering the secrets interactively](#delivering-the-secrets-interactively)).
+It is therefore easiest to create a Partial Upload Secret with the type `Opaque`. This loosening of a constraint is to avoid
+the need to always specify the key-value pairs which are required for the specific type by Kubernetes.
 #### Creating new keys in the secret data
 
 In the below example, let's assume there already exists a remote secret called `my-remote-secret` that already has some data uploaded to it. We want to add two new keys to its data, `my-new-key` and `passphrase`, and assign values to them.
@@ -725,7 +730,7 @@ metadata:
     appstudio.redhat.com/upload-secret: remotesecret
   annotations:
     appstudio.redhat.com/remotesecret-name: my-remote-secret
-    appstudio.redhat.com/remotesecret-partial-update: true
+    appstudio.redhat.com/remotesecret-partial-update: "true"
 data:
   my-new-key: secret_value
   passphrase: "f0urty 2"
@@ -744,7 +749,7 @@ metadata:
     appstudio.redhat.com/upload-secret: remotesecret
   annotations:
     appstudio.redhat.com/remotesecret-name: my-remote-secret
-    appstudio.redhat.com/remotesecret-partial-update: true
+    appstudio.redhat.com/remotesecret-partial-update: "true"
 data:
   my-new-key: another_secret_value
 ```
@@ -762,8 +767,8 @@ metadata:
     appstudio.redhat.com/upload-secret: remotesecret
   annotations:
     appstudio.redhat.com/remotesecret-name: my-remote-secret
-    appstudio.redhat.com/remotesecret-partial-update: true
-    appstudio.redhat.com/remotesecret-delete-keys: my-new_key, passphrase
+    appstudio.redhat.com/remotesecret-partial-update: "true"
+    appstudio.redhat.com/remotesecret-deleted-keys: my-new_key, passphrase
 data:
   my-secret-key: another_secret_value
 ```
