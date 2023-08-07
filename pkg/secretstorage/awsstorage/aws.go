@@ -124,11 +124,9 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
 				if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionMsg) {
-					// data is still there, but secret is marked for deletion. let's try to wait for it to be deleted
-					if getResult, err = s.doGetWithRetry(ctx, id); err != nil {
-						return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
-					}
-					return getResult.SecretBinary, nil
+					// data is still there, but secret is marked for deletion. we can return not found error
+					dbgLog.Info("secret marked for deletion in aws storage, retuning NotFound error")
+					return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, "secret is marked for deletion in aws storage")
 				} else {
 					dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
 					return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
@@ -141,35 +139,6 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 	}
 	return getResult.SecretBinary, nil
-}
-
-func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.SecretID) (*secretsmanager.GetSecretValueOutput, error) {
-	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
-	secretName := s.generateAwsSecretName(&id)
-	data, err := backoff.RetryWithData(func() (*secretsmanager.GetSecretValueOutput, error) {
-		getResult, err := s.getAwsSecret(ctx, secretName)
-		if err != nil {
-			var awsError smithy.APIError
-			if errors.As(err, &awsError) {
-				// check if data still awaits deletion
-				if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
-					if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionMsg) {
-						dbgLog.Info("AWS secret data deletion is expected, trying one more time")
-						return nil, invalidRequestErr
-					}
-				}
-			}
-			// not an expected AWS error, return as-is and break the retry loop
-			dbgLog.Error(err, "unknown error on reading aws secret storage")
-			return nil, backoff.Permanent(errAWSUnknownError) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
-		}
-		return getResult, nil
-	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), secretReadRetryCount), ctx))
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the secret after %d retries: %w", secretReadRetryCount, err)
-	}
-	return data, nil
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
