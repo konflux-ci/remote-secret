@@ -141,17 +141,11 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 	}
 
 	// When we're doing the full upload, the remote secret is created if it doesn't exist.
-	// When we're doing a partial update, the remote secret is not create though and therefore
+	// When we're doing a partial update, the remote secret is not created though, and therefore
 	// we need to check that we have a remote secret to work with here before continuing.
 	if remoteSecret == nil {
 		return remoteSecretDoesntExist
 	}
-
-	err = remoteSecret.ValidateUploadSecretType(uploadSecret)
-	if err != nil {
-		return fmt.Errorf("validation of upload secret failed: %w ", err)
-	}
-
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(remoteSecret))
 
 	if partialUpdate {
@@ -166,6 +160,12 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		}
 		auditLog.Info("manual secret partial update completed")
 	} else {
+		err = remoteSecret.ValidateUploadSecret(uploadSecret)
+		if err != nil {
+			auditLog.Info("manual secret upload not started because of invalid upload secret")
+			return fmt.Errorf("validation of upload secret failed: %w ", err)
+		}
+
 		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
 		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, &uploadSecret.Data); err != nil {
 			err = fmt.Errorf("failed to store the remote secret data: %w", err)

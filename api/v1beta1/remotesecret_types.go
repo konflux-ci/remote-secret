@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,21 +112,55 @@ type RemoteSecret struct {
 }
 
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
+var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
 
-// ValidateUploadSecretType checks weather the uploadSecret type matches the RemoteSecret type.
+// ValidateUploadSecret checks whether the uploadSecret type matches the RemoteSecret type and whether upload secret
+// contains required keys.
 // The function is in the api package because it extends the contract of the CRD.
-// In the future the function can be extended to validate other fields.
-func (rs *RemoteSecret) ValidateUploadSecretType(uploadSecret *corev1.Secret) error {
-	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
-		if secretType == "" {
-			return corev1.SecretTypeOpaque
-		}
-		return secretType
+func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error {
+	if err := checkMatchingSecretTypes(rs.Spec.Secret.Type, uploadSecret.Type); err != nil {
+		return err
+	}
+	if err := rs.ValidateSecretData(uploadSecret.Data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateSecretData checks whether the secret data contains all the keys required by the secret type and specified
+// in the RemoteSecret spec. If we assumed this function is called only for upload secrets, we could avoid checking the
+// keys required by the secret type because Kubernetes API server would reject the upload secret if it did not contain
+// the required keys. However, this function is also meant for validating the secret data that is already stored.
+func (rs *RemoteSecret) ValidateSecretData(secretData map[string][]byte) error {
+	requiredSetsOfKeys := getKeysForSecretType(rs.Spec.Secret.Type)
+	for _, key := range rs.Spec.Secret.RequiredKeys {
+		requiredSetsOfKeys = append(requiredSetsOfKeys, []string{key.Name})
 	}
 
-	if defaultize(uploadSecret.Type) != defaultize(rs.Spec.Secret.Type) {
-		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecret.Type, rs.Spec.Secret.Type)
+	// Check if the secret data contains all the required keys. Outer slice is ANDed, inner slice is ORed.
+	var notFoundKeys []string
+	for _, keys := range requiredSetsOfKeys {
+		// If the current set of required keys is empty, such is the case when type in RemoteSecret is Opaque,
+		// then this is an empty constraint, and we can skip the iteration.
+		if len(keys) == 0 {
+			continue
+		}
+		found := false
+		for _, k := range keys {
+			if _, ok := secretData[k]; ok {
+				found = true
+				break
+			}
+		}
+		if !found {
+			notFoundKeys = append(notFoundKeys, strings.Join(keys, " neither "))
+		}
 	}
+
+	if len(notFoundKeys) > 0 {
+		return fmt.Errorf("%w: %s", secretDataKeysMissingError, strings.Join(notFoundKeys, ", "))
+	}
+
 	return nil
 }
 
@@ -150,18 +185,24 @@ type LinkableSecretSpec struct {
 	GenerateName string `json:"generateName,omitempty"`
 	// Labels contains the labels that the created secret should be labeled with.
 	Labels map[string]string `json:"labels,omitempty"`
-	// Annotations is the keys and values that the create secret should be annotated with.
+	// Annotations is the keys and values that the created secret should be annotated with.
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Type is the type of the secret to be created. If left empty, the default type used in the cluster is assumed (typically Opaque).
-	// The type of the secret defines the automatic mapping of the token record fields to keys in the secret data
-	// according to the documentation https://kubernetes.io/docs/concepts/configuration/secret/#secret-types.
-	// Only kubernetes.io/service-account-token, kubernetes.io/dockercfg, kubernetes.io/dockerconfigjson and kubernetes.io/basic-auth
-	// are supported. All other secret types need to have their mapping specified manually using the Fields.
+	// Type is the type of the secret to be created in targets. If left empty, the default type used in the cluster is assumed (typically Opaque).
+	// The Type has to match type of the UploadSecret. This constraint ensures that the requirements on keys,
+	// put forth by Kubernetes (https://kubernetes.io/docs/concepts/configuration/secret/#secret-types), are met and
+	// secret can be properly created in targets.
 	Type corev1.SecretType `json:"type,omitempty"`
-
+	// RequiredKeys are the keys which need to be present in the UploadSecret to successfully upload the SecretData.
+	// Furthermore, the UploadSecret needs to contain the keys which are inferred from the Type
+	// (and UploadSecret's type, since these have to match) and may contain any additional keys.
+	RequiredKeys []SecretKey `json:"keys,omitempty"`
 	// LinkedTo specifies the objects that the secret is linked to. Currently, only service accounts are supported.
 	LinkedTo []SecretLink `json:"linkedTo,omitempty"`
 }
+type SecretKey struct {
+	Name string `json:"name,omitempty"`
+}
+
 type SecretLink struct {
 	// ServiceAccounts lists the service accounts that the secret is linked to.
 	ServiceAccount ServiceAccountLink `json:"serviceAccount,omitempty"`
@@ -221,3 +262,40 @@ const (
 	RemoteSecretErrorReasonTokenRetrieval RemoteSecretErrorReason = "TokenRetrieval"
 	RemoteSecretErrorReasonNoError        RemoteSecretErrorReason = ""
 )
+
+func checkMatchingSecretTypes(rsSecretType, uploadSecretType corev1.SecretType) error {
+	defaultize := func(secretType corev1.SecretType) corev1.SecretType {
+		if secretType == "" {
+			return corev1.SecretTypeOpaque
+		}
+		return secretType
+	}
+
+	if defaultize(uploadSecretType) != defaultize(rsSecretType) {
+		return fmt.Errorf("%w, uploadSecret: %s, remoteSecret: %s", secretTypeMismatchError, uploadSecretType, rsSecretType)
+	}
+	return nil
+}
+
+// getKeysForSecretType returns the list of keys that are required for a given secret type.
+// The mapping is inferred from https://pkg.go.dev/k8s.io/api/core/v1.
+// Contract: The outer slice contains elements which should be ANDed together.
+// The inner slice contains elements which should be ORed together.
+func getKeysForSecretType(secretType corev1.SecretType) [][]string {
+	switch secretType {
+	case corev1.SecretTypeServiceAccountToken:
+		return [][]string{{corev1.ServiceAccountTokenKey}}
+	case corev1.SecretTypeDockercfg:
+		return [][]string{{corev1.DockerConfigKey}}
+	case corev1.SecretTypeDockerConfigJson:
+		return [][]string{{corev1.DockerConfigJsonKey}}
+	case corev1.SecretTypeBasicAuth:
+		return [][]string{{corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey}} // requires at leas one of the keys
+	case corev1.SecretTypeSSHAuth:
+		return [][]string{{corev1.SSHAuthPrivateKey}}
+	case corev1.SecretTypeTLS:
+		return [][]string{{corev1.TLSCertKey}, {corev1.TLSPrivateKeyKey}} // requires both keys
+	default:
+		return [][]string{{}} // Opaque, bootstrap.kubernetes.io/token, and others: no expected keys
+	}
+}
