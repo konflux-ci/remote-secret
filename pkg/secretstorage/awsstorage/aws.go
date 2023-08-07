@@ -125,7 +125,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
 				if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionMsg) {
 					// data is still there, but secret is marked for deletion. let's try to wait for it to be deleted
-					if getResult, err = s.doGetWithRetry(ctx, id, secretReadRetryCount); err != nil {
+					if getResult, err = s.doGetWithRetry(ctx, id); err != nil {
 						return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
 					}
 					return getResult.SecretBinary, nil
@@ -143,7 +143,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 	return getResult.SecretBinary, nil
 }
 
-func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.SecretID, retryTries uint64) (*secretsmanager.GetSecretValueOutput, error) {
+func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.SecretID) (*secretsmanager.GetSecretValueOutput, error) {
 	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
 	secretName := s.generateAwsSecretName(&id)
 	data, err := backoff.RetryWithData(func() (*secretsmanager.GetSecretValueOutput, error) {
@@ -164,10 +164,10 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 			return nil, backoff.Permanent(errAWSUnknownError) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 		}
 		return getResult, nil
-	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), secretReadRetryCount), ctx))
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the secret after %d retries: %w", retryTries, err)
+		return nil, fmt.Errorf("failed to read the secret after %d retries: %w", secretReadRetryCount, err)
 	}
 	return data, nil
 }
@@ -228,7 +228,7 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 			if errInvalidRequest, ok := awsError.(*types.InvalidRequestException); ok {
 				if strings.Contains(errInvalidRequest.ErrorMessage(), secretScheduledForDeletionMsg) {
 					// data with the same key is still there, but it is marked for deletion. let's try to wait for it to be deleted
-					if err := s.doCreateWithRetry(ctx, createInput, secretCreationRetryCount); err != nil {
+					if err := s.doCreateWithRetry(ctx, createInput); err != nil {
 						return fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
 					}
 				} else {
@@ -244,7 +244,7 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 	return nil
 }
 
-func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *secretsmanager.CreateSecretInput, retryTries uint64) error {
+func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *secretsmanager.CreateSecretInput) error {
 	dbgLog := lg(ctx).V(logs.DebugLevel)
 	dbgLog = dbgLog.WithValues("secretname", createInput.Name)
 	err := backoff.Retry(func() error {
@@ -269,10 +269,10 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 		// not an expected AWS error, return as-is and break the retry loop
 		return backoff.Permanent(fmt.Errorf("error creating the secret: %w", errCreate)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 
-	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), retryTries), ctx))
+	}, backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), secretCreationRetryCount), ctx))
 
 	if err != nil {
-		return fmt.Errorf("failed to create the secret after %d retries: %w", retryTries, err)
+		return fmt.Errorf("failed to create the secret after %d retries: %w", secretCreationRetryCount, err)
 	}
 	return nil
 }
