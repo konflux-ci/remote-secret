@@ -127,6 +127,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 					if getResult, err = s.doGetWithRetry(ctx, id, secretReadRetryCount); err != nil {
 						return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
 					}
+					return getResult.SecretBinary, nil
 				} else {
 					dbgLog.Error(invalidRequestErr, "invalid request to aws secret storage")
 					return nil, fmt.Errorf("%w. message: %s", errAWSInvalidRequest, invalidRequestErr.ErrorMessage())
