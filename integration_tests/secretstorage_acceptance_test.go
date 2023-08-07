@@ -150,11 +150,9 @@ func StorageTCK(t *testing.T, ctx context.Context, storage secretstorage.SecretS
 	t.Run("get deleted", func(t *testing.T) {
 		err := storage.Delete(ctx, secretId)
 		assert.NoError(t, err)
-		assert.Eventually(t, func() bool {
-			gettedSecretData, err := storage.Get(ctx, secretId)
-			return errors.Is(err, secretstorage.NotFoundError) && gettedSecretData == nil
-		}, 60*time.Second, 1*time.Second)
-
+		gettedSecretData, err := storage.Get(ctx, secretId)
+		assert.ErrorIs(t, err, secretstorage.NotFoundError)
+		assert.True(t, gettedSecretData == nil)
 	})
 
 }
