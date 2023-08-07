@@ -45,7 +45,6 @@ const (
 	// Reading or creating AWS secret right after the secret with the same ID was deleted may take some time, until the
 	// old one is clear completely.
 	// Repeats have exponential time between tries, see https://github.com/cenkalti/backoff/blob/v4/exponential.go
-	secretReadRetryCount          = 10
 	secretCreationRetryCount      = 10
 	secretMarkedForDeletionMsg    = "marked for deletion"
 	secretScheduledForDeletionMsg = "scheduled for deletion"
