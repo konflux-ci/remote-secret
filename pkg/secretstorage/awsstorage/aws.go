@@ -136,7 +136,6 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 		dbgLog.Error(err, "unknown error on reading aws secret storage")
 		return nil, errAWSUnknownError
-
 	}
 	return getResult.SecretBinary, nil
 }
