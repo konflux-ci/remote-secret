@@ -151,6 +151,7 @@ func (s *AwsSecretStorage) doGetWithRetry(ctx context.Context, id secretstorage.
 		if err != nil {
 			var awsError smithy.APIError
 			if errors.As(err, &awsError) {
+				// check if data still awaits deletion
 				if invalidRequestErr, ok := awsError.(*types.InvalidRequestException); ok {
 					if strings.Contains(invalidRequestErr.ErrorMessage(), secretMarkedForDeletionMsg) {
 						dbgLog.Info("AWS secret data deletion is expected, trying one more time")
@@ -226,6 +227,7 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 			}
 			if errInvalidRequest, ok := awsError.(*types.InvalidRequestException); ok {
 				if strings.Contains(errInvalidRequest.ErrorMessage(), secretScheduledForDeletionMsg) {
+					// data with the same key is still there, but it is marked for deletion. let's try to wait for it to be deleted
 					if err := s.doCreateWithRetry(ctx, createInput, secretCreationRetryCount); err != nil {
 						return fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
 					}
@@ -253,10 +255,12 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 		var awsError smithy.APIError
 		if errors.As(errCreate, &awsError) {
 			if errInvalidRequest, ok := awsError.(*types.InvalidRequestException); ok {
+				// check if data still awaits deletion
 				if strings.Contains(errInvalidRequest.ErrorMessage(), secretScheduledForDeletionMsg) {
 					dbgLog.Info("AWS secrets conflict found, trying one more time")
 					return errInvalidRequest
 				} else {
+					// a different invalid request type error, return as-is and break the retry loop
 					dbgLog.Error(errInvalidRequest, "invalid creation request to aws secret storage")
 					return backoff.Permanent(fmt.Errorf("%w. message: %s", errAWSInvalidRequest, errInvalidRequest.ErrorMessage())) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 				}
