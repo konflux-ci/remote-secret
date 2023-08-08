@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-	"github.com/aws/smithy-go"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
@@ -296,12 +295,9 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	// first try to get legacy secret, if it is not there, we just stop migration
 	getOutput, errGetSecret := s.getAwsSecret(ctx, legacySecretName)
 	if errGetSecret != nil {
-		var awsError smithy.APIError
-		if errors.As(errGetSecret, &awsError) {
-			if _, ok := awsError.(*types.ResourceNotFoundException); ok {
-				dbLog.Info("no legacy secret found, nothing to do")
-				return nil, nil
-			}
+		if isAwsNotFoundError(errGetSecret) {
+			dbLog.Info("no legacy secret found, nothing to do")
+			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
 	}
