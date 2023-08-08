@@ -119,7 +119,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 			return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, "secret is marked for deletion in aws storage")
 		} else if isAwsInvalidRequestError(err) {
 			dbgLog.Error(err, "invalid request to aws secret storage")
-			return nil, fmt.Errorf(" invalid request to aws secret storage %w", err)
+			return nil, fmt.Errorf("invalid request to aws secret storage: %w", err)
 		}
 
 		dbgLog.Error(err, "unknown error on reading aws secret storage")
