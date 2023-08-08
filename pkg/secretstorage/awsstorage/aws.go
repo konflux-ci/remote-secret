@@ -35,7 +35,6 @@ var (
 	errGotNilSecret            = errors.New("got nil secret from aws secretmanager")
 	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
-	errAWSInvalidRequest       = errors.New("invalid request reported when making request to aws")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
 )
 
