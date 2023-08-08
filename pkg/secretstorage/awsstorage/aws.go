@@ -79,63 +79,62 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 }
 
 func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
-	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
+	lg := lg(ctx).WithValues("secretID", id)
+	lg.V(logs.DebugLevel).Info("storing data")
 
-	dbgLog.Info("storing data")
-
-	ctx = log.IntoContext(ctx, dbgLog)
+	ctx = log.IntoContext(ctx, lg)
 
 	errCreate := s.createOrUpdateAwsSecret(ctx, &id, data)
 	if errCreate != nil {
-		dbgLog.Error(errCreate, "secret creation failed")
+		lg.Error(errCreate, "secret creation failed")
 		return errASWSecretCreationFailed
 	}
 	return nil
 }
 
 func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
-	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
+	lg := lg(ctx).WithValues("secretID", id)
 
 	secretName := s.generateAwsSecretName(&id)
-	dbgLog.Info("getting the token", "secretname", secretName, "secretId", id)
+	lg.V(logs.DebugLevel).Info("getting the token", "secretname", secretName, "secretId", id)
 	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
 		if isAwsNotFoundError(err) {
 			secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
 			if migrationErr != nil {
-				dbgLog.Error(migrationErr, "something went wrong during migration")
+				lg.Error(migrationErr, "something went wrong during migration")
 			}
 			if secretData != nil {
-				dbgLog.Info("secret successfully migrated", "secretid", id)
+				lg.Info("secret successfully migrated", "secretid", id)
 				return secretData, nil
 			} else {
-				dbgLog.Error(err, "secret not found in aws storage")
+				lg.Error(err, "secret not found in aws storage")
 				return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, err.Error())
 			}
 		} else if isAwsSecretMarkedForDeletionError(err) {
 			// data is still there, but secret is marked for deletion. we can return not found error
-			dbgLog.Info("secret marked for deletion in aws storage, retuning NotFound error")
+			lg.Info("secret marked for deletion in aws storage, retuning NotFound error")
 			return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, "secret is marked for deletion in aws storage")
 		} else if isAwsInvalidRequestError(err) {
-			dbgLog.Error(err, "invalid request to aws secret storage")
+			lg.Error(err, "invalid request to aws secret storage")
 			return nil, fmt.Errorf("invalid request to aws secret storage: %w", err)
 		}
 
-		dbgLog.Error(err, "unknown error on reading aws secret storage")
+		lg.Error(err, "unknown error on reading aws secret storage")
 		return nil, errAWSUnknownError
 	}
 	return getResult.SecretBinary, nil
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
-	dbgLog := lg(ctx).V(logs.DebugLevel).WithValues("secretID", id)
-	dbgLog.Info("deleting the token")
+	lg := lg(ctx).WithValues("secretID", id)
+	lg.V(logs.DebugLevel).Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
 	errDelete := s.deleteAwsSecret(ctx, secretName)
 	if errDelete != nil {
-		dbgLog.Error(errDelete, "secret deletion failed")
+		lg.Error(errDelete, "secret deletion failed")
 		return errASWSecretDeletionFailed
 	}
 	return nil
@@ -151,8 +150,8 @@ func (s *AwsSecretStorage) checkCredentials(ctx context.Context) error {
 }
 
 func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId *secretstorage.SecretID, data []byte) error {
-	dbgLog := lg(ctx)
-	dbgLog.Info("creating the AWS secret")
+	lg := lg(ctx)
+	lg.V(logs.DebugLevel).Info("creating the AWS secret")
 
 	name := s.generateAwsSecretName(secretId)
 	createInput := &secretsmanager.CreateSecretInput{
@@ -171,7 +170,7 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 	_, errCreate := s.client.CreateSecret(ctx, createInput)
 	if errCreate != nil {
 		if isAwsResourceExistsError(errCreate) {
-			dbgLog.Info("AWS secret already exists, trying to update")
+			lg.V(logs.DebugLevel).Info("AWS secret already exists, trying to update")
 			updateErr := s.updateAwsSecret(ctx, createInput.Name, createInput.SecretBinary)
 			if updateErr != nil {
 				return fmt.Errorf("failed to update the secret: %w", errCreate)
@@ -180,12 +179,11 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 		} else if isAwsScheduledForDeletionError(errCreate) {
 			// data with the same key is still there, but it is marked for deletion. let's try to wait for it to be deleted
 			if err := s.doCreateWithRetry(ctx, createInput); err != nil {
-				return fmt.Errorf("%w. message: %s", errAWSInvalidRequest, err.Error())
+				return fmt.Errorf("secret creation failed: %w", err)
 			}
 			return nil
 		} else if isAwsInvalidRequestError(errCreate) {
-			dbgLog.Error(errCreate, "invalid creation request to aws secret storage")
-			return fmt.Errorf("invalid creation request : %w", errCreate)
+			return fmt.Errorf("invalid creation request to aws secret storage: %w", errCreate)
 		}
 		return fmt.Errorf("error creating the secret: %w", errCreate)
 	}
@@ -194,19 +192,18 @@ func (s *AwsSecretStorage) createOrUpdateAwsSecret(ctx context.Context, secretId
 }
 
 func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *secretsmanager.CreateSecretInput) error {
-	dbgLog := lg(ctx).V(logs.DebugLevel)
-	dbgLog = dbgLog.WithValues("secretname", createInput.Name)
+	lg := lg(ctx).WithValues("secretname", createInput.Name)
 	err := backoff.Retry(func() error {
 		_, errCreate := s.client.CreateSecret(ctx, createInput)
 		if errCreate == nil {
 			return nil
 		}
 		if isAwsScheduledForDeletionError(errCreate) {
-			dbgLog.Info("AWS secrets conflict found, trying one more time")
+			lg.Info("AWS secrets conflict found, secrete scheduled for deletion, trying one more time")
 			return errCreate //nolint:wrapcheck // no wrapcheck here, we want to retry
 		} else if isAwsInvalidRequestError(errCreate) {
 			// a different invalid request type error, return as-is and break the retry loop
-			dbgLog.Error(errCreate, "invalid creation request to aws secret storage")
+			lg.Error(errCreate, "invalid creation request to aws secret storage")
 			return backoff.Permanent(fmt.Errorf("invalid creation request %w. ", errCreate)) //nolint:wrapcheck // This is an "indication error" to the Backoff framework that is not exposed further.
 
 		}
@@ -223,7 +220,7 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 }
 
 func (s *AwsSecretStorage) updateAwsSecret(ctx context.Context, name *string, data []byte) error {
-	lg(ctx).Info("updating the AWS secret")
+	lg(ctx).V(logs.DebugLevel).Info("updating the AWS secret")
 
 	awsSecret, errGet := s.getAwsSecret(ctx, name)
 	if errGet != nil {
@@ -283,8 +280,8 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 // tryMigrateSecret tries to migrate secret data from old name (derived from k8s object namespace and name) to new one (derived from k8s object uid).
 // returning byte data means the secret was successfully migrated to new location
 func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secretstorage.SecretID) ([]byte, error) {
-	lg(ctx).Info("trying to migrate AWS secret", "secretid", secretId)
-	dbLog := lg(ctx).V(logs.DebugLevel).WithValues("secretId", secretId)
+	lg := lg(ctx).WithValues("secretId", secretId)
+	lg.Info("trying to migrate AWS secret")
 
 	legacyNameFormat := "%s"
 	if s.InstanceId != "" {
@@ -296,14 +293,14 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 	getOutput, errGetSecret := s.getAwsSecret(ctx, legacySecretName)
 	if errGetSecret != nil {
 		if isAwsNotFoundError(errGetSecret) {
-			dbLog.Info("no legacy secret found, nothing to do")
+			lg.V(logs.DebugLevel).Info("no legacy secret found, nothing to do")
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
 	}
 
 	newSecretName := s.generateAwsSecretName(&secretId)
-	lg(ctx).Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
+	lg.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
 
 	// create secret with new name
 	errCreate := s.createOrUpdateAwsSecret(ctx, &secretId, getOutput.SecretBinary)
@@ -313,7 +310,7 @@ func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secret
 
 	errDelete := s.deleteAwsSecret(ctx, legacySecretName)
 	if errDelete != nil {
-		lg(ctx).Error(errDelete, "failed to delete legacy secret during migration")
+		lg.Error(errDelete, "failed to delete legacy secret during migration")
 	}
 
 	return getOutput.SecretBinary, nil
