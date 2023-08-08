@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -57,3 +58,7 @@ func (tcf *TestClientFactory) ServiceAccountChanged(sa types.NamespacedName) {
 }
 
 var _ bindings.ClientFactory = (*TestClientFactory)(nil)
+
+func init() {
+	logs.InitDevelLoggers()
+}
