@@ -203,7 +203,7 @@ func (s *AwsSecretStorage) doCreateWithRetry(ctx context.Context, createInput *s
 		}
 		if isAwsScheduledForDeletionError(errCreate) {
 			dbgLog.Info("AWS secrets conflict found, trying one more time")
-			return errCreate
+			return errCreate //nolint:wrapcheck // no wrapcheck here, we want to retry
 		} else if isAwsInvalidRequestError(errCreate) {
 			// a different invalid request type error, return as-is and break the retry loop
 			dbgLog.Error(errCreate, "invalid creation request to aws secret storage")
