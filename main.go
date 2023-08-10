@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/redhat-appstudio/remote-secret/webhook"
+
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/remote-secret/controllers"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
@@ -104,6 +106,20 @@ func main() {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
+
+	// TODO REPLACE this with normal SecretStorage API when fix SecretData ID
+	secretStorage2 := &webhook.MemoryStorage2{}
+	rs := &api.RemoteSecret{}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		WithDefaulter(&webhook.RemoteSecretMutator{Storage: secretStorage2}).
+		WithValidator(&webhook.RemoteSecretValidator{}).
+		For(rs).
+		Complete()
+	if err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteSecret")
+		os.Exit(1)
+	}
+	/////////////////////
 
 	//+kubebuilder:scaffold:builder
 
