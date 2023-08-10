@@ -69,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Starting SPI operator with environment", "env", os.Environ(), "configuration", &args)
+	setupLog.Info("Starting remote secret operator with environment", "env", os.Environ(), "configuration", &args)
 
 	ctx := ctrl.SetupSignalHandler()
 	ctx = context.WithValue(ctx, config.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
