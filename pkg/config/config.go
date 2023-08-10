@@ -26,5 +26,5 @@ type OperatorConfiguration struct {
 
 const (
 	MetricsNamespace = "redhat_appstudio"
-	MetricsSubsystem = "spi"
+	MetricsSubsystem = "remotesecret"
 )
