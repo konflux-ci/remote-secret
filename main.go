@@ -107,11 +107,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO REPLACE this with normal SecretStorage API when fix SecretData ID
-	secretStorage2 := &webhook.MemoryStorage2{}
 	rs := &api.RemoteSecret{}
 	err = ctrl.NewWebhookManagedBy(mgr).
-		WithDefaulter(&webhook.RemoteSecretMutator{Storage: secretStorage2}).
+		WithDefaulter(&webhook.RemoteSecretMutator{Storage: secretStorage}).
 		WithValidator(&webhook.RemoteSecretValidator{}).
 		For(rs).
 		Complete()

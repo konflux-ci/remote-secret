@@ -6,16 +6,16 @@ import (
 	"fmt"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// +kubeb---uilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-remotesecret,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-remotesecret,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
 type RemoteSecretMutator struct {
-	Storage SecretStorage2
+	Storage secretstorage.SecretStorage
 }
 
-// TODO fix it
 func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) error {
 	log := logf.FromContext(ctx)
 	log.Info("Object", "obj", obj)
@@ -33,7 +33,7 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 		if err != nil {
 			return fmt.Errorf("failed to serialize data: %w", err)
 		}
-		uid := SecretID2{
+		uid := secretstorage.SecretID{
 			Name:      rs.Name,
 			Namespace: rs.Namespace,
 		}

@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-remotesecret,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
 type RemoteSecretValidator struct{}
 
 func (a *RemoteSecretValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
