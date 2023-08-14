@@ -3,13 +3,15 @@ package webhook
 import (
 	"context"
 	"fmt"
-
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-// +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-remotesecret,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
 type RemoteSecretValidator struct{}
+
+// +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-remotesecret,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
+var _ webhook.CustomValidator = &RemoteSecretValidator{}
 
 func (a *RemoteSecretValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	rs, ok := obj.(*v1beta1.RemoteSecret)

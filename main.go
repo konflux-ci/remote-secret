@@ -19,9 +19,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 	"os"
-
-	"github.com/redhat-appstudio/remote-secret/webhook"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/remote-secret/controllers"
@@ -107,13 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	rs := &api.RemoteSecret{}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		WithDefaulter(&webhook.RemoteSecretMutator{Storage: secretStorage}).
-		WithValidator(&webhook.RemoteSecretValidator{}).
-		For(rs).
-		Complete()
-	if err != nil {
+	if err = webhook.SetupAllWebhooks(mgr, secretStorage); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteSecret")
 		os.Exit(1)
 	}
