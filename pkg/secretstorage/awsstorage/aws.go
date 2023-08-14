@@ -78,7 +78,7 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 }
 
 func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
-	lg := lg(ctx).WithValues("secretID", id)
+	lg := lg(ctx).WithValues("secretId", id)
 	lg.V(logs.DebugLevel).Info("storing data")
 
 	ctx = log.IntoContext(ctx, lg)
@@ -92,10 +92,10 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 }
 
 func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
-	lg := lg(ctx).WithValues("secretID", id)
+	lg := lg(ctx).WithValues("secretId", id)
 
 	secretName := s.generateAwsSecretName(&id)
-	lg.V(logs.DebugLevel).Info("getting the token", "secretname", secretName, "secretId", id)
+	lg.V(logs.DebugLevel).Info("getting the token", "secretname", secretName)
 	getResult, err := s.getAwsSecret(ctx, secretName)
 
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 				lg.Error(migrationErr, "something went wrong during migration")
 			}
 			if secretData != nil {
-				lg.Info("secret successfully migrated", "secretid", id)
+				lg.Info("secret successfully migrated")
 				return secretData, nil
 			} else {
 				lg.Error(err, "secret not found in aws storage")
@@ -127,7 +127,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 }
 
 func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
-	lg := lg(ctx).WithValues("secretID", id)
+	lg := lg(ctx).WithValues("secretId", id)
 	lg.V(logs.DebugLevel).Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
