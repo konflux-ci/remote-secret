@@ -277,6 +277,7 @@ func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api
 
 // obtainData tries to find the data of the remote secret in the backing storage.
 func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *api.RemoteSecret) stageResult[*remotesecretstorage.SecretData] {
+	lg := log.FromContext(ctx)
 	result := stageResult[*remotesecretstorage.SecretData]{
 		Name: "data-fetch",
 	}
@@ -289,6 +290,9 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 				Status:  metav1.ConditionFalse,
 				Reason:  string(api.RemoteSecretReasonAwaitingTokenData),
 				Message: "The data of the remote secret not found in storage. Please provide it.",
+			}
+			if meta.IsStatusConditionTrue(remoteSecret.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
+				lg.Error(err, "Data lost from storage for the remote secret with DataObtained condition.")
 			}
 			// we don't want to retry the reconciliation in this case, because the data is simply not present in the storage.
 			// we will get notified once it appears there.

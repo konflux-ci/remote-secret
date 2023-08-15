@@ -100,17 +100,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 	if err != nil {
 		if isAwsNotFoundError(err) {
-			secretData, migrationErr := s.tryMigrateSecret(ctx, id) // this migration is just temporary
-			if migrationErr != nil {
-				lg.Error(migrationErr, "something went wrong during migration")
-			}
-			if secretData != nil {
-				lg.Info("secret successfully migrated")
-				return secretData, nil
-			} else {
-				lg.Error(err, "secret not found in aws storage")
-				return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, err.Error())
-			}
+			return nil, fmt.Errorf("%w: %s", secretstorage.NotFoundError, err.Error())
 		} else if isAwsSecretMarkedForDeletionError(err) {
 			// data is still there, but secret is marked for deletion. we can return not found error
 			lg.Info("secret marked for deletion in aws storage, retuning NotFound error")
@@ -274,45 +264,6 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 	} else {
 		return s.InstanceId + "/%s/%s"
 	}
-}
-
-// tryMigrateSecret tries to migrate secret data from old name (derived from k8s object namespace and name) to new one (derived from k8s object uid).
-// returning byte data means the secret was successfully migrated to new location
-func (s *AwsSecretStorage) tryMigrateSecret(ctx context.Context, secretId secretstorage.SecretID) ([]byte, error) {
-	lg := lg(ctx).WithValues("secretId", secretId)
-	lg.Info("trying to migrate AWS secret")
-
-	legacyNameFormat := "%s"
-	if s.InstanceId != "" {
-		legacyNameFormat = s.InstanceId + "/%s"
-	}
-	legacySecretName := aws.String(fmt.Sprintf(legacyNameFormat, secretId.Uid))
-
-	// first try to get legacy secret, if it is not there, we just stop migration
-	getOutput, errGetSecret := s.getAwsSecret(ctx, legacySecretName)
-	if errGetSecret != nil {
-		if isAwsNotFoundError(errGetSecret) {
-			lg.V(logs.DebugLevel).Info("no legacy secret found, nothing to do")
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get the legacy secret during migration: %w", errGetSecret)
-	}
-
-	newSecretName := s.generateAwsSecretName(&secretId)
-	lg.Info("found legacy secret, migrating to new name", "legacy_name", legacySecretName, "new_name", newSecretName)
-
-	// create secret with new name
-	errCreate := s.createOrUpdateAwsSecret(ctx, &secretId, getOutput.SecretBinary)
-	if errCreate != nil {
-		return nil, fmt.Errorf("failed to create the new secret during migration: %w", errGetSecret)
-	}
-
-	errDelete := s.deleteAwsSecret(ctx, legacySecretName)
-	if errDelete != nil {
-		lg.Error(errDelete, "failed to delete legacy secret during migration")
-	}
-
-	return getOutput.SecretBinary, nil
 }
 
 func lg(ctx context.Context) logr.Logger {
