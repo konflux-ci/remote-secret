@@ -292,7 +292,7 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 				Message: "The data of the remote secret not found in storage. Please provide it.",
 			}
 			if meta.IsStatusConditionTrue(remoteSecret.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
-				lg.Error(err, "Data lost from storage for the remote secret with DataObtained condition.")
+				lg.Error(err, "Data lost from storage for the remote secret with DataObtained=true condition.")
 			}
 			// we don't want to retry the reconciliation in this case, because the data is simply not present in the storage.
 			// we will get notified once it appears there.
