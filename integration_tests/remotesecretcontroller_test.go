@@ -258,6 +258,15 @@ var _ = Describe("RemoteSecret", func() {
 			AfterEach(func() {
 				test.AfterEach(ITest.Context)
 			})
+			It("should report in condition if data is in storage", func() {
+				// Check that data obtained
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeTrue())
+				})
+			})
 
 			It("should report in condition if data is missing in storage", func() {
 				// Check that data obtained
