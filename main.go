@@ -19,8 +19,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 	"os"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 
 	"github.com/alexflint/go-arg"
 	"github.com/redhat-appstudio/remote-secret/controllers"

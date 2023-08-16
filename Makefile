@@ -276,7 +276,6 @@ deploy_vault_minikube: kustomize
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
 
-
 ##@ Build Dependencies
 
 ## Location to install dependencies to
