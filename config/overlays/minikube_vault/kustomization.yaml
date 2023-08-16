@@ -5,6 +5,7 @@ namespace: remotesecret
 
 resources:
   - ../../bases/vault
+  - ../../webhook/k8s
 patches:
   - target:
       version: v1

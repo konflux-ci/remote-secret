@@ -17,7 +17,6 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
-- ../webhook
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.

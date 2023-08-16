@@ -11,7 +11,6 @@ webhooks:
       name: webhook-service
       namespace: remotesecret
       path: /mutate-appstudio-redhat-com-v1beta1-remotesecret
-    caBundle: ${CA_BUNDLE}
   failurePolicy: Fail
   name: mremotesecret.kb.io
   rules:
@@ -38,7 +37,6 @@ webhooks:
         name: webhook-service
         namespace: remotesecret
         path: /validate-appstudio-redhat-com-v1beta1-remotesecret
-      caBundle: ${CA_BUNDLE}
     failurePolicy: Fail
     name: vremotesecret.kb.io
     rules:

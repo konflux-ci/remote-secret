@@ -239,13 +239,13 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-deploy_minikube: ensure-tmp prepare-webhook-ca manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
-	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
+deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
 
 deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
-	OAUTH_HOST=`hack/spi-host-openshift.sh` VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	OAUTH_HOST=`hack/spi-host-openshift.sh` VAULT_HOST=`./hack/vault-host.sh` hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
+	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
 	
 	
 deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with AWS
@@ -276,8 +276,6 @@ deploy_vault_minikube: kustomize
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
 
-prepare-webhook-ca:
-	hack/generate_webhook_ca.sh "minikube"
 
 ##@ Build Dependencies
 

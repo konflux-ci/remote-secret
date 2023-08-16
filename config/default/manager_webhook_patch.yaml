@@ -20,5 +20,5 @@ spec:
       - name: webhook-cert
         secret:
           defaultMode: 420
-          secretName: remote-secret-webhook-server-cert
+          secretName: webhook-server-cert
 

@@ -5,6 +5,7 @@ namespace: remotesecret
 
 resources:
   - ../../bases/aws
+  - ../../webhook/openshift
 
 generatorOptions:
   disableNameSuffixHash: true
