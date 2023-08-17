@@ -19,30 +19,27 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 
 	"github.com/alexflint/go-arg"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	corev1 "k8s.io/api/core/v1"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -114,6 +111,30 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	if args.ExposeProfiling {
+		// This can be replaced by mgr.PprofBindAddress when we finally upgrade to controller-runtime 0.15.x
+		if err := mgr.AddMetricsExtraHandler("/debug/pprof/", http.HandlerFunc(pprof.Index)); err != nil {
+			setupLog.Error(err, "failed to set up the profiling endpoint")
+			os.Exit(1)
+		}
+		if err := mgr.AddMetricsExtraHandler("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline)); err != nil {
+			setupLog.Error(err, "failed to set up the profiling endpoint")
+			os.Exit(1)
+		}
+		if err := mgr.AddMetricsExtraHandler("/debug/pprof/profile", http.HandlerFunc(pprof.Profile)); err != nil {
+			setupLog.Error(err, "failed to set up the profiling endpoint")
+			os.Exit(1)
+		}
+		if err := mgr.AddMetricsExtraHandler("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol)); err != nil {
+			setupLog.Error(err, "failed to set up the profiling endpoint")
+			os.Exit(1)
+		}
+		if err := mgr.AddMetricsExtraHandler("/debug/pprof/trace", http.HandlerFunc(pprof.Trace)); err != nil {
+			setupLog.Error(err, "failed to set up the profiling endpoint")
+			os.Exit(1)
+		}
 	}
 
 	setupLog.Info("starting manager")
