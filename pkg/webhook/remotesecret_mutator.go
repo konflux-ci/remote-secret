@@ -25,7 +25,7 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 
 	rs, ok := obj.(*v1beta1.RemoteSecret)
 	if !ok {
-		return fmt.Errorf("expected a RemoteSecret but got a %T", obj)
+		return fmt.Errorf("%w: %T", errGotNonSecret, obj)
 	}
 
 	secretData := rs.UploadData
@@ -46,15 +46,16 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 			return fmt.Errorf("Storage error %s", err)
 		}
 
-		//////////////////
 		newData, err := a.Storage.Get(ctx, uid)
 		if err != nil {
-			return fmt.Errorf("Storage error (get) %s", err)
+			return fmt.Errorf("storage error (get) %s", err)
 		}
 
 		err = json.Unmarshal(newData, &secretData)
+		if err != nil {
+			return fmt.Errorf("unmarshalling error (get) %s", err)
+		}
 		log.Info("Data STORED ", "data", secretData)
-		/////////////////
 
 		// clean upload data
 		rs.UploadData = map[string]string{}
