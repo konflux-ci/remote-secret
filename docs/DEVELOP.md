@@ -122,3 +122,19 @@ On Minikube use:
 ```
 make deploy_minikube IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
 ```
+
+## Profiling
+
+It is possible to run the operator locally with the pprof data exposed on the metrics endpoint. To run the operator locally with profiling on, you can:
+
+```
+make run EXPOSEPROFILING=true
+```
+
+The profiling data is then going to be present on `localhost:8080/debug/pprof`.
+
+You can use the `pprof` tool to examine the collected profiling data, e.g.:
+
+```
+go tool prof -http :6006 http://localhost:8080/debug/pprof/heap
+```
