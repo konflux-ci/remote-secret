@@ -4,8 +4,8 @@
 # and collects heap profiles each second for a number of times. This can be used to estimate the memory consumption during the startup
 # of the controller.
 
-NOF_RESOURCES=500
-PROFILING_TIME=60
+NOF_RESOURCES=${NOF_RESOURCES:-"500"}
+PROFILING_TIME=${PROFILING_TIME:-"60"}
 
 THIS_DIR="$(dirname "$(realpath "$0")")"
 
