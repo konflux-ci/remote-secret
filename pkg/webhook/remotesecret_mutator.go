@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"k8s.io/apimachinery/pkg/runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -20,42 +21,35 @@ type RemoteSecretMutator struct {
 var _ webhook.CustomDefaulter = &RemoteSecretMutator{}
 
 func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) error {
-	log := logf.FromContext(ctx)
-	log.Info("Object", "obj", obj)
-
 	rs, ok := obj.(*v1beta1.RemoteSecret)
 	if !ok {
 		return fmt.Errorf("%w: %T", errGotNonSecret, obj)
 	}
+	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
 
 	secretData := rs.UploadData
 
 	if len(secretData) != 0 {
-		log.Info("Data DETECTED, upload it and delete from here", "Data", secretData)
+		auditLog.Info("webhook data upload initiated")
 		bytes, err := json.Marshal(secretData)
 		if err != nil {
-			return fmt.Errorf("failed to serialize data: %w", err)
+			err = fmt.Errorf("failed to serialize data: %w", err)
+			auditLog.Error(err, "webhook data upload failed")
+			return err
 		}
-		uid := secretstorage.SecretID{
+		secretID := secretstorage.SecretID{
 			Name:      rs.Name,
 			Namespace: rs.Namespace,
 		}
 
-		err = a.Storage.Store(ctx, uid, bytes)
+		err = a.Storage.Store(ctx, secretID, bytes)
 		if err != nil {
-			return fmt.Errorf("Storage error %s", err)
+			err = fmt.Errorf("storage error on data save: %w", err)
+			auditLog.Error(err, "webhook data upload failed")
+			return err
 		}
 
-		newData, err := a.Storage.Get(ctx, uid)
-		if err != nil {
-			return fmt.Errorf("storage error (get) %s", err)
-		}
-
-		err = json.Unmarshal(newData, &secretData)
-		if err != nil {
-			return fmt.Errorf("unmarshalling error (get) %s", err)
-		}
-		log.Info("Data STORED ", "data", secretData)
+		auditLog.Info("webhook data upload completed")
 
 		// clean upload data
 		rs.UploadData = map[string]string{}
