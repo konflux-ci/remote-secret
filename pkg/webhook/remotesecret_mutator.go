@@ -68,7 +68,6 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 
 		// clean upload data
 		rs.UploadData = map[string]string{}
-		//[]v1beta1.KeyValue{}
 	}
 
 	return nil
