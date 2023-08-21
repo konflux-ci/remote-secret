@@ -21,6 +21,7 @@ import (
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -232,6 +233,63 @@ var _ = Describe("RemoteSecret", func() {
 		})
 	})
 
+	Describe("READ", func() {
+		When("data in storage", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+				Expect(rs).NotTo(BeNil())
+				Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
+					"a": []byte("b"),
+				})).To(Succeed())
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+			It("should report in condition if data is in storage", func() {
+				// Check that data obtained
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeTrue())
+				})
+			})
+
+			It("should report in condition if data is missing in storage", func() {
+				// Check that data obtained
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeTrue())
+				})
+
+				Expect(ITest.Storage.Delete(ITest.Context, *crenv.First[*api.RemoteSecret](&test.InCluster))).To(Succeed())
+
+				// Check that data is missing
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeFalse())
+
+				})
+			})
+		})
+	})
 	Describe("Delete", func() {
 		When("no targets present", func() {
 		})
