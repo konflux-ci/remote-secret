@@ -37,6 +37,7 @@ The `remote-secret-controller-manager-environment-config` config map contains co
 | --file-request-ttl                                    | FILEREQUESTLIFETIMEDURATION    | 30m                      | File content request lifetime in hours, minutes or seconds.                                                                                                                                                                        |
 | --token-match-policy                                  | TOKENMATCHPOLICY               | any                      | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                                                                     |
 | --deletion-grace-period                               | DELETIONGRACEPERIOD            | 2s                       | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                                                                                 |
+| --expose-profiling                                    | EXPOSEPROFILING                | false                    | Whether or not expose the profiling information on the metrics endpoint under /debug/pprof path.                                                                                                                                   |
 
 
 ## Token Storage

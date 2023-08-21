@@ -37,6 +37,7 @@ type CommonCliArgs struct {
 	ConfigFile        string           `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
+	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
 }

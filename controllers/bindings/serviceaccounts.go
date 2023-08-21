@@ -46,8 +46,8 @@ type serviceAccountHandler struct {
 func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAccount, string, error) {
 	sas := []*corev1.ServiceAccount{}
 
-	for i, link := range h.Target.GetSpec().LinkedTo {
-		sa, errorReason, err := h.ensureServiceAccount(ctx, i, &link.ServiceAccount)
+	for i := range h.Target.GetSpec().LinkedTo {
+		sa, errorReason, err := h.ensureServiceAccount(ctx, i, &h.Target.GetSpec().LinkedTo[i].ServiceAccount)
 		if err != nil {
 			return []*corev1.ServiceAccount{}, errorReason, err
 		}
