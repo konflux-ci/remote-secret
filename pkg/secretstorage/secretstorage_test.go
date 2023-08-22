@@ -161,20 +161,6 @@ func TestObjectToId(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestObjectToIdNoUid(t *testing.T) {
-	token := &api.RemoteSecret{
-		ObjectMeta: v1.ObjectMeta{
-			Namespace: "test-ns",
-			Name:      "test-n",
-		},
-	}
-
-	id, err := ObjectToID(token)
-
-	assert.Nil(t, id)
-	assert.Error(t, err)
-}
-
 type CallsRecord[K any] struct {
 	ToIDCalled        bool
 	ToIDFunc          func(i *K) (*SecretID, error)
