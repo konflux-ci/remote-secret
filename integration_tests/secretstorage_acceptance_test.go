@@ -166,7 +166,7 @@ var (
 func refreshTestData(t *testing.T) {
 
 	random, _, _ := strings.Cut(string(uuid.NewUUID()), "-")
-	secretId = secretstorage.SecretID{Uid: uuid.NewUUID(), Name: "secret" + random, Namespace: "ns" + random}
+	secretId = secretstorage.SecretID{Name: "secret" + random, Namespace: "ns" + random}
 	testData := map[string]any{
 		"username":     "testUsername-" + random,
 		"accessToken":  "testAccessToken-" + random,
