@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("MutatorTest", func() {
 
-	Describe("Upload token", func() {
+	Describe("Upload remote secret", func() {
 		When("RemoteSecret with upload data fields", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{},
@@ -54,13 +54,57 @@ var _ = Describe("MutatorTest", func() {
 					},
 					UploadData: map[string]string{
 						"test":  base64.StdEncoding.EncodeToString([]byte("test1")),
-						"test2": base64.StdEncoding.EncodeToString([]byte("test1")),
+						"test2": base64.StdEncoding.EncodeToString([]byte("test2")),
 					},
 				}
 				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
 				data, err := ITest.Storage.Get(ITest.Context, rs)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(*data).To(HaveLen(2))
+			})
+		})
+	})
+})
+
+var _ = Describe("ValidatorTest", func() {
+
+	Describe("Upload malformed remote secret", func() {
+		When("RemoteSecret with duplicate namespace fields", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{},
+				MonitoredObjectTypes: []client.Object{
+					&api.RemoteSecret{},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should throw error on remote secret creation", func() {
+
+				rs := &api.RemoteSecret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-remote-secret",
+						Namespace: "default",
+					},
+					Spec: api.RemoteSecretSpec{
+						Targets: []api.RemoteSecretTarget{
+							{Namespace: "ns1"},
+							{Namespace: "ns1"},
+						},
+					},
+					UploadData: map[string]string{
+						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					},
+				}
+				err := ITest.Client.Create(ITest.Context, rs)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("targets are not unique in remote secret"))
 			})
 		})
 	})

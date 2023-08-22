@@ -16,20 +16,20 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 type RemoteSecretMutator struct {
-	Storage secretstorage.SecretStorage
+	Storage remotesecretstorage.RemoteSecretStorage
 }
 
 // +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-remotesecret,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
@@ -42,22 +42,14 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 	}
 	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
 
-	secretData := rs.UploadData
-
-	if len(secretData) != 0 {
+	if len(rs.UploadData) != 0 {
 		auditLog.Info("webhook data upload initiated")
-		bytes, err := json.Marshal(secretData)
-		if err != nil {
-			err = fmt.Errorf("failed to serialize data: %w", err)
-			auditLog.Error(err, "webhook data upload failed")
-			return err
-		}
-		secretID := secretstorage.SecretID{
-			Name:      rs.Name,
-			Namespace: rs.Namespace,
+		binData := map[string][]byte{}
+		for k, v := range rs.UploadData {
+			binData[k] = []byte(v)
 		}
 
-		err = a.Storage.Store(ctx, secretID, bytes)
+		err := a.Storage.Store(ctx, rs, &binData)
 		if err != nil {
 			err = fmt.Errorf("storage error on data save: %w", err)
 			auditLog.Error(err, "webhook data upload failed")

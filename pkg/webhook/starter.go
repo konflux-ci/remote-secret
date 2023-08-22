@@ -17,6 +17,8 @@ package webhook
 import (
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
@@ -25,8 +27,9 @@ import (
 
 func SetupAllWebhooks(mgr controllerruntime.Manager, secretStorage secretstorage.SecretStorage) error {
 	rs := &api.RemoteSecret{}
+	remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
 	if err := controllerruntime.NewWebhookManagedBy(mgr).
-		WithDefaulter(&RemoteSecretMutator{Storage: secretStorage}).
+		WithDefaulter(&RemoteSecretMutator{Storage: remoteSecretStorage}).
 		WithValidator(&RemoteSecretValidator{}).
 		For(rs).
 		Complete(); err != nil {
