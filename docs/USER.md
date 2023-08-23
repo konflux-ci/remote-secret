@@ -3,6 +3,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
 ## Table of Contents
 - [Use Cases](#use-cases)
     - [Delivering the secrets interactively](#delivering-the-secrets-interactively)
+    - [Providing RemoteSecret data in a more secure and interactive way](#providing-remotesecret-data-in-a-more-secure-and-interactive-way)
     - [Creating RemoteSecret and target in a single action](#creating-remotesecret-and-target-in-a-single-action)
     - [Defining the structure of the secrets in the targets](#defining-the-structure-of-the-secrets-in-the-targets)
     - [Defining RemoteSecret with a set of required keys](#defining-RemoteSecret-with-a-set-of-required-keys)
@@ -158,6 +159,28 @@ metadata:
 reason: cannot process upload secret
 type: Error
 ```
+
+#### Providing RemoteSecret data in a more secure and interactive way
+
+If the `uploadSecret` way of data delivery is not secure or convenient enough, the data for existing or new `RemoteSecret` can be provided in an alternative way. The user creates a `RemoteSecret` with a data field, which is processed by webhook and never enters the etcd.
+Also, in case of an error, it will be immediately reported to the caller, without the need to wait for the reconciliation loop and check the object-s status. 
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret:
+        name: pull-secret
+        type: kubernetes.io/dockercfg
+    targets: []
+data:
+  username: Z2VuYQ==
+  password: Z2VuYQ==
+```
+
 
 #### Creating RemoteSecret and target in a single action
 
