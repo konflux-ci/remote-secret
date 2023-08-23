@@ -55,12 +55,13 @@ func (a *RemoteSecretValidator) ValidateDelete(_ context.Context, _ runtime.Obje
 }
 
 func validateUniqueTargets(rs *v1beta1.RemoteSecret) error {
-	targets := make(map[v1beta1.RemoteSecretTarget]string)
+	targets := make(map[v1beta1.RemoteSecretTarget]string, len(rs.Spec.Targets))
 	for _, t := range rs.Spec.Targets {
-		targets[t] = ""
-	}
-	if len(targets) != len(rs.Spec.Targets) {
-		return fmt.Errorf("%w %s: %s", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
+		if _, present := targets[t]; present {
+			return fmt.Errorf("%w %s: %s", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
+		} else {
+			targets[t] = ""
+		}
 	}
 	return nil
 }

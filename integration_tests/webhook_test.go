@@ -68,8 +68,47 @@ var _ = Describe("MutatorTest", func() {
 
 var _ = Describe("ValidatorTest", func() {
 
+	Describe("Upload valid remote secret", func() {
+		When("RemoteSecret with different targets", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{},
+				MonitoredObjectTypes: []client.Object{
+					&api.RemoteSecret{},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should validate ok", func() {
+				rs := &api.RemoteSecret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-remote-secret",
+						Namespace: "default",
+					},
+					Spec: api.RemoteSecretSpec{
+						Targets: []api.RemoteSecretTarget{
+							{Namespace: "ns1", ApiUrl: "https://test1.com"},
+							{Namespace: "ns2", ApiUrl: "https://test2.com"},
+						},
+					},
+					UploadData: map[string]string{
+						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					},
+				}
+				err := ITest.Client.Create(ITest.Context, rs)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("Upload malformed remote secret", func() {
-		When("RemoteSecret with duplicate namespace fields", func() {
+		When("RemoteSecret with duplicate targets", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{},
 				MonitoredObjectTypes: []client.Object{
@@ -94,8 +133,8 @@ var _ = Describe("ValidatorTest", func() {
 					},
 					Spec: api.RemoteSecretSpec{
 						Targets: []api.RemoteSecretTarget{
-							{Namespace: "ns1"},
-							{Namespace: "ns1"},
+							{Namespace: "ns1", ApiUrl: "https://test.com", ClusterCredentialsSecret: "abc##"},
+							{Namespace: "ns1", ApiUrl: "https://test.com", ClusterCredentialsSecret: "abc##"},
 						},
 					},
 					UploadData: map[string]string{

@@ -163,7 +163,7 @@ type: Error
 #### Providing RemoteSecret data in a more secure and interactive way
 
 If the `uploadSecret` way of data delivery is not secure or convenient enough, the data for existing or new `RemoteSecret` can be provided in an alternative way. The user creates a `RemoteSecret` with a data field, which is processed by webhook and never enters the etcd.
-Also, in case of an error, it will be immediately reported to the caller, without the need to wait for the reconciliation loop and check the object-s status. 
+Also, in case of an error, it will be immediately reported to the caller, without the need to wait for the reconciliation loop and check the object's status. 
 
 ```yaml
 apiVersion: appstudio.redhat.com/v1beta1
