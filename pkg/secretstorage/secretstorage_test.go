@@ -148,7 +148,6 @@ func TestDeserializeJSON(t *testing.T) {
 func TestObjectToId(t *testing.T) {
 	token := &api.RemoteSecret{
 		ObjectMeta: v1.ObjectMeta{
-			UID:       "test-uid",
 			Namespace: "test-ns",
 			Name:      "test-n",
 		},

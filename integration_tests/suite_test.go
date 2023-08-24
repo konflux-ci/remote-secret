@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/controllers"
@@ -52,6 +54,9 @@ var _ = BeforeSuite(func() {
 	ITest.TestEnvironment = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
+		WebhookInstallOptions: envtest.WebhookInstallOptions{
+			Paths: []string{filepath.Join("..", "config", "webhook", "base")},
+		},
 	}
 
 	cfg, err := ITest.TestEnvironment.Start()
@@ -98,6 +103,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage, &ITest.ClientFactory)).To(Succeed())
+	Expect(webhook.SetupAllWebhooks(mgr, storage)).To(Succeed())
 
 	go func() {
 		err = mgr.Start(ITest.Context)

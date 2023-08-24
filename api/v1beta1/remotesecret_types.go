@@ -109,6 +109,11 @@ type RemoteSecret struct {
 
 	Spec   RemoteSecretSpec   `json:"spec,omitempty"`
 	Status RemoteSecretStatus `json:"status,omitempty"`
+	// Transient optional field for data to upload during create/update RemoteSecret
+	// It is processed by Mutating Webhook and must not be persisted,
+	// to make sure (in a case if something happened with Webhook) it is constrained
+	//+kubebuilder:validation:MaxProperties=0
+	UploadData map[string]string `json:"data,omitempty"`
 }
 
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")

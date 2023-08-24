@@ -240,16 +240,16 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
-	OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
 
 deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
-	OAUTH_HOST=`hack/spi-host-openshift.sh` VAULT_HOST=`./hack/vault-host.sh` SPIO_IMG=$(SPIO_IMG) SPIS_IMG=$(SPIS_IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
-	kubectl apply -f .tmp/approle_secret.yaml -n spi-system
+	VAULT_HOST=`./hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
+	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
 	
 	
 deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with AWS
-	hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
+	IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
 	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
 
 undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.

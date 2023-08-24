@@ -23,6 +23,8 @@ import (
 	"net/http/pprof"
 	"os"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
+
 	"github.com/alexflint/go-arg"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,6 +103,12 @@ func main() {
 		setupLog.Error(err, "failed to set up the controllers")
 		os.Exit(1)
 	}
+
+	if err = webhook.SetupAllWebhooks(mgr, secretStorage); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteSecret")
+		os.Exit(1)
+	}
+	/////////////////////
 
 	//+kubebuilder:scaffold:builder
 
