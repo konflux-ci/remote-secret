@@ -107,7 +107,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}),
 		).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return r.findRemoteSecretsInNamespaceForAuthSA(o)
+			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
 		})).
 		Complete(r)
 	if err != nil {
@@ -157,8 +157,7 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 	return ret
 }
 
-func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(o client.Object) []reconcile.Request {
-	ctx := context.Background()
+func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
 
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
