@@ -3,6 +3,8 @@
 #set -x
 set -e
 
+echo "small test change"
+
 VAULT_KUBE_CONFIG=${VAULT_KUBE_CONFIG:-${KUBECONFIG:-$HOME/.kube/config}}
 VAULT_NAMESPACE=${VAULT_NAMESPACE:-spi-vault}
 SECRET_NAME=spi-vault-keys
