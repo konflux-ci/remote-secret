@@ -32,9 +32,9 @@ This will make a docker images called `quay.io/redhat-appstudio/remote-secret-co
 To override the name of the image build, specify it in the `IMG_BASE` and/or `TAG_NAME` environment variable, e.g.:
 
 ```
-make docker-build IMG_BASE=quay.io/acme TAG_NAME=bugfix
+make docker-build IMG_BASE=quay.io/acme TAG_NAME=bugfix GOARCH=amd64
 ```
-
+The GOARCH parameter allows you to define the target architecture for the generated binaries. You can set it to values like amd64, arm64, or others based on your requirements.
 To push the images to an image repository one can use:
 
 ```
