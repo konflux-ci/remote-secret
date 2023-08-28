@@ -5,7 +5,7 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 0.0.1
 TAG_NAME ?= latest
-
+GOARCH ?= $(shell go env GOARCH)
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -193,7 +193,7 @@ run: manifests generate fmt vet build ## Run a controller from your host using V
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build:  ## Build docker image with the manager.
-	docker build -t ${IMG} .
+	docker build -t ${IMG} --build-arg=TARGETARCH=$(GOARCH) .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
