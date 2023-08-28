@@ -22,7 +22,6 @@ import (
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 )
 
@@ -149,7 +148,6 @@ func TestDeserializeJSON(t *testing.T) {
 func TestObjectToId(t *testing.T) {
 	token := &api.RemoteSecret{
 		ObjectMeta: v1.ObjectMeta{
-			UID:       "test-uid",
 			Namespace: "test-ns",
 			Name:      "test-n",
 		},
@@ -160,22 +158,7 @@ func TestObjectToId(t *testing.T) {
 	assert.NotNil(t, id)
 	assert.Equal(t, id.Name, "test-n")
 	assert.Equal(t, id.Namespace, "test-ns")
-	assert.Equal(t, id.Uid, types.UID("test-uid"))
 	assert.NoError(t, err)
-}
-
-func TestObjectToIdNoUid(t *testing.T) {
-	token := &api.RemoteSecret{
-		ObjectMeta: v1.ObjectMeta{
-			Namespace: "test-ns",
-			Name:      "test-n",
-		},
-	}
-
-	id, err := ObjectToID(token)
-
-	assert.Nil(t, id)
-	assert.Error(t, err)
 }
 
 type CallsRecord[K any] struct {

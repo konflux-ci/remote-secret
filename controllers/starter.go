@@ -18,13 +18,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage secretstorage.SecretStorage) error {
+func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConfiguration, secretStorage secretstorage.SecretStorage, cf bindings.ClientFactory) error {
 	ctx := context.Background()
 
 	remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
@@ -35,6 +36,7 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 	if cfg.EnableRemoteSecrets {
 		if err := (&RemoteSecretReconciler{
 			Client:              mgr.GetClient(),
+			TargetClientFactory: cf,
 			Scheme:              mgr.GetScheme(),
 			Configuration:       cfg,
 			RemoteSecretStorage: remoteSecretStorage,

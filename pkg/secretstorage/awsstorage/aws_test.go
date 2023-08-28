@@ -25,14 +25,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 var testData = []byte("test_data")
 
 var testSecretID = secretstorage.SecretID{
-	Uid:       uuid.NewUUID(),
-	Name:      "testSpiAccessToken",
+	Name:      "testRemoteSecret",
 	Namespace: "testNamespace",
 }
 
@@ -52,21 +50,22 @@ func TestInitialize(t *testing.T) {
 
 func TestInitSecretNameFormat(t *testing.T) {
 	s := AwsSecretStorage{
-		SpiInstanceId: "blabol",
+		InstanceId: "blabol",
 	}
 	assert.Contains(t, s.initSecretNameFormat(), "blabol")
 }
 
 func TestGenerateSecretName(t *testing.T) {
 	s := AwsSecretStorage{
-		secretNameFormat: "%s",
+		secretNameFormat: "%s/%s",
 	}
 
-	uid := uuid.NewUUID()
-	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Uid: uid})
+	namespace := "foo"
+	name := "rs-test"
+	secretName := s.generateAwsSecretName(&secretstorage.SecretID{Namespace: namespace, Name: name})
 
 	assert.NotNil(t, secretName)
-	assert.Contains(t, *secretName, uid)
+	assert.Equal(t, *secretName, "foo/rs-test")
 }
 
 func TestCheckCredentials(t *testing.T) {
@@ -77,9 +76,7 @@ func TestCheckCredentials(t *testing.T) {
 				return nil, nil
 			},
 		}
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 		assert.NoError(t, strg.checkCredentials(ctx))
 	})
 
@@ -90,9 +87,7 @@ func TestCheckCredentials(t *testing.T) {
 				return nil, fmt.Errorf("fail")
 			},
 		}
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 		assert.Error(t, strg.checkCredentials(ctx))
 		assert.True(t, cl.listCalled)
 	})
@@ -107,9 +102,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.NoError(t, errStore)
@@ -125,9 +118,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
@@ -152,9 +143,7 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.NoError(t, errStore)
@@ -178,9 +167,7 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
@@ -201,9 +188,7 @@ func TestUpdate(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errStore := strg.Store(ctx, testSecretID, testData)
 		assert.Error(t, errStore)
@@ -223,9 +208,7 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.NoError(t, err)
@@ -242,9 +225,7 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
@@ -261,9 +242,7 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
@@ -281,14 +260,12 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
 		assert.Error(t, err, secretstorage.NotFoundError)
-		assert.Equal(t, "not found: no such key exists", err.Error())
+		assert.Equal(t, "not found: failed to get the secret 'testNamespace/testRemoteSecret' from aws secretmanager: ResourceNotFoundException: no such key exists", err.Error())
 		assert.True(t, cl.getCalled)
 		assert.Nil(t, data)
 	})
@@ -302,13 +279,11 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
-		assert.Equal(t, "invalid request reported when making request to aws. message: token is scheduled for deletion", err.Error())
+		assert.Equal(t, "invalid request to aws secret storage: failed to get the secret 'testNamespace/testRemoteSecret' from aws secretmanager: InvalidRequestException: token is scheduled for deletion", err.Error())
 		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
 		assert.Nil(t, data)
@@ -323,140 +298,12 @@ func TestGet(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		data, err := strg.Get(ctx, testSecretID)
 		assert.Error(t, err)
 		assert.Error(t, err, secretstorage.NotFoundError)
 		assert.True(t, cl.getCalled)
-		assert.Nil(t, data)
-	})
-}
-
-func TestMigrate(t *testing.T) {
-	t.Run("not found", func(t *testing.T) {
-		ctx := context.TODO()
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return nil, &types.ResourceNotFoundException{}
-			},
-		}
-
-		strg := AwsSecretStorage{
-			client: cl,
-		}
-
-		data, err := strg.tryMigrateSecret(ctx, testSecretID)
-		assert.NoError(t, err)
-		assert.True(t, cl.getCalled)
-		assert.False(t, cl.createCalled)
-		assert.False(t, cl.deleteCalled)
-		assert.Nil(t, data)
-	})
-
-	t.Run("failed to get", func(t *testing.T) {
-		ctx := context.TODO()
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return nil, &types.InvalidRequestException{Message: aws.String("token is scheduled for deletion")}
-			},
-		}
-
-		strg := AwsSecretStorage{
-			client: cl,
-		}
-
-		data, err := strg.tryMigrateSecret(ctx, testSecretID)
-		assert.Error(t, err)
-		assert.True(t, cl.getCalled)
-		assert.False(t, cl.createCalled)
-		assert.False(t, cl.deleteCalled)
-		assert.Nil(t, data)
-	})
-
-	t.Run("migrate ok", func(t *testing.T) {
-		ctx := context.TODO()
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: testData}, nil
-			},
-			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
-				return &secretsmanager.DeleteSecretOutput{}, nil
-			},
-			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-				return &secretsmanager.CreateSecretOutput{}, nil
-			},
-		}
-
-		strg := AwsSecretStorage{
-			client:        cl,
-			SpiInstanceId: "spi-test",
-		}
-
-		data, err := strg.tryMigrateSecret(ctx, testSecretID)
-		assert.NoError(t, err)
-		assert.True(t, cl.getCalled)
-		assert.True(t, cl.deleteCalled)
-		assert.True(t, cl.createCalled)
-		assert.NotNil(t, data)
-	})
-
-	t.Run("migrate ok but failed to delete", func(t *testing.T) {
-		ctx := context.TODO()
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: testData}, nil
-			},
-			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
-				return nil, fmt.Errorf("failed to delete")
-			},
-			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-				return &secretsmanager.CreateSecretOutput{}, nil
-			},
-		}
-
-		strg := AwsSecretStorage{
-			client: cl,
-		}
-
-		data, err := strg.tryMigrateSecret(ctx, testSecretID)
-		assert.NoError(t, err)
-		assert.True(t, cl.getCalled)
-		assert.True(t, cl.deleteCalled)
-		assert.True(t, cl.createCalled)
-		assert.NotNil(t, data)
-	})
-
-	t.Run("failed to create", func(t *testing.T) {
-		ctx := context.TODO()
-
-		cl := &mockAwsClient{
-			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid"), SecretBinary: testData}, nil
-			},
-			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
-				return &secretsmanager.DeleteSecretOutput{}, nil
-			},
-			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-				return nil, fmt.Errorf("failed to create")
-			},
-		}
-
-		strg := AwsSecretStorage{
-			client: cl,
-		}
-
-		data, err := strg.tryMigrateSecret(ctx, testSecretID)
-		assert.Error(t, err)
-		assert.True(t, cl.getCalled)
-		assert.True(t, cl.createCalled)
-		assert.False(t, cl.deleteCalled)
 		assert.Nil(t, data)
 	})
 }
@@ -471,9 +318,7 @@ func TestDelete(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errDelete := strg.Delete(ctx, testSecretID)
 		assert.NoError(t, errDelete)
@@ -489,14 +334,19 @@ func TestDelete(t *testing.T) {
 			},
 		}
 
-		strg := AwsSecretStorage{
-			client: cl,
-		}
+		strg := newStorage(cl)
 
 		errDelete := strg.Delete(ctx, testSecretID)
 		assert.Error(t, errDelete)
 		assert.True(t, cl.deleteCalled)
 	})
+}
+
+func newStorage(cl *mockAwsClient) AwsSecretStorage {
+	return AwsSecretStorage{
+		client:           cl,
+		secretNameFormat: "%s/%s",
+	}
 }
 
 type mockAwsClient struct {

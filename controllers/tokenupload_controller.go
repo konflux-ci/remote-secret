@@ -18,29 +18,26 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	kuberrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	kuberrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
-	"github.com/go-logr/logr"
-
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"k8s.io/apimachinery/pkg/types"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/redhat-appstudio/remote-secret/pkg/commaseparated"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 )
 
 var uploadSecretSelector = metav1.LabelSelector{
@@ -53,9 +50,11 @@ var uploadSecretSelector = metav1.LabelSelector{
 	},
 }
 
-// +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+var remoteSecretDoesntExist = errors.New("remote secret does not exist")
+
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
+//+kubebuilder:rbac:groups=appstudio.redhat.com,resources=remotesecrets,verbs=get;list;watch;create;update;patch;delete
 
 // TokenUploadReconciler reconciles a Secret object
 type TokenUploadReconciler struct {
@@ -128,33 +127,53 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
-	lg := log.FromContext(ctx)
+	_, partialUpdate := uploadSecret.Annotations[api.RemoteSecretPartialUpdateAnnotation]
 
-	// try to find the remote secret
-	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret, lg)
+	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret)
 	if err != nil {
-		return fmt.Errorf("can not find RemoteSecret: %w ", err)
-	} else if remoteSecret == nil {
-		// The remote secret does not exist, so create it
-		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret, lg)
+		return fmt.Errorf("attempt to find the remote secret failed: %w", err)
+	}
+	if !partialUpdate && remoteSecret == nil {
+		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret)
 		if err != nil {
-			return fmt.Errorf("can not create RemoteSecret: %w ", err)
+			return fmt.Errorf("failed to create the remote secret: %w", err)
 		}
 	}
-	err = remoteSecret.ValidateUploadSecretType(uploadSecret)
-	if err != nil {
-		return fmt.Errorf("validation of upload secret failed: %w ", err)
-	}
 
-	auditLog := logs.AuditLog(ctx).WithValues("remoteSecretName", remoteSecret.Name)
-	auditLog.Info("manual secret upload initiated", "action", "UPDATE")
-	err = r.RemoteSecretStorage.Store(ctx, remoteSecret, (*remotesecretstorage.SecretData)(&uploadSecret.Data))
-	if err != nil {
-		err = fmt.Errorf("failed to store the remote secret data: %w", err)
-		auditLog.Error(err, "manual secret upload failed")
-		return err
+	// When we're doing the full upload, the remote secret is created if it doesn't exist.
+	// When we're doing a partial update, the remote secret is not created though, and therefore
+	// we need to check that we have a remote secret to work with here before continuing.
+	if remoteSecret == nil {
+		return remoteSecretDoesntExist
 	}
-	auditLog.Info("manual secret upload completed")
+	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(remoteSecret))
+
+	if partialUpdate {
+		auditLog.Info("manual secret partial update initiated", "action", "UPDATE")
+
+		keysToDelete := commaseparated.Value(uploadSecret.Annotations[api.RemoteSecretDeletedKeysAnnotation]).Values()
+
+		if err = r.RemoteSecretStorage.PartialUpdate(ctx, remoteSecret, &uploadSecret.Data, keysToDelete); err != nil {
+			err = fmt.Errorf("failed to partially update the secret data: %w", err)
+			auditLog.Error(err, "manual secret partial update failed")
+			return err
+		}
+		auditLog.Info("manual secret partial update completed")
+	} else {
+		err = remoteSecret.ValidateUploadSecret(uploadSecret)
+		if err != nil {
+			auditLog.Info("manual secret upload not started because of invalid upload secret")
+			return fmt.Errorf("validation of upload secret failed: %w ", err)
+		}
+
+		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
+		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, &uploadSecret.Data); err != nil {
+			err = fmt.Errorf("failed to store the remote secret data: %w", err)
+			auditLog.Error(err, "manual secret upload failed")
+			return err
+		}
+		auditLog.Info("manual secret upload completed")
+	}
 
 	return nil
 }
@@ -179,7 +198,6 @@ func (r *TokenUploadReconciler) createErrorEvent(ctx context.Context, secret *co
 	if err != nil {
 		lg.Error(err, "event creation failed for upload secret")
 	}
-
 }
 
 // Contract: having exactly one event if upload failed and no events if uploaded.
@@ -197,7 +215,9 @@ func (r *TokenUploadReconciler) tryDeleteEvent(ctx context.Context, secretName s
 	}
 }
 
-func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*api.RemoteSecret, error) {
+func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) (*api.RemoteSecret, error) {
+	lg := log.FromContext(ctx)
+
 	remoteSecretName := uploadSecret.Annotations[api.RemoteSecretNameAnnotation]
 	if remoteSecretName == "" {
 		lg.V(logs.DebugLevel).Info("No remoteSecretName found, will try to create with generated ")
@@ -220,7 +240,8 @@ func (r *TokenUploadReconciler) findRemoteSecret(ctx context.Context, uploadSecr
 	}
 }
 
-func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret, lg logr.Logger) (*api.RemoteSecret, error) {
+func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) (*api.RemoteSecret, error) {
+	lg := log.FromContext(ctx)
 
 	remoteSecret := api.RemoteSecret{
 		ObjectMeta: metav1.ObjectMeta{

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -29,18 +28,16 @@ import (
 // be more explicit and forward-compatible should any changes to this struct arise in
 // the future.
 type SecretID struct {
-	Uid       types.UID
 	Name      string
 	Namespace string
 }
 
 // String returns the string representation of the SecretID.
 func (s SecretID) String() string {
-	return fmt.Sprintf("%s/%s [uid=%s]", s.Namespace, s.Name, s.Uid)
+	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
 }
 
 var NotFoundError = errors.New("not found")
-var ErrNoUid = errors.New("kubernetes object does not have UID")
 
 // SecretStorage is a generic storage mechanism for storing secret data keyed by the SecretID.
 type SecretStorage interface {
@@ -93,11 +90,7 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 
 // ObjectToID converts given Kubernetes object to SecretID based on the name and namespace.
 func ObjectToID[O client.Object](obj O) (*SecretID, error) {
-	if obj.GetUID() == "" {
-		return nil, fmt.Errorf("failed to convert object '%s/%s' to secret storage ID: %w", obj.GetNamespace(), obj.GetName(), ErrNoUid)
-	}
 	return &SecretID{
-		Uid:       obj.GetUID(),
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 	}, nil

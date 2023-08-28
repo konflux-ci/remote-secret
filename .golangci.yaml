@@ -24,6 +24,7 @@ linters:
     - wrapcheck
     - nolintlint
     - loggercheck
+    - ginkgolinter
 
 linters-settings:
   wrapcheck:

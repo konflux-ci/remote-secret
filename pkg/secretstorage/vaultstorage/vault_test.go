@@ -47,9 +47,8 @@ func TestExtractData(t *testing.T) {
 			},
 		}
 
-		bytes, legacy, err := extractData(data)
+		bytes, err := extractByteData(data)
 		assert.NoError(t, err)
-		assert.False(t, legacy)
 		assert.Equal(t, origBytes, bytes)
 	})
 	//t.Run("extracts legacy data", func(t *testing.T) {

@@ -32,9 +32,9 @@ This will make a docker images called `quay.io/redhat-appstudio/remote-secret-co
 To override the name of the image build, specify it in the `IMG_BASE` and/or `TAG_NAME` environment variable, e.g.:
 
 ```
-make docker-build IMG_BASE=quay.io/acme TAG_NAME=bugfix
+make docker-build IMG_BASE=quay.io/acme TAG_NAME=bugfix GOARCH=amd64
 ```
-
+The GOARCH parameter allows you to define the target architecture for the generated binaries. You can set it to values like amd64, arm64, or others based on your requirements.
 To push the images to an image repository one can use:
 
 ```
@@ -121,4 +121,20 @@ make deploy_openshift IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NA
 On Minikube use:
 ```
 make deploy_minikube IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAME>
+```
+
+## Profiling
+
+It is possible to run the operator locally with the pprof data exposed on the metrics endpoint. To run the operator locally with profiling on, you can:
+
+```
+make run EXPOSEPROFILING=true
+```
+
+The profiling data is then going to be present on `localhost:8080/debug/pprof`.
+
+You can use the `pprof` tool to examine the collected profiling data, e.g.:
+
+```
+go tool prof -http :6006 http://localhost:8080/debug/pprof/heap
 ```

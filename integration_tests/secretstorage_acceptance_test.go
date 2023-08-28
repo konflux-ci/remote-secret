@@ -142,13 +142,17 @@ func StorageTCK(t *testing.T, ctx context.Context, storage secretstorage.SecretS
 		assert.NoError(t, err)
 	})
 
-	// write, let's wait a bit
-	time.Sleep(1 * time.Second)
+	t.Run("recreate after delete", func(t *testing.T) {
+		err := storage.Store(ctx, secretId, testSecretData)
+		assert.NoError(t, err)
+	})
 
 	t.Run("get deleted", func(t *testing.T) {
+		err := storage.Delete(ctx, secretId)
+		assert.NoError(t, err)
 		gettedSecretData, err := storage.Get(ctx, secretId)
 		assert.ErrorIs(t, err, secretstorage.NotFoundError)
-		assert.Nil(t, gettedSecretData)
+		assert.True(t, gettedSecretData == nil)
 	})
 
 }
@@ -162,7 +166,7 @@ var (
 func refreshTestData(t *testing.T) {
 
 	random, _, _ := strings.Cut(string(uuid.NewUUID()), "-")
-	secretId = secretstorage.SecretID{Uid: uuid.NewUUID(), Name: "secret" + random, Namespace: "ns" + random}
+	secretId = secretstorage.SecretID{Name: "secret" + random, Namespace: "ns" + random}
 	testData := map[string]any{
 		"username":     "testUsername-" + random,
 		"accessToken":  "testAccessToken-" + random,
