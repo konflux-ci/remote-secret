@@ -702,12 +702,13 @@ github.com/hashicorp/vault-plugin-secrets-kv v0.14.3/go.mod h1:tQ87Y0wm1JhliWuiX
 github.com/hashicorp/vault-plugin-secrets-mongodbatlas v0.9.1 h1:WkW8fyHxEdz1wGSTxCnSCrzXvgLXqXr8Iqp7upa/s4E=
 github.com/hashicorp/vault-plugin-secrets-openldap v0.10.1 h1:EN3/iEjPPmcpX9yihybQNHvewc+YoJw7aoKsio1WK5s=
 github.com/hashicorp/vault-plugin-secrets-terraform v0.7.0 h1:jgJpVKhV0Eh6EjpUEIf7VYH2D6D0xW2Lry9/3PI8hy0=
-github.com/hashicorp/vault/api v1.9.2 h1:YjkZLJ7K3inKgMZ0wzCU9OHqc+UqMQyXsPXnf3Cl2as=
 github.com/hashicorp/vault/api v1.9.2/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
+github.com/hashicorp/vault/api v1.10.0 h1:/US7sIjWN6Imp4o/Rj1Ce2Nr5bki/AXi9vAW3p2tOJQ=
+github.com/hashicorp/vault/api v1.10.0/go.mod h1:jo5Y/ET+hNyz+JnKDt8XLAdKs+AM0G5W0Vp1IrFI8N8=
 github.com/hashicorp/vault/api/auth/approle v0.4.1 h1:NElpX7DZ2uaLGwY+leWXHUqw9tepsYkcHvIowgIZteI=
 github.com/hashicorp/vault/api/auth/approle v0.4.1/go.mod h1:rlI2VbmuHkptRun7DngpxOSvRC+JuITqAs/Z09pUucU=
-github.com/hashicorp/vault/api/auth/kubernetes v0.4.1 h1:amFWL1ZhwMWdmqvT51J9phXu835kY25wFfTrY/3yXd0=
-github.com/hashicorp/vault/api/auth/kubernetes v0.4.1/go.mod h1:ikWDT8Adnfvm+8DzKez50vvLD9GWD/unZfJxeqP09sU=
+github.com/hashicorp/vault/api/auth/kubernetes v0.5.0 h1:CXO0fD7M3iCGovP/UApeHhPcH4paDFKcu7AjEXi94rI=
+github.com/hashicorp/vault/api/auth/kubernetes v0.5.0/go.mod h1:afrElBIO9Q4sHFVuVWgNevG4uAs1bT2AZFA9aEiI608=
 github.com/hashicorp/vault/sdk v0.8.1 h1:bdlhIpxBmJuOZ5Anumao1xeiLocR2eQrBRuJynZfTac=
 github.com/hashicorp/vault/sdk v0.8.1/go.mod h1:kEpyfUU2ECGWf6XohKVFzvJ97ybSnXvxsTsBkbeVcQg=
 github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443 h1:O/pT5C1Q3mVXMyuqg7yuAWUg/jMZR1/0QTzTRdNR6Uw=
