@@ -16,6 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -158,6 +159,44 @@ func TestValidateSecretData(t *testing.T) {
 		secretData := map[string][]byte{corev1.BasicAuthUsernameKey: []byte("user")}
 
 		err := rs.ValidateSecretData(secretData)
+		assert.NoError(t, err)
+	})
+
+}
+
+func TestValidateEnvironments(t *testing.T) {
+	rs := &RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				EnvironmentNameLabelOrAnnotation: "env1",
+			},
+			Annotations: map[string]string{
+				EnvironmentNameLabelOrAnnotation: "env2, env3",
+			},
+		},
+		Spec: RemoteSecretSpec{
+			Secret: LinkableSecretSpec{
+				Type: corev1.SecretTypeOpaque,
+			},
+		},
+	}
+
+	t.Run("both environment label and annotation must not be set", func(t *testing.T) {
+		err := rs.ValidateEnvironment()
+		assert.Error(t, err)
+	})
+
+	t.Run("environment annotation is ok", func(t *testing.T) {
+		rsCopy := rs.DeepCopy()
+		rsCopy.ObjectMeta.Labels = map[string]string{}
+		err := rsCopy.ValidateEnvironment()
+		assert.NoError(t, err)
+	})
+
+	t.Run("environment label is ok", func(t *testing.T) {
+		rsCopy := rs.DeepCopy()
+		rsCopy.ObjectMeta.Annotations = map[string]string{}
+		err := rsCopy.ValidateEnvironment()
 		assert.NoError(t, err)
 	})
 

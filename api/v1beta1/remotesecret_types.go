@@ -118,6 +118,7 @@ type RemoteSecret struct {
 
 var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
 var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
+var annotationAndLabelSetError = errors.New("the following annotation and label must not be set at the same time")
 
 // ValidateUploadSecret checks whether the uploadSecret type matches the RemoteSecret type and whether upload secret
 // contains required keys.
@@ -128,6 +129,17 @@ func (rs *RemoteSecret) ValidateUploadSecret(uploadSecret *corev1.Secret) error 
 	}
 	if err := rs.ValidateSecretData(uploadSecret.Data); err != nil {
 		return err
+	}
+	return nil
+}
+
+// ValidateEnvironment checks whether the environment(s) label or annotation is set, but not both.
+// The function is in the api package because it extends the contract of the CRD.
+func (rs *RemoteSecret) ValidateEnvironment() error {
+	_, labelSet := rs.Labels[EnvironmentNameLabelOrAnnotation]
+	_, annotationSet := rs.Annotations[EnvironmentNameLabelOrAnnotation]
+	if labelSet && annotationSet {
+		return fmt.Errorf("%w: %s", annotationAndLabelSetError, EnvironmentNameLabelOrAnnotation)
 	}
 	return nil
 }

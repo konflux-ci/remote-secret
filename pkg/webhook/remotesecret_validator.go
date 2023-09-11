@@ -27,8 +27,9 @@ import (
 type RemoteSecretValidator struct{}
 
 var (
-	errGotNonSecret     = errors.New("RemoteSecret expected but got another type")
-	errTargetsNotUnique = errors.New("targets are not unique in remote secret")
+	errGotNonSecret           = errors.New("RemoteSecret expected but got another type")
+	errTargetsNotUnique       = errors.New("targets are not unique in remote secret")
+	errEnvironmentFormatError = errors.New("target environments format error")
 )
 
 // +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-remotesecret,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
@@ -39,6 +40,9 @@ func (a *RemoteSecretValidator) ValidateCreate(_ context.Context, obj runtime.Ob
 	if !ok {
 		return fmt.Errorf("%w: %T", errGotNonSecret, obj)
 	}
+	if err := rs.ValidateEnvironment(); err != nil {
+		return fmt.Errorf("%w: %s", errEnvironmentFormatError, err.Error())
+	}
 	return validateUniqueTargets(rs)
 }
 
@@ -46,6 +50,9 @@ func (a *RemoteSecretValidator) ValidateUpdate(_ context.Context, _, newObj runt
 	rs, ok := newObj.(*v1beta1.RemoteSecret)
 	if !ok {
 		return fmt.Errorf("%w: %T", errGotNonSecret, newObj)
+	}
+	if err := rs.ValidateEnvironment(); err != nil {
+		return fmt.Errorf("%w: %s", errEnvironmentFormatError, err.Error())
 	}
 	return validateUniqueTargets(rs)
 }

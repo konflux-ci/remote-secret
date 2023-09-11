@@ -38,4 +38,8 @@ const (
 	// RemoteSecretDeletedKeysAnnotation should be placed on an upload secret if the user want to remove some keys from the secret data of an already existing remote secret. It
 	// contains the comma-separated list of keys that should be removed.
 	RemoteSecretDeletedKeysAnnotation = "appstudio.redhat.com/remotesecret-deleted-keys"
+
+	// EnvironmentNameLabelOrAnnotation is used to specify the name of the environment that the remote secret is associated with.
+	// If used as an annotation, it is allows multiple values. If used as a label, it is a single value. Usage is mutually exclusive between label and annotation.
+	EnvironmentNameLabelOrAnnotation = "appstudio.redhat.com/environment"
 )
