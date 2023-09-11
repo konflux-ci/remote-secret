@@ -202,11 +202,6 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
 
-	if err := remoteSecret.ValidateEnvironment(); err != nil {
-		lg.Error(err, "remote secret environment validation failed")
-		return ctrl.Result{}, fmt.Errorf("remote secret format error: %w", err)
-	}
-
 	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
