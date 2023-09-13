@@ -118,7 +118,7 @@ func (m *RemoteSecretMutator) checkHasPermissions(ctx context.Context, user auth
 	}
 
 	if err := m.Client.Create(ctx, sar); err != nil {
-		return err
+		return fmt.Errorf("failed to create a subject access review to check if the user can copy data of remote secret: %w", err)
 	}
 
 	if !sar.Status.Allowed {

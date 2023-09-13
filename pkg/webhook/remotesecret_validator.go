@@ -27,7 +27,6 @@ import (
 type RemoteSecretValidator struct{}
 
 var (
-	errGotNonSecret                                = errors.New("RemoteSecret expected but got another type")
 	errTargetsNotUnique                            = errors.New("targets are not unique in remote secret")
 	errDataFromSpecifiedWhenDataAlreadyPresent     = errors.New("DataFrom is not supported in updates")
 	errOnlyOneOfDataFromOrUploadDataCanBeSpecified = errors.New("only one of DataFrom or UploadData can be specified")
