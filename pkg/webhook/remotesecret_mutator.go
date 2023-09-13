@@ -16,40 +16,45 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	authv1 "k8s.io/api/authentication/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 )
 
+var errorCopyNotAllowed = errors.New("user cannot copy the data of the specified remote secret")
+
+// WebhookMutator defines the contract between the RemoteSecretWebhook and the "thing" that
+// mutates the remote secret passed to its methods. This interface mainly exists to ease the testing
+// because it will only ever have one implementation in the production code - the RemoteSecretMutator.
+type WebhookMutator interface {
+	StoreUploadData(context.Context, *api.RemoteSecret) error
+	CopyDataFrom(context.Context, authv1.UserInfo, *api.RemoteSecret) error
+}
+
 type RemoteSecretMutator struct {
+	Client  client.Client
 	Storage remotesecretstorage.RemoteSecretStorage
 }
 
-// +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-remotesecret,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
-var _ webhook.CustomDefaulter = &RemoteSecretMutator{}
+var _ WebhookMutator = (*RemoteSecretMutator)(nil)
 
-func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) error {
-	rs, ok := obj.(*v1beta1.RemoteSecret)
-	if !ok {
-		return fmt.Errorf("%w: %T", errGotNonSecret, obj)
-	}
-	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
-
+func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.RemoteSecret) error {
 	if len(rs.UploadData) != 0 {
+		auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
 		auditLog.Info("webhook data upload initiated")
 		binData := map[string][]byte{}
 		for k, v := range rs.UploadData {
 			binData[k] = []byte(v)
 		}
 
-		err := a.Storage.Store(ctx, rs, &binData)
+		err := m.Storage.Store(ctx, rs, &binData)
 		if err != nil {
 			err = fmt.Errorf("storage error on data save: %w", err)
 			auditLog.Error(err, "webhook data upload failed")
@@ -59,7 +64,69 @@ func (a *RemoteSecretMutator) Default(ctx context.Context, obj runtime.Object) e
 		auditLog.Info("webhook data upload completed")
 
 		// clean upload data
-		rs.UploadData = map[string]string{}
+		rs.UploadData = nil
+	}
+
+	return nil
+}
+
+func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.UserInfo, rs *api.RemoteSecret) error {
+	if rs.DataFrom == nil {
+		return nil
+	}
+	if rs.DataFrom.Name == "" || rs.DataFrom.Namespace == "" {
+		return nil
+	}
+
+	if err := m.checkHasPermissions(ctx, user, *rs.DataFrom); err != nil {
+		return fmt.Errorf("failed to check the permissions of remote secret %s in namespace %s for user %s: %w", rs.DataFrom.Name, rs.DataFrom.Namespace, user.Username, err)
+	}
+
+	source := &api.RemoteSecret{}
+	if err := m.Client.Get(ctx, client.ObjectKey{Name: rs.DataFrom.Name, Namespace: rs.DataFrom.Namespace}, source); err != nil {
+		return fmt.Errorf("failed to get the source remote secret for copying the data: %w", err)
+	}
+
+	data, err := m.Storage.Get(ctx, source)
+	if err != nil {
+		return fmt.Errorf("failed to obtain the data of the source remote secret when copying the data: %w", err)
+	}
+
+	if err := m.Storage.Store(ctx, rs, data); err != nil {
+		return fmt.Errorf("failed to store the data copied from the source remote secret: %w", err)
+	}
+
+	rs.DataFrom = nil
+	return nil
+}
+
+func (m *RemoteSecretMutator) checkHasPermissions(ctx context.Context, user authv1.UserInfo, dataFrom api.RemoteSecretDataFrom) error {
+	sar := &authzv1.SubjectAccessReview{
+		Spec: authzv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authzv1.ResourceAttributes{
+				Name:      dataFrom.Name,
+				Namespace: dataFrom.Namespace,
+				Verb:      "get",
+				Group:     api.GroupVersion.Group,
+				Version:   api.GroupVersion.Version,
+				Resource:  "remotesecrets",
+			},
+			UID:    user.UID,
+			User:   user.Username,
+			Groups: user.Groups,
+		},
+	}
+
+	if err := m.Client.Create(ctx, sar); err != nil {
+		return err
+	}
+
+	if !sar.Status.Allowed {
+		if sar.Status.Reason != "" {
+			return fmt.Errorf("%w: %s", errorCopyNotAllowed, sar.Status.Reason)
+		} else {
+			return errorCopyNotAllowed
+		}
 	}
 
 	return nil

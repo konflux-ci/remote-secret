@@ -15,25 +15,25 @@
 package webhook
 
 import (
-	"fmt"
+	ctrl "sigs.k8s.io/controller-runtime"
+	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-func SetupAllWebhooks(mgr controllerruntime.Manager, secretStorage secretstorage.SecretStorage) error {
-	rs := &api.RemoteSecret{}
+func SetupAllWebhooks(mgr ctrl.Manager, secretStorage secretstorage.SecretStorage) error {
 	remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
-	if err := controllerruntime.NewWebhookManagedBy(mgr).
-		WithDefaulter(&RemoteSecretMutator{Storage: remoteSecretStorage}).
-		WithValidator(&RemoteSecretValidator{}).
-		For(rs).
-		Complete(); err != nil {
-		return fmt.Errorf("failed to setup webhook for RemoteSecret: %w", err)
+	w := &wh.Webhook{
+		Handler: &RemoteSecretWebhook{
+			Mutator: &RemoteSecretMutator{
+				Client:  mgr.GetClient(),
+				Storage: remoteSecretStorage,
+			},
+			Validator: &RemoteSecretValidator{},
+		},
+		RecoverPanic: false,
 	}
+	mgr.GetWebhookServer().Register("/mutate-appstudio-redhat-com-v1beta1-remotesecret", w)
 	return nil
 }

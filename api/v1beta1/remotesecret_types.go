@@ -114,10 +114,15 @@ type RemoteSecret struct {
 	// to make sure (in a case if something happened with Webhook) it is constrained
 	//+kubebuilder:validation:MaxProperties=0
 	UploadData map[string]string `json:"data,omitempty"`
+	// DataFrom is an optional field that can be used to copy data from another remote secret during the creation
+	// of the remote secret. It is invalid to specify this field during an update.
+	DataFrom *RemoteSecretDataFrom `json:"dataFrom,omitempty"`
 }
 
-var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
-var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
+var (
+	secretTypeMismatchError    = errors.New("the type of upload secret and remote secret spec do not match")
+	secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
+)
 
 // ValidateUploadSecret checks whether the uploadSecret type matches the RemoteSecret type and whether upload secret
 // contains required keys.
@@ -251,6 +256,11 @@ const (
 	ServiceAccountLinkTypeSecret          ServiceAccountLinkType = "secret"
 	ServiceAccountLinkTypeImagePullSecret ServiceAccountLinkType = "imagePullSecret"
 )
+
+type RemoteSecretDataFrom struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+}
 
 // EffectiveSecretLinkType returns the secret link type applying the default value if LinkedSecretAs is unspecified by
 // the user.

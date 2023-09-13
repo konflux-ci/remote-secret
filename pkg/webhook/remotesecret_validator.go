@@ -19,49 +19,77 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"k8s.io/apimachinery/pkg/api/meta"
+
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 )
 
 type RemoteSecretValidator struct{}
 
 var (
-	errGotNonSecret     = errors.New("RemoteSecret expected but got another type")
-	errTargetsNotUnique = errors.New("targets are not unique in remote secret")
+	errGotNonSecret                                = errors.New("RemoteSecret expected but got another type")
+	errTargetsNotUnique                            = errors.New("targets are not unique in remote secret")
+	errDataFromSpecifiedWhenDataAlreadyPresent     = errors.New("DataFrom is not supported in updates")
+	errOnlyOneOfDataFromOrUploadDataCanBeSpecified = errors.New("only one of DataFrom or UploadData can be specified")
 )
 
-// +kubebuilder:webhook:path=/validate-appstudio-redhat-com-v1beta1-remotesecret,mutating=false,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
-var _ webhook.CustomValidator = &RemoteSecretValidator{}
+// WebhookValidator defines the contract between the RemoteSecretWebhook and the "thing" that
+// validates the remote secret passed to its methods. This interface mainly exists to ease the testing
+// because it will only ever have one implementation in the production code - the RemoteSecretValidator.
+type WebhookValidator interface {
+	ValidateCreate(context.Context, *api.RemoteSecret) error
+	ValidateUpdate(context.Context, *api.RemoteSecret, *api.RemoteSecret) error
+	ValidateDelete(context.Context, *api.RemoteSecret) error
+}
 
-func (a *RemoteSecretValidator) ValidateCreate(_ context.Context, obj runtime.Object) error {
-	rs, ok := obj.(*v1beta1.RemoteSecret)
-	if !ok {
-		return fmt.Errorf("%w: %T", errGotNonSecret, obj)
+var _ WebhookValidator = (*RemoteSecretValidator)(nil)
+
+func (a *RemoteSecretValidator) ValidateCreate(_ context.Context, rs *api.RemoteSecret) error {
+	if err := validateUploadDataAndDataFrom(rs); err != nil {
+		return err
 	}
 	return validateUniqueTargets(rs)
 }
 
-func (a *RemoteSecretValidator) ValidateUpdate(_ context.Context, _, newObj runtime.Object) error {
-	rs, ok := newObj.(*v1beta1.RemoteSecret)
-	if !ok {
-		return fmt.Errorf("%w: %T", errGotNonSecret, newObj)
+func (a *RemoteSecretValidator) ValidateUpdate(_ context.Context, _, new *api.RemoteSecret) error {
+	if err := validateUploadDataAndDataFrom(new); err != nil {
+		return err
 	}
-	return validateUniqueTargets(rs)
+	if err := validateDataFrom(new); err != nil {
+		return err
+	}
+	return validateUniqueTargets(new)
 }
 
-func (a *RemoteSecretValidator) ValidateDelete(_ context.Context, _ runtime.Object) error {
+func (a *RemoteSecretValidator) ValidateDelete(_ context.Context, _ *api.RemoteSecret) error {
 	return nil
 }
 
-func validateUniqueTargets(rs *v1beta1.RemoteSecret) error {
-	targets := make(map[v1beta1.RemoteSecretTarget]string, len(rs.Spec.Targets))
+func validateUniqueTargets(rs *api.RemoteSecret) error {
+	targets := make(map[api.RemoteSecretTarget]string, len(rs.Spec.Targets))
 	for _, t := range rs.Spec.Targets {
 		if _, present := targets[t]; present {
 			return fmt.Errorf("%w %s: %s", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
 		} else {
 			targets[t] = ""
 		}
+	}
+	return nil
+}
+
+func validateDataFrom(rs *api.RemoteSecret) error {
+	var empty api.RemoteSecretDataFrom
+	if rs.DataFrom != nil && *rs.DataFrom != empty && meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
+		return errDataFromSpecifiedWhenDataAlreadyPresent
+	}
+	return nil
+}
+
+func validateUploadDataAndDataFrom(rs *api.RemoteSecret) error {
+	var emptyDataFrom api.RemoteSecretDataFrom
+
+	if rs.DataFrom != nil && *rs.DataFrom != emptyDataFrom && len(rs.UploadData) > 0 {
+		return errOnlyOneOfDataFromOrUploadDataCanBeSpecified
 	}
 	return nil
 }
