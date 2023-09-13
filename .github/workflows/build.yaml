@@ -32,7 +32,7 @@ jobs:
       IMAGE_TAG_BASE:  ${{ vars.IMAGE_TAG_BASE  || 'quay.io/redhat-appstudio/remote-secret'}}
     steps:
       - name: Checkout operator source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Docker Buildx
