@@ -118,7 +118,7 @@ type RemoteSecret struct {
 	// of the remote secret. This field can be specified only during creation of a remote secret (only one of data
 	// or dataFrom can be specified at the same time) or during an update of a remote secret that does not yet have
 	// data associated with it (its DataObtained condition is in the AwaitingData state).
-	DataFrom *RemoteSecretDataFrom `json:"dataFrom,omitempty"`
+	DataFrom RemoteSecretDataFrom `json:"dataFrom,omitempty"`
 }
 
 var (

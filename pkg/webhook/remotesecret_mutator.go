@@ -71,9 +71,6 @@ func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.Remot
 }
 
 func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.UserInfo, rs *api.RemoteSecret) error {
-	if rs.DataFrom == nil {
-		return nil
-	}
 	if rs.DataFrom.Name == "" {
 		return nil
 	}
@@ -102,7 +99,8 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 		return fmt.Errorf("failed to store the data copied from the source remote secret: %w", err)
 	}
 
-	rs.DataFrom = nil
+	rs.DataFrom = api.RemoteSecretDataFrom{}
+
 	return nil
 }
 

@@ -61,7 +61,7 @@ func TestValidateDelete(t *testing.T) {
 func testDataFrom(t *testing.T, testDataPresent bool, op func(*api.RemoteSecret) error) {
 	t.Run("DataFrom", func(t *testing.T) {
 		rs := &api.RemoteSecret{
-			DataFrom: &api.RemoteSecretDataFrom{
+			DataFrom: api.RemoteSecretDataFrom{
 				Name: "somename",
 			},
 		}
@@ -98,13 +98,13 @@ func testUploadData(t *testing.T, op func(*api.RemoteSecret) error) {
 
 		t.Run("with empty DataFrom", func(t *testing.T) {
 			rs := rs.DeepCopy()
-			rs.DataFrom = &api.RemoteSecretDataFrom{}
+			rs.DataFrom = api.RemoteSecretDataFrom{}
 			assert.NoError(t, op(rs))
 		})
 
 		t.Run("with DataFrom", func(t *testing.T) {
 			rs := rs.DeepCopy()
-			rs.DataFrom = &api.RemoteSecretDataFrom{
+			rs.DataFrom = api.RemoteSecretDataFrom{
 				Name: "non-empty",
 			}
 			assert.Error(t, op(rs))

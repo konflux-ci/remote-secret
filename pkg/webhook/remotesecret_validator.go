@@ -78,7 +78,7 @@ func validateUniqueTargets(rs *api.RemoteSecret) error {
 
 func validateDataFrom(rs *api.RemoteSecret) error {
 	var empty api.RemoteSecretDataFrom
-	if rs.DataFrom != nil && *rs.DataFrom != empty && meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
+	if rs.DataFrom != empty && meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
 		return errDataFromSpecifiedWhenDataAlreadyPresent
 	}
 	return nil
@@ -87,7 +87,7 @@ func validateDataFrom(rs *api.RemoteSecret) error {
 func validateUploadDataAndDataFrom(rs *api.RemoteSecret) error {
 	var emptyDataFrom api.RemoteSecretDataFrom
 
-	if rs.DataFrom != nil && *rs.DataFrom != emptyDataFrom && len(rs.UploadData) > 0 {
+	if rs.DataFrom != emptyDataFrom && len(rs.UploadData) > 0 {
 		return errOnlyOneOfDataFromOrUploadDataCanBeSpecified
 	}
 	return nil
