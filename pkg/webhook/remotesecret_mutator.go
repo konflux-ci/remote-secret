@@ -74,16 +74,22 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 	if rs.DataFrom == nil {
 		return nil
 	}
-	if rs.DataFrom.Name == "" || rs.DataFrom.Namespace == "" {
+	if rs.DataFrom.Name == "" {
 		return nil
 	}
 
-	if err := m.checkHasPermissions(ctx, user, *rs.DataFrom); err != nil {
-		return fmt.Errorf("failed to check the permissions of remote secret %s in namespace %s for user %s: %w", rs.DataFrom.Name, rs.DataFrom.Namespace, user.Username, err)
+	sourceName := rs.DataFrom.Name
+	sourceNamespace := rs.DataFrom.Namespace
+	if sourceNamespace == "" {
+		sourceNamespace = rs.Namespace
+	}
+
+	if err := m.checkHasPermissions(ctx, user, sourceName, sourceNamespace); err != nil {
+		return fmt.Errorf("failed to check the permissions of remote secret %s in namespace %s for user %s: %w", sourceName, sourceNamespace, user.Username, err)
 	}
 
 	source := &api.RemoteSecret{}
-	if err := m.Client.Get(ctx, client.ObjectKey{Name: rs.DataFrom.Name, Namespace: rs.DataFrom.Namespace}, source); err != nil {
+	if err := m.Client.Get(ctx, client.ObjectKey{Name: sourceName, Namespace: sourceNamespace}, source); err != nil {
 		return fmt.Errorf("failed to get the source remote secret for copying the data: %w", err)
 	}
 
@@ -100,12 +106,12 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 	return nil
 }
 
-func (m *RemoteSecretMutator) checkHasPermissions(ctx context.Context, user authv1.UserInfo, dataFrom api.RemoteSecretDataFrom) error {
+func (m *RemoteSecretMutator) checkHasPermissions(ctx context.Context, user authv1.UserInfo, sourceName, sourceNamespace string) error {
 	sar := &authzv1.SubjectAccessReview{
 		Spec: authzv1.SubjectAccessReviewSpec{
 			ResourceAttributes: &authzv1.ResourceAttributes{
-				Name:      dataFrom.Name,
-				Namespace: dataFrom.Namespace,
+				Name:      sourceName,
+				Namespace: sourceNamespace,
 				Verb:      "get",
 				Group:     api.GroupVersion.Group,
 				Version:   api.GroupVersion.Version,

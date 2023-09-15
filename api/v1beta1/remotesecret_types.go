@@ -115,7 +115,9 @@ type RemoteSecret struct {
 	//+kubebuilder:validation:MaxProperties=0
 	UploadData map[string]string `json:"data,omitempty"`
 	// DataFrom is an optional field that can be used to copy data from another remote secret during the creation
-	// of the remote secret. It is invalid to specify this field during an update.
+	// of the remote secret. This field can be specified only during creation of a remote secret (only one of data
+	// or dataFrom can be specified at the same time) or during an update of a remote secret that does not yet have
+	// data associated with it (its DataObtained condition is in the AwaitingData state).
 	DataFrom *RemoteSecretDataFrom `json:"dataFrom,omitempty"`
 }
 
