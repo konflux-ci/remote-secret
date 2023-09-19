@@ -84,6 +84,9 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 	}
 
 	if err := m.checkHasPermissions(ctx, user, sourceName, sourceNamespace); err != nil {
+		if errors.Is(err, errorCopyNotAllowed) {
+			return fmt.Errorf("%w", err)
+		}
 		return fmt.Errorf("failed to check the permissions of remote secret %s in namespace %s for user %s: %w", sourceName, sourceNamespace, user.Username, err)
 	}
 
