@@ -30,6 +30,8 @@ import (
 
 var errorCopyNotAllowed = errors.New("user cannot copy the data of the specified remote secret")
 
+// +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
+
 // WebhookMutator defines the contract between the RemoteSecretWebhook and the "thing" that
 // mutates the remote secret passed to its methods. This interface mainly exists to ease the testing
 // because it will only ever have one implementation in the production code - the RemoteSecretMutator.
