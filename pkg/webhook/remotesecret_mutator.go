@@ -97,9 +97,13 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 		return fmt.Errorf("failed to obtain the data of the source remote secret when copying the data: %w", err)
 	}
 
+	auditLog := logs.AuditLog(ctx).WithValues("source-remote-secret", client.ObjectKeyFromObject(source), "target-remote-secret", client.ObjectKeyFromObject(rs))
+	auditLog.Info("about to copy data from one remote secret to another")
 	if err := m.Storage.Store(ctx, rs, data); err != nil {
+		auditLog.Error(err, "failed to copy data from one remote secret to another")
 		return fmt.Errorf("failed to store the data copied from the source remote secret: %w", err)
 	}
+	auditLog.Info("successfully copied the data from source remote secret to target remote secret")
 
 	rs.DataFrom = api.RemoteSecretDataFrom{}
 
