@@ -27,9 +27,9 @@ import (
 type RemoteSecretValidator struct{}
 
 var (
-	errTargetsNotUnique                            = errors.New("targets are not unique in remote secret")
-	errDataFromSpecifiedWhenDataAlreadyPresent     = errors.New("DataFrom is not supported in if data is already present in the remote secret")
-	errOnlyOneOfDataFromOrUploadDataCanBeSpecified = errors.New("only one of DataFrom or UploadData can be specified")
+	errTargetsNotUnique                            = errors.New("targets are not unique in the remote secret")
+	errDataFromSpecifiedWhenDataAlreadyPresent     = errors.New("dataFrom is not supported if there is data already present in the remote secret")
+	errOnlyOneOfDataFromOrUploadDataCanBeSpecified = errors.New("only one of dataFrom or data can be specified")
 )
 
 // WebhookValidator defines the contract between the RemoteSecretWebhook and the "thing" that
