@@ -18,8 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 
-	"github.com/go-test/deep"
 	adm "k8s.io/api/admission/v1"
 	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -100,7 +100,7 @@ func (w *RemoteSecretWebhook) InjectDecoder(decoder *wh.Decoder) error {
 }
 
 func patchedOrAllowed(orig any, origRaw []byte, obj any) wh.Response {
-	if len(deep.Equal(orig, obj)) > 0 {
+	if !reflect.DeepEqual(orig, obj) {
 		json, err := json.Marshal(obj)
 		if err != nil {
 			return wh.Errored(http.StatusInternalServerError, err)
