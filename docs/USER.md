@@ -181,6 +181,26 @@ data:
   password: Z2VuYQ==
 ```
 
+As with ordinary Kubernetes secrets, you can use `stringData` property instead of `data` if you don't want to base64-encode the values yourself:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret
+    namespace: default
+spec:
+    secret:
+        name: pull-secret
+        type: kubernetes.io/dockercfg
+    targets: []
+stringData:
+  username: john
+  password: doe123
+```
+
+As with ordinary Kubernetes secrets, the `stringData` is first merged into the `data` field. Only then is the `data` field used to store the data in the secret storage.
+
 #### Copying data from another remote secret securely
 If you want to replicate some kind of environment including the secrets used in the "source environment", it might not be a good idea to just download the secrets because that would mean your secrets would leave the controlled environment of the cluster. Another option to copy the secrets without ever revealing their values to any of the users is to take advantage of the remote secret's `dataFrom` capability.
 
