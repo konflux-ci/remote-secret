@@ -32,8 +32,8 @@ spec:
       value: |
         rm -rf /usr/local/go;
         pushd /tmp;
-        curl  -L https://dl.google.com/go/go1.20.5.linux-amd64.tar.gz > go1.20.5.linux-amd64.tar.gz;
-        tar -C /usr/local -xzf go1.20.5.linux-amd64.tar.gz;
+        curl  -L https://dl.google.com/go/go1.21.1.linux-amd64.tar.gz > go1.21.1.linux-amd64.tar.gz;
+        tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz;
         export PATH=$PATH:/usr/local/go/bin;
         go version;
         popd;
