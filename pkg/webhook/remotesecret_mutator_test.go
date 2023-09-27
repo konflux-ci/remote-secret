@@ -27,30 +27,47 @@ import (
 )
 
 func TestStoreUploadData(t *testing.T) {
-	rs := &api.RemoteSecret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rs",
-			Namespace: "ns",
+	tests := map[string]*api.RemoteSecret{
+		"data": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rs",
+				Namespace: "ns",
+			},
+			UploadData: map[string][]byte{
+				"a": []byte("b"),
+			},
 		},
-		UploadData: map[string]string{
-			"a": "b",
+		"stringData": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "rs2",
+				Namespace: "ns",
+			},
+			StringUploadData: map[string]string{
+				"a": "b",
+			},
 		},
 	}
 
-	storage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&memorystorage.MemoryStorage{})
+	for name, rs := range tests {
+		t.Run(name, func(t *testing.T) {
+			storage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(&memorystorage.MemoryStorage{})
 
-	m := RemoteSecretMutator{
-		Client:  nil,
-		Storage: storage,
+			m := RemoteSecretMutator{
+				Client:  nil,
+				Storage: storage,
+			}
+
+			assert.NoError(t, m.StoreUploadData(context.TODO(), rs))
+
+			data, err := storage.Get(context.TODO(), rs)
+			assert.NoError(t, err)
+			assert.NotNil(t, data)
+			assert.Len(t, *data, 1)
+			assert.Equal(t, []byte("b"), (*data)["a"])
+			assert.Nil(t, rs.UploadData)
+			assert.Nil(t, rs.StringUploadData)
+		})
 	}
-
-	assert.NoError(t, m.StoreUploadData(context.TODO(), rs))
-
-	data, err := storage.Get(context.TODO(), rs)
-	assert.NoError(t, err)
-	assert.NotNil(t, data)
-	assert.Len(t, *data, 1)
-	assert.Equal(t, []byte("b"), (*data)["a"])
 }
 
 func TestStoreCopyDataFrom(t *testing.T) {

@@ -48,13 +48,20 @@ type RemoteSecretMutator struct {
 var _ WebhookMutator = (*RemoteSecretMutator)(nil)
 
 func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.RemoteSecret) error {
-	if len(rs.UploadData) != 0 {
-		auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
-		auditLog.Info("webhook data upload initiated")
-		binData := map[string][]byte{}
-		for k, v := range rs.UploadData {
+	binData := rs.UploadData
+
+	if len(rs.StringUploadData) > 0 {
+		if binData == nil {
+			binData = make(map[string][]byte, len(rs.StringUploadData))
+		}
+		for k, v := range rs.StringUploadData {
 			binData[k] = []byte(v)
 		}
+	}
+
+	if len(binData) > 0 {
+		auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(rs))
+		auditLog.Info("webhook data upload initiated")
 
 		err := m.Storage.Store(ctx, rs, &binData)
 		if err != nil {
@@ -64,10 +71,11 @@ func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.Remot
 		}
 
 		auditLog.Info("webhook data upload completed")
-
-		// clean upload data
-		rs.UploadData = nil
 	}
+
+	// clean upload data
+	rs.UploadData = nil
+	rs.StringUploadData = nil
 
 	return nil
 }
