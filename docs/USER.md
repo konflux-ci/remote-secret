@@ -181,6 +181,48 @@ data:
   password: Z2VuYQ==
 ```
 
+#### Copying data from another remote secret securely
+If you want to replicate some kind of environment including the secrets used in the "source environment", it might not be a good idea to just download the secrets because that would mean your secrets would leave the controlled environment of the cluster. Another option to copy the secrets without ever revealing their values to any of the users is to take advantage of the remote secret's `dataFrom` capability.
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: my-remote-secret
+    namespace: copied-namespace 
+spec:
+    secret:
+        name: pull-secret
+        type: kubernetes.io/dockercfg
+    targets: []
+dataFrom:
+  name: my-remote-secret
+  namespace: original-namespace
+```
+
+This will create a new remote secret called "my-remote-secret" in the "copied-namespace" namespace and will copy the data associated with "my-remote-secret" in the "original-namespace".
+
+Perhaps even better way of creating such an environment copy is to actually copy all the Kubernetes resources, including the remote secrets, from the original "environment", say the "environment" is the "original-namespace" namespace in the example above. Once imported, the remote secrets copied this way will be in the `AwaitingData` state. Then you can patch these remote secrets with either the new data like this:
+
+```yaml
+data:
+  username: Z2VuYQ==
+  password: Z2VuYQ==
+```
+
+or copy the data into these new remote secrets from the original location by patching them like this:
+
+```yaml
+dataFrom:
+  name: my-remote-secret
+  namespace: original-namespace
+```
+
+The above 2 patches are meant to be saved as a file and used with kubectl like this:
+
+```
+kubectl patch remotesecret my-remote-secret -n copied-namespace --type=merge --patch-file=patch.yaml
+```
 
 #### Creating RemoteSecret and target in a single action
 
