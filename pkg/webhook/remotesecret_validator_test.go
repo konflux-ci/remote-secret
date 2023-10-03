@@ -69,8 +69,8 @@ func testDataFrom(t *testing.T, testDataPresent bool, op func(*api.RemoteSecret)
 
 		t.Run("with UploadData", func(t *testing.T) {
 			rs := rs.DeepCopy()
-			rs.UploadData = map[string]string{
-				"a": "b",
+			rs.UploadData = map[string][]byte{
+				"a": []byte("b"),
 			}
 			assert.Error(t, op(rs))
 		})
@@ -92,7 +92,7 @@ func testDataFrom(t *testing.T, testDataPresent bool, op func(*api.RemoteSecret)
 func testUploadData(t *testing.T, op func(*api.RemoteSecret) error) {
 	t.Run("UploadData", func(t *testing.T) {
 		rs := &api.RemoteSecret{
-			UploadData: map[string]string{"a": "b"},
+			UploadData: map[string][]byte{"a": []byte("b")},
 		}
 		assert.NoError(t, op(rs))
 

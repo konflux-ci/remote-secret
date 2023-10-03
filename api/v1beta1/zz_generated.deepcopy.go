@@ -105,6 +105,21 @@ func (in *RemoteSecret) DeepCopyInto(out *RemoteSecret) {
 	in.Status.DeepCopyInto(&out.Status)
 	if in.UploadData != nil {
 		in, out := &in.UploadData, &out.UploadData
+		*out = make(map[string][]byte, len(*in))
+		for key, val := range *in {
+			var outVal []byte
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make([]byte, len(*in))
+				copy(*out, *in)
+			}
+			(*out)[key] = outVal
+		}
+	}
+	if in.StringUploadData != nil {
+		in, out := &in.StringUploadData, &out.StringUploadData
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
