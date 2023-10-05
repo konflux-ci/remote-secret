@@ -42,7 +42,7 @@ jobs:
         uses: securego/gosec@master
         with:
           args:
-            - '--exclude-generated'
+            - --exclude-generated
             - ./...
   kube-linter:
     runs-on: ubuntu-latest
