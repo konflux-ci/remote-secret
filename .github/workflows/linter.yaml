@@ -6,11 +6,11 @@ jobs:
     name: golangci
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Set up Go 1.x
         uses: actions/setup-go@v4
         with:
           go-version: "1.21"
-      - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -41,7 +41,7 @@ jobs:
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          args: ["--exclude-generated", "./..."]
+          args: '--exclude-generated  ./...'
   kube-linter:
     runs-on: ubuntu-latest
     steps:
