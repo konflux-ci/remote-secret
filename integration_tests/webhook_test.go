@@ -14,20 +14,18 @@
 
 package integrationtests
 
-//tests for validating and mutating webhooks
+// tests for validating and mutating webhooks
 import (
-	"encoding/base64"
-
 	"github.com/metlos/crenv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 )
 
 var _ = Describe("MutatorTest", func() {
-
 	Describe("Upload remote secret", func() {
 		When("RemoteSecret with upload data fields", func() {
 			test := crenv.TestSetup{
@@ -46,15 +44,14 @@ var _ = Describe("MutatorTest", func() {
 			})
 
 			It("should store data on remote secret creation", func() {
-
 				rs := &api.RemoteSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-remote-secret",
 						Namespace: "default",
 					},
-					UploadData: map[string]string{
-						"test":  base64.StdEncoding.EncodeToString([]byte("test1")),
-						"test2": base64.StdEncoding.EncodeToString([]byte("test2")),
+					UploadData: map[string][]byte{
+						"test":  []byte("test1"),
+						"test2": []byte("test2"),
 					},
 				}
 				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
@@ -67,7 +64,6 @@ var _ = Describe("MutatorTest", func() {
 })
 
 var _ = Describe("ValidatorTest", func() {
-
 	Describe("Upload valid remote secret", func() {
 		When("RemoteSecret with different targets", func() {
 			test := crenv.TestSetup{
@@ -97,8 +93,8 @@ var _ = Describe("ValidatorTest", func() {
 							{Namespace: "ns2", ApiUrl: "https://test2.com"},
 						},
 					},
-					UploadData: map[string]string{
-						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					UploadData: map[string][]byte{
+						"test": []byte("test1"),
 					},
 				}
 				err := ITest.Client.Create(ITest.Context, rs)
@@ -125,7 +121,6 @@ var _ = Describe("ValidatorTest", func() {
 			})
 
 			It("should throw error on remote secret creation", func() {
-
 				rs := &api.RemoteSecret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-remote-secret",
@@ -137,13 +132,13 @@ var _ = Describe("ValidatorTest", func() {
 							{Namespace: "ns1", ApiUrl: "https://test.com", ClusterCredentialsSecret: "abc##"},
 						},
 					},
-					UploadData: map[string]string{
-						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					UploadData: map[string][]byte{
+						"test": []byte("test1"),
 					},
 				}
 				err := ITest.Client.Create(ITest.Context, rs)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("targets are not unique in remote secret"))
+				Expect(err.Error()).To(ContainSubstring("targets are not unique in the remote secret"))
 			})
 		})
 	})
