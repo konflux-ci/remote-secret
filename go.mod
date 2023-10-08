@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go v1.45.19
-	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2 v1.21.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.42
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.21.3
 	github.com/aws/smithy-go v1.15.0
