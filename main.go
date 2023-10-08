@@ -104,10 +104,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = webhook.SetupAllWebhooks(mgr, secretStorage); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "RemoteSecret")
-		os.Exit(1)
+	if !args.DisableWebhooks {
+		if err = webhook.SetupAllWebhooks(mgr, secretStorage); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "RemoteSecret")
+			os.Exit(1)
+		}
 	}
+
 	/////////////////////
 
 	//+kubebuilder:scaffold:builder

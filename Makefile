@@ -243,6 +243,11 @@ deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy 
 	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
 
+deploy_minikube_es: ensure-tmp manifests kustomize ##deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
+	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_es"
+#	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
+
+
 deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
 	VAULT_HOST=`./hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
 	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret

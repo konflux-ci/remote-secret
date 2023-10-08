@@ -38,6 +38,7 @@ type CommonCliArgs struct {
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
+	DisableWebhooks   bool             `arg:"--disable-webhooks, env" default:"false" help:"whether to disable all webhooks (for local debug)"`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
 }
@@ -54,4 +55,6 @@ type TokenStorageType string
 const (
 	VaultTokenStorage TokenStorageType = "vault"
 	AWSTokenStorage   TokenStorageType = "aws"
+	ESSecretStorage   TokenStorageType = "es"
+	InMemoryStorage   TokenStorageType = "memory"
 )
