@@ -16,8 +16,6 @@ package integrationtests
 
 // tests for validating and mutating webhooks
 import (
-	"encoding/base64"
-
 	"github.com/metlos/crenv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -51,9 +49,9 @@ var _ = Describe("MutatorTest", func() {
 						Name:      "test-remote-secret",
 						Namespace: "default",
 					},
-					UploadData: map[string]string{
-						"test":  base64.StdEncoding.EncodeToString([]byte("test1")),
-						"test2": base64.StdEncoding.EncodeToString([]byte("test2")),
+					UploadData: map[string][]byte{
+						"test":  []byte("test1"),
+						"test2": []byte("test2"),
 					},
 				}
 				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
@@ -95,8 +93,8 @@ var _ = Describe("ValidatorTest", func() {
 							{Namespace: "ns2", ApiUrl: "https://test2.com"},
 						},
 					},
-					UploadData: map[string]string{
-						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					UploadData: map[string][]byte{
+						"test": []byte("test1"),
 					},
 				}
 				err := ITest.Client.Create(ITest.Context, rs)
@@ -134,8 +132,8 @@ var _ = Describe("ValidatorTest", func() {
 							{Namespace: "ns1", ApiUrl: "https://test.com", ClusterCredentialsSecret: "abc##"},
 						},
 					},
-					UploadData: map[string]string{
-						"test": base64.StdEncoding.EncodeToString([]byte("test1")),
+					UploadData: map[string][]byte{
+						"test": []byte("test1"),
 					},
 				}
 				err := ITest.Client.Create(ITest.Context, rs)
