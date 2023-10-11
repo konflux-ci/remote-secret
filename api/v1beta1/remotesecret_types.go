@@ -157,7 +157,7 @@ const (
 )
 
 // CorrespondsTo tells whether the target key corresponds to the other target key. Note that this
-// operation is not reflective, i.e. a.CorrespondsTo(b) does not imply b.CorrespondsTo(a).
+// operation is not symmetric, i.e. a.CorrespondsTo(b) does not imply b.CorrespondsTo(a).
 func (tk TargetKey) CorrespondsTo(other TargetKey) Correspondence {
 	ret := tk.ApiUrl == other.ApiUrl && tk.Namespace == other.Namespace
 	if !ret {
