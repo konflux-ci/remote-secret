@@ -39,6 +39,7 @@ type CommonCliArgs struct {
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
 	DisableWebhooks   bool             `arg:"--disable-webhooks, env" default:"false" help:"whether to disable all webhooks (for local debug)"`
+	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
 }
