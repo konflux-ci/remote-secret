@@ -18,8 +18,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/external-secrets/external-secrets/pkg/provider/aws"
 	"github.com/external-secrets/external-secrets/pkg/provider/fake"
-
+	"github.com/external-secrets/external-secrets/pkg/provider/vault"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/go-logr/logr"
@@ -27,6 +28,13 @@ import (
 
 	es "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
+)
+
+// init ESO Providers
+var (
+	_ = fake.Provider{}
+	_ = vault.Connector{}
+	_ = aws.Provider{}
 )
 
 type ESStorage struct {
@@ -40,8 +48,6 @@ type PushData struct {
 	RemoteKey string
 	Property  string
 }
-
-var _ = fake.Provider{}
 
 func (p *PushData) GetRemoteKey() string {
 	return p.RemoteKey
