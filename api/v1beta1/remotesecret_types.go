@@ -44,6 +44,29 @@ type RemoteSecretTarget struct {
 	// ClusterCredentialsSecret is the name of the secret in the same namespace as the RemoteSecret that contains the token
 	// to use to authenticate with the remote Kubernetes cluster. This is ignored if `apiUrl` is empty.
 	ClusterCredentialsSecret string `json:"clusterCredentialsSecret,omitempty"`
+	// Secret contains the overriden definitions of the secret specific to this target.
+	Secret SecretOverride `json:"secret,omitempty"`
+}
+
+type SecretOverride struct {
+	// Labels is the new set of labels to be put on the secret instead of the labels defined in the spec. I.e. this completely replaces
+	// the labels from the secret spec.
+	// +kubebuilder:validation:Optional
+	Labels map[string]string `json:"labels"`
+	// Annotations is the new set of annotations to be put on the secret instead of the annotations defined in the spec. I.e. this
+	// completely replaces the annotations from the secret spec.
+	// +kubebuilder:validation:Optional
+	Annotations map[string]string `json:"annotations"`
+	// Name is the name of the secret when deployed to the target. This overrides the name from the secret spec.
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
+	// GenerateName is the GenerateName of the secret when deployed to the target. This overrides the generateName from the secret spec.
+	// +kubebuilder:validation:Optional
+	GenerateName string `json:"generateName,omitempty"`
+	// LinkedTo is the list of service accounts that the secret will be linked to in the target. This completely replaces the list defined
+	// in the secret spec.
+	// +kubebuilder:validation:Optional
+	LinkedTo []SecretLink `json:"linkedTo"`
 }
 
 // RemoteSecretStatus defines the observed state of RemoteSecret
@@ -80,6 +103,92 @@ type TargetStatus struct {
 	// Error the optional error message if the deployment of either the secret or the service accounts failed.
 	// +optional
 	Error string `json:"error,omitempty"`
+}
+
+// TargetKey is not used in the RemoteSecret spec as such but it represents an identifier of a target. As such it can be used
+// as key in the maps instead of RemoteSecretTarget (which itself is not comparable).
+//
+// Note that it is not directly possible to compare a TargetKey generated from a RemoteSecretTarget and TargetStatus, because
+// the spec may contain an empty secret name and non-empty generate name. To determine whether a target key may correspond to
+// another, use the CorrespondsTo function on the target key.
+type TargetKey struct {
+	ApiUrl             string
+	Namespace          string
+	SecretName         string
+	SecretGenerateName string
+}
+
+func (ts TargetStatus) ToTargetKey() TargetKey {
+	return TargetKey{
+		ApiUrl:             ts.ApiUrl,
+		Namespace:          ts.Namespace,
+		SecretName:         ts.SecretName,
+		SecretGenerateName: "",
+	}
+}
+
+// ToTargetKey converts the remote secret target into a target key given the default spec
+// specified in the provided remote secret.
+func (rst RemoteSecretTarget) ToTargetKey(containingRemoteSecret *RemoteSecret) TargetKey {
+	secretName := rst.Secret.Name
+	if secretName == "" {
+		secretName = containingRemoteSecret.Spec.Secret.Name
+	}
+	secretGenerateName := rst.Secret.GenerateName
+	if secretGenerateName == "" {
+		secretGenerateName = containingRemoteSecret.Spec.Secret.GenerateName
+	}
+	return TargetKey{
+		ApiUrl:             rst.ApiUrl,
+		Namespace:          rst.Namespace,
+		SecretName:         secretName,
+		SecretGenerateName: secretGenerateName,
+	}
+}
+
+// Correspondence is a result of the TargetKey#CorrespondsTo method describing how two targets correspond to each
+// other. Valid values are NameCorrespondence, GenerateNameCorrespondence and NoCorrespondence.
+type Correspondence int
+
+const (
+	NoCorrespondence Correspondence = iota
+	GenerateNameCorrespondence
+	NameCorrespondence
+)
+
+// CorrespondsTo tells whether the target key corresponds to the other target key. Note that this
+// operation is not reflective, i.e. a.CorrespondsTo(b) does not imply b.CorrespondsTo(a).
+func (tk TargetKey) CorrespondsTo(other TargetKey) Correspondence {
+	ret := tk.ApiUrl == other.ApiUrl && tk.Namespace == other.Namespace
+	if !ret {
+		return NoCorrespondence
+	}
+
+	// now the fun part...
+
+	if tk.SecretName != "" {
+		if tk.SecretName == other.SecretName {
+			return NameCorrespondence
+		} else {
+			return NoCorrespondence
+		}
+	}
+
+	if tk.SecretGenerateName != "" {
+		if other.SecretName != "" {
+			if strings.HasPrefix(other.SecretName, tk.SecretGenerateName) {
+				return GenerateNameCorrespondence
+			} else {
+				return NoCorrespondence
+			}
+		}
+	}
+
+	if tk.SecretGenerateName == other.SecretGenerateName {
+		return GenerateNameCorrespondence
+	} else {
+		return NoCorrespondence
+	}
 }
 
 // RemoteSecretReason is the reconciliation status of the RemoteSecret object
