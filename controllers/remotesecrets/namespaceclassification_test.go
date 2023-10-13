@@ -40,13 +40,13 @@ func TestClassifyWithNoPriorState(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "sec1",
 						},
 					},
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "sec2",
 						},
 					},
@@ -58,13 +58,13 @@ func TestClassifyWithNoPriorState(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "sec1",
 						},
 					},
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "sec2",
 						},
 					},
@@ -135,13 +135,13 @@ func TestClassifyReordered(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "sec1",
 						},
 					},
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "sec2",
 						},
 					},
@@ -178,13 +178,13 @@ func TestClassifyReordered(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "sec1-",
 						},
 					},
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "sec2-",
 						},
 					},
@@ -265,13 +265,13 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "seca",
 						},
 					},
 					{
 						Namespace: "ns_b",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "secb",
 						},
 					},
@@ -295,13 +295,13 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "seca-",
 						},
 					},
 					{
 						Namespace: "ns_b",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "secb-",
 						},
 					},
@@ -370,7 +370,7 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "seca",
 						},
 					},
@@ -399,7 +399,7 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns_a",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							GenerateName: "seca-",
 						},
 					},
@@ -690,7 +690,7 @@ func TestClassificationWithOverrides(t *testing.T) {
 					Targets: []api.RemoteSecretTarget{
 						{
 							Namespace: "ns",
-							Secret: api.SecretOverride{
+							Secret: &api.SecretOverride{
 								Name: "override",
 							},
 						},
@@ -722,7 +722,7 @@ func TestClassificationWithOverrides(t *testing.T) {
 					Targets: []api.RemoteSecretTarget{
 						{
 							Namespace: "ns",
-							Secret: api.SecretOverride{
+							Secret: &api.SecretOverride{
 								GenerateName: "override",
 							},
 						},
@@ -756,7 +756,7 @@ func TestClassificationWithOverrides(t *testing.T) {
 				Targets: []api.RemoteSecretTarget{
 					{
 						Namespace: "ns",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "override",
 						},
 					},
@@ -807,7 +807,7 @@ func TestClassificationWithOverrides(t *testing.T) {
 					},
 					{
 						Namespace: "ns",
-						Secret: api.SecretOverride{
+						Secret: &api.SecretOverride{
 							Name: "spec-asdf",
 						},
 					},

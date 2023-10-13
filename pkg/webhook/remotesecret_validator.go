@@ -69,7 +69,7 @@ func validateUniqueTargets(rs *api.RemoteSecret) error {
 	for _, t := range rs.Spec.Targets {
 		tk := t.ToTargetKey(rs)
 		if _, present := targets[tk]; present {
-			return fmt.Errorf("%w %s: %s", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
+			return fmt.Errorf("%w", errTargetsNotUnique)
 		} else {
 			targets[tk] = struct{}{}
 		}

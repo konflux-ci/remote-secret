@@ -32,22 +32,26 @@ type NamespaceTarget struct {
 var _ bindings.SecretDeploymentTarget = (*NamespaceTarget)(nil)
 
 func (t *NamespaceTarget) GetSpec() api.LinkableSecretSpec {
-	ret := t.SecretSpec.DeepCopy()
-	if t.TargetSpec.Secret.Name != "" {
-		ret.Name = t.TargetSpec.Secret.Name
+	ret := t.SecretSpec
+	if t.TargetSpec.Secret != nil {
+		ret = t.SecretSpec.DeepCopy()
+		if t.TargetSpec.Secret.Name != "" {
+			ret.Name = t.TargetSpec.Secret.Name
+		}
+		if t.TargetSpec.Secret.GenerateName != "" {
+			ret.GenerateName = t.TargetSpec.Secret.GenerateName
+		}
+		if t.TargetSpec.Secret.Labels != nil {
+			ret.Labels = *t.TargetSpec.Secret.Labels
+		}
+		if t.TargetSpec.Secret.Annotations != nil {
+			ret.Annotations = *t.TargetSpec.Secret.Annotations
+		}
+		if t.TargetSpec.Secret.LinkedTo != nil {
+			ret.LinkedTo = *t.TargetSpec.Secret.LinkedTo
+		}
 	}
-	if t.TargetSpec.Secret.GenerateName != "" {
-		ret.GenerateName = t.TargetSpec.Secret.GenerateName
-	}
-	if t.TargetSpec.Secret.Labels != nil {
-		ret.Labels = t.TargetSpec.Secret.Labels
-	}
-	if t.TargetSpec.Secret.Annotations != nil {
-		ret.Annotations = t.TargetSpec.Secret.Annotations
-	}
-	if t.TargetSpec.Secret.LinkedTo != nil {
-		ret.LinkedTo = t.TargetSpec.Secret.LinkedTo
-	}
+
 	return *ret
 }
 
