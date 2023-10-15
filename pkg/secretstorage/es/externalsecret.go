@@ -30,6 +30,8 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
 
+var _ secretstorage.SecretStorage = (*ESStorage)(nil)
+
 // init ESO Providers
 var (
 	_ = fake.Provider{}
