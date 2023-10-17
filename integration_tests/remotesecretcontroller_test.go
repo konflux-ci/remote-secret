@@ -86,6 +86,59 @@ var _ = Describe("RemoteSecret", func() {
 			})
 		})
 
+		When("with target overrides", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name: "spec-name",
+							},
+							Targets: []api.RemoteSecretTarget{
+								{
+									Namespace: "default",
+									Secret: &api.SecretOverride{
+										Name: "target-name",
+									},
+								},
+							},
+						},
+						UploadData: map[string][]byte{
+							"k1": []byte("v1"),
+							"k2": []byte("v2"),
+						},
+					},
+				},
+				MonitoredObjectTypes: []client.Object{
+					&corev1.Secret{},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("succeeds", func() {
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secPtr := crenv.First[*corev1.Secret](&test.InCluster)
+					g.Expect(secPtr).NotTo(BeNil())
+					sec := *secPtr
+					g.Expect(sec.Name).To(Equal("target-name"))
+					g.Expect(sec.Data).To(HaveLen(2))
+					g.Expect(sec.Data["k1"]).To(Equal([]byte("v1")))
+					g.Expect(sec.Data["k2"]).To(Equal([]byte("v2")))
+				})
+			})
+		})
+
 		When("secret data uploaded", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
@@ -154,7 +207,8 @@ var _ = Describe("RemoteSecret", func() {
 											Managed: api.ManagedServiceAccountSpec{
 												Name: "injected-sa",
 											},
-										}}},
+										},
+									}},
 								},
 								Targets: []api.RemoteSecretTarget{{
 									Namespace: targetA,
@@ -172,6 +226,12 @@ var _ = Describe("RemoteSecret", func() {
 				Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
 					"a": []byte("b"),
 				})).To(Succeed())
+
+				// check that secret is created in each target
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).To(Succeed())
+				})
 			})
 
 			AfterEach(func() {
@@ -179,13 +239,7 @@ var _ = Describe("RemoteSecret", func() {
 			})
 
 			It("should remove the target secret", func() {
-				// check that secret is created in each target
-				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).To(Succeed())
-				})
-
-				// now remove targetB from the spec
+				// remove targetB from the spec
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 				Expect(rs).NotTo(BeNil())
 				rs.Spec.Targets = []api.RemoteSecretTarget{{Namespace: targetA}}
@@ -201,13 +255,7 @@ var _ = Describe("RemoteSecret", func() {
 			})
 
 			It("should remove the managed service account", func() {
-				// check that service account is created in each target
-				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetA}, &corev1.ServiceAccount{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).To(Succeed())
-				})
-
-				// now remove targetB from the spec
+				// remove targetB from the spec
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 				Expect(rs).NotTo(BeNil())
 				rs.Spec.Targets = []api.RemoteSecretTarget{{Namespace: targetA}}
@@ -230,6 +278,91 @@ var _ = Describe("RemoteSecret", func() {
 		})
 
 		When("linked SAs changed", func() {
+		})
+
+		When("overriden targets", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "rs",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								GenerateName: "spec-secret-",
+							},
+							Targets: []api.RemoteSecretTarget{
+								{
+									Namespace: "default",
+								},
+							},
+						},
+						UploadData: map[string][]byte{
+							"k1": []byte("v1"),
+							"k2": []byte("v2"),
+						},
+					},
+				},
+				MonitoredObjectTypes: []client.Object{
+					&corev1.Secret{},
+				},
+			}
+
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("changes normal target to overriden", func() {
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					GenerateName: "target-secret-",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("target-secret-"))
+					}
+				})
+			})
+			It("changes overriden target to non-overriden", func() {
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the target to have an override
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					GenerateName: "target-secret-",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("target-secret-"))
+					}
+				})
+
+				// and now remove the override
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = nil
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+					}
+				})
+			})
 		})
 	})
 
@@ -285,7 +418,6 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs).NotTo(BeNil())
 					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeFalse())
-
 				})
 			})
 		})

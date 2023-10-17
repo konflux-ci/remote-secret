@@ -811,6 +811,13 @@ func TestClassificationWithOverrides(t *testing.T) {
 							Name: "spec-asdf",
 						},
 					},
+					{
+						Namespace: "ns",
+						Secret: &api.SecretOverride{
+							Name:         "spec2-asdf",
+							GenerateName: "spec-",
+						},
+					},
 				},
 			},
 			Status: api.RemoteSecretStatus{
@@ -829,12 +836,13 @@ func TestClassificationWithOverrides(t *testing.T) {
 
 		nc := ClassifyTargetNamespaces(rs)
 
-		assert.Equal(t, 2, len(nc.Sync))
+		assert.Equal(t, 3, len(nc.Sync))
 		assert.Empty(t, nc.Remove)
 		assert.Empty(t, nc.DuplicateTargetSpecs)
 		assert.Empty(t, nc.OrphanDuplicateStatuses)
 
 		assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(0)])
 		assert.Equal(t, StatusTargetIndex(0), nc.Sync[SpecTargetIndex(1)])
+		assert.Equal(t, StatusTargetIndex(-1), nc.Sync[SpecTargetIndex(2)])
 	})
 }
