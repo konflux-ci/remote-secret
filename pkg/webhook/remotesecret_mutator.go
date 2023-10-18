@@ -18,21 +18,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-<<<<<<< Updated upstream
-
-	authv1 "k8s.io/api/authentication/v1"
-	authzv1 "k8s.io/api/authorization/v1"
-=======
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
+	authv1 "k8s.io/api/authentication/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
->>>>>>> Stashed changes
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 )
 
 var errorCopyNotAllowed = errors.New("user cannot copy the data of the specified remote secret")
@@ -52,13 +46,8 @@ type RemoteSecretMutator struct {
 	Storage remotesecretstorage.RemoteSecretStorage
 }
 
-<<<<<<< Updated upstream
 var _ WebhookMutator = (*RemoteSecretMutator)(nil)
-=======
-// +kubebuilder:webhook:path=/mutate-appstudio-redhat-com-v1beta1-remotesecret,mutating=true,failurePolicy=fail,sideEffects=None,groups=appstudio.redhat.com,resources=remotesecrets,verbs=create;update,versions=v1beta1,name=mremotesecret.kb.io,admissionReviewVersions=v1
-var _ webhook.CustomDefaulter = &RemoteSecretMutator{}
 var rejectedUploadsCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("webhook_data_upload")
->>>>>>> Stashed changes
 
 func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.RemoteSecret) error {
 	binData := rs.UploadData
