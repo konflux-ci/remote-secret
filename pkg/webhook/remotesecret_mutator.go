@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
 
@@ -47,7 +46,6 @@ type RemoteSecretMutator struct {
 }
 
 var _ WebhookMutator = (*RemoteSecretMutator)(nil)
-var rejectedUploadsCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("webhook_data_upload")
 
 func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.RemoteSecret) error {
 	binData := rs.UploadData
@@ -69,7 +67,6 @@ func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.Remot
 		if err != nil {
 			err = fmt.Errorf("storage error on data save: %w", err)
 			auditLog.Error(err, "webhook data upload failed")
-			rejectedUploadsCounterMetric.Inc()
 			return err
 		}
 

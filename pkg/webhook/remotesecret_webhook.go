@@ -17,6 +17,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"net/http"
 	"reflect"
 
@@ -32,6 +33,9 @@ type RemoteSecretWebhook struct {
 	Mutator   WebhookMutator
 	decoder   *wh.Decoder
 }
+
+var rejectedUploadDataCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("webhook_data_upload")
+var rejectedCopyDataCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("copy_data_from")
 
 // Handle implements admission.Handler.
 func (w *RemoteSecretWebhook) Handle(ctx context.Context, req wh.Request) wh.Response {
@@ -67,9 +71,11 @@ func (w *RemoteSecretWebhook) handleCreate(ctx context.Context, req wh.Request, 
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.StoreUploadData(ctx, rs); err != nil {
+		rejectedUploadDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.CopyDataFrom(ctx, req.UserInfo, rs); err != nil {
+		rejectedCopyDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	return patchedOrAllowed(orig, req.Object.Raw, rs)
@@ -81,9 +87,11 @@ func (w *RemoteSecretWebhook) handleUpdate(ctx context.Context, req wh.Request, 
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.StoreUploadData(ctx, rs); err != nil {
+		rejectedUploadDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.CopyDataFrom(ctx, req.UserInfo, rs); err != nil {
+		rejectedCopyDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	return patchedOrAllowed(orig, req.Object.Raw, rs)
