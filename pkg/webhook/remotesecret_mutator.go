@@ -21,7 +21,6 @@ import (
 
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
