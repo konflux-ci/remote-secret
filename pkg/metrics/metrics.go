@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"

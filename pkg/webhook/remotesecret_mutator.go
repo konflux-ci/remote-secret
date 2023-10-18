@@ -18,14 +18,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 )
 
 var errorCopyNotAllowed = errors.New("user cannot copy the data of the specified remote secret")

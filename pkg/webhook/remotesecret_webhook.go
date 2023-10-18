@@ -17,9 +17,10 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"net/http"
 	"reflect"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 
 	adm "k8s.io/api/admission/v1"
 	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"

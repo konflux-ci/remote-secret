@@ -19,10 +19,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"net/http"
 	"net/http/pprof"
 	"os"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 
