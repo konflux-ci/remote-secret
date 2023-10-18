@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -51,6 +52,8 @@ var uploadSecretSelector = metav1.LabelSelector{
 }
 
 var remoteSecretDoesntExist = errors.New("remote secret does not exist")
+
+var rejectedUploadsCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("secret_data_upload")
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
@@ -119,6 +122,7 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if err != nil {
 		r.createErrorEvent(ctx, uploadSecret, err, lg)
+		rejectedUploadsCounterMetric.Inc()
 	} else {
 		r.tryDeleteEvent(ctx, uploadSecret.Name, req.Namespace, lg)
 	}

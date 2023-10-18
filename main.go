@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -97,6 +98,11 @@ func main() {
 			Client: mgr.GetClient(),
 			Config: mgr.GetConfig(),
 		},
+	}
+
+	if err = metrics.RegisterCommonMetrics(); err != nil {
+		setupLog.Error(err, "failed to register common metrics")
+		os.Exit(1)
 	}
 
 	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, cf); err != nil {
