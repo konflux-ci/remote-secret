@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +29,9 @@ import (
 )
 
 var errorCopyNotAllowed = errors.New("user cannot copy the data of the specified remote secret")
+
+var metricUploadDataOperationLabel = "webhook_data_upload"
+var metricCopyDataDataOperationLabel = "copy_data_from"
 
 // +kubebuilder:rbac:groups="authorization.k8s.io",resources=subjectaccessreviews,verbs=create
 
@@ -65,6 +68,7 @@ func (m *RemoteSecretMutator) StoreUploadData(ctx context.Context, rs *api.Remot
 
 		err := m.Storage.Store(ctx, rs, &binData)
 		if err != nil {
+			metrics.UploadRejectionsCounter.WithLabelValues(metricUploadDataOperationLabel, "storage_write_failed").Inc()
 			err = fmt.Errorf("storage error on data save: %w", err)
 			auditLog.Error(err, "webhook data upload failed")
 			return err
@@ -92,6 +96,7 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 	}
 
 	if err := m.checkHasPermissions(ctx, user, sourceName, sourceNamespace); err != nil {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricCopyDataDataOperationLabel, "insufficient_permissions").Inc()
 		if errors.Is(err, errorCopyNotAllowed) {
 			return fmt.Errorf("%w", err)
 		}
@@ -100,17 +105,20 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 
 	source := &api.RemoteSecret{}
 	if err := m.Client.Get(ctx, client.ObjectKey{Name: sourceName, Namespace: sourceNamespace}, source); err != nil {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricUploadDataOperationLabel, "source_not_found").Inc()
 		return fmt.Errorf("failed to get the source remote secret for copying the data: %w", err)
 	}
 
 	data, err := m.Storage.Get(ctx, source)
 	if err != nil {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricUploadDataOperationLabel, "storage_read_failed").Inc()
 		return fmt.Errorf("failed to obtain the data of the source remote secret when copying the data: %w", err)
 	}
 
 	auditLog := logs.AuditLog(ctx).WithValues("source-remote-secret", client.ObjectKeyFromObject(source), "target-remote-secret", client.ObjectKeyFromObject(rs))
 	auditLog.Info("about to copy data from one remote secret to another")
 	if err := m.Storage.Store(ctx, rs, data); err != nil {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricUploadDataOperationLabel, "storage_write_failed").Inc()
 		auditLog.Error(err, "failed to copy data from one remote secret to another")
 		return fmt.Errorf("failed to store the data copied from the source remote secret: %w", err)
 	}

@@ -29,7 +29,7 @@ var UploadRejectionsCounter = prometheus.NewCounterVec(
 		Name:      "remote_secret_upload_rejected_total",
 		Help:      "The number of remote secret uploads rejected by the webhook or controller",
 	},
-	[]string{"operation"},
+	[]string{"operation", "reason"},
 )
 
 func RegisterCommonMetrics() error {

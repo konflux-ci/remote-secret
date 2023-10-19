@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
-
 	adm "k8s.io/api/admission/v1"
 	wh "sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -34,9 +32,6 @@ type RemoteSecretWebhook struct {
 	Mutator   WebhookMutator
 	decoder   *wh.Decoder
 }
-
-var rejectedUploadDataCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("webhook_data_upload")
-var rejectedCopyDataCounterMetric = metrics.UploadRejectionsCounter.WithLabelValues("copy_data_from")
 
 // Handle implements admission.Handler.
 func (w *RemoteSecretWebhook) Handle(ctx context.Context, req wh.Request) wh.Response {
@@ -72,11 +67,9 @@ func (w *RemoteSecretWebhook) handleCreate(ctx context.Context, req wh.Request, 
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.StoreUploadData(ctx, rs); err != nil {
-		rejectedUploadDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.CopyDataFrom(ctx, req.UserInfo, rs); err != nil {
-		rejectedCopyDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	return patchedOrAllowed(orig, req.Object.Raw, rs)
@@ -88,11 +81,9 @@ func (w *RemoteSecretWebhook) handleUpdate(ctx context.Context, req wh.Request, 
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.StoreUploadData(ctx, rs); err != nil {
-		rejectedUploadDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	if err := w.Mutator.CopyDataFrom(ctx, req.UserInfo, rs); err != nil {
-		rejectedCopyDataCounterMetric.Inc()
 		return wh.Denied(err.Error())
 	}
 	return patchedOrAllowed(orig, req.Object.Raw, rs)
