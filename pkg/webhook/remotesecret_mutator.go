@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	authv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"

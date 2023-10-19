@@ -20,8 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"time"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
