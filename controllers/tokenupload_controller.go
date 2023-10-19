@@ -133,14 +133,14 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret)
 	if err != nil {
-		metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "find_remote_secret").Inc()
+		metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "find_remote_secret_failed").Inc()
 		return fmt.Errorf("attempt to find the remote secret failed: %w", err)
 
 	}
 	if !partialUpdate && remoteSecret == nil {
 		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret)
 		if err != nil {
-			metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "create_remote_secret").Inc()
+			metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "create_remote_secret_failed").Inc()
 			return fmt.Errorf("failed to create the remote secret: %w", err)
 		}
 	}
