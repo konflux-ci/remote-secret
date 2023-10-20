@@ -19,21 +19,20 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var UploadRejectionsCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
-		Name:      "remote_secret_upload_rejected_total",
+		Name:      "data_upload_rejected_total",
 		Help:      "The number of remote secret uploads rejected by the webhook or controller",
 	},
 	[]string{"operation", "reason"},
 )
 
-func RegisterCommonMetrics() error {
-	if err := metrics.Registry.Register(UploadRejectionsCounter); err != nil {
+func RegisterCommonMetrics(registerer prometheus.Registerer) error {
+	if err := registerer.Register(UploadRejectionsCounter); err != nil {
 		return fmt.Errorf("failed to register rejected uploads count metric: %w", err)
 	}
 
