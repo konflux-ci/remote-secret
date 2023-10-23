@@ -137,7 +137,7 @@ EOF
 kustomize build ${SCRIPT_DIR}/../config/monitoring/prometheus | kubectl apply -f -
 
 echo 'Installing Grafana'
-kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v5.4.1" | kubectl apply -f -
+kustomize build "https://github.com/grafana-operator/grafana-operator/deploy/manifests?ref=v4.6.0" | kubectl apply -f -
 echo
 echo -n "Waiting deployment/grafana-operator-controller-manager become available: "
 kubectl wait --for=condition=Available=True deployment/grafana-operator-controller-manager -n grafana-operator-system  --timeout=30s
@@ -146,7 +146,7 @@ echo
 echo 'Creating Grafana instance'
 
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: Grafana
 metadata:
   name: remotesecret-grafana
@@ -175,6 +175,9 @@ spec:
     labels:
       app: "grafana"
       type: "grafana-service"
+  dashboardLabelSelector:
+    - matchExpressions:
+        - { key: app, operator: In, values: [grafana] }
   resources:
     # Optionally specify container resources
     limits:
@@ -202,7 +205,7 @@ echo
 PROM_INTERNAL_URL='http://'$(kubectl get endpoints/prometheus-operated -o json | jq -r '.subsets[0].addresses[0].ip')':9090'
 echo 'Creating prometheus-appstudio-ds DS for Grafana. Connecting to:'${PROM_INTERNALIP}
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDataSource
 metadata:
   name: remotesecret-prometheus-grafanadatasource
@@ -225,16 +228,13 @@ kustomize build ${SCRIPT_DIR}/../config/monitoring/grafana/minikube | kubectl ap
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
   name: prometheus-overview
   labels:
     app: grafana
 spec:
-  instanceSelector:
-    matchLabels:
-      dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -245,16 +245,12 @@ EOF
 
 echo 'Creating Grafana dashboard: Controller Runtime Controllers Detail'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
   name: controller-runtime
   labels:
     app: grafana
-spec:
-  instanceSelector:
-      matchLabels:
-        dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -264,16 +260,13 @@ EOF
 
 echo 'Creating Grafana dashboard: Go Processes'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
   name: go-processes
   labels:
     app: grafana
 spec:
-  instanceSelector:
-      matchLabels:
-        dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -283,16 +276,13 @@ EOF
 
 echo 'Creating Grafana dashboard: RemoteSecret Metrics'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: grafana.integreatly.org/v1beta1
+apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
   name: remotesecret-metrics
   labels:
     app: grafana
 spec:
-  instanceSelector:
-      matchLabels:
-        dashboards: "grafana"
   json:
     ""
   configMapRef:
