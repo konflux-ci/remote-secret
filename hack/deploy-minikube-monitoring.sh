@@ -175,9 +175,6 @@ spec:
     labels:
       app: "grafana"
       type: "grafana-service"
-  dashboardLabelSelector:
-    - matchExpressions:
-        - { key: app, operator: In, values: [grafana] }
   resources:
     # Optionally specify container resources
     limits:
@@ -235,6 +232,9 @@ metadata:
   labels:
     app: grafana
 spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -252,6 +252,9 @@ metadata:
   labels:
     app: grafana
 spec:
+  instanceSelector:
+      matchLabels:
+        dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -268,6 +271,9 @@ metadata:
   labels:
     app: grafana
 spec:
+  instanceSelector:
+      matchLabels:
+        dashboards: "grafana"
   json:
     ""
   configMapRef:
@@ -284,6 +290,9 @@ metadata:
   labels:
     app: grafana
 spec:
+  instanceSelector:
+      matchLabels:
+        dashboards: "grafana"
   json:
     ""
   configMapRef:
