@@ -275,52 +275,20 @@ spec:
     key: go-processes_rev1.json
 EOF
 
-echo 'Creating Grafana dashboard: SPI Health'
-cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
-kind: GrafanaDashboard
-metadata:
-  name: spi-health
-  labels:
-    app: grafana
-spec:
-  json:
-    ""
-  configMapRef:
-    name: grafana-dashboard-spi-health
-    key: spi-health.json
-EOF
-
-echo 'Creating Grafana dashboard: SPI Outbound Traffic'
-cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
-kind: GrafanaDashboard
-metadata:
-  name: spi-outbound-traffic
-  labels:
-    app: grafana
-spec:
-  json:
-    ""
-  configMapRef:
-    name: grafana-dashboard-spi-outbound-traffic
-    key: spi-outbound-traffic.json
-EOF
-
 echo 'Creating Grafana dashboard: SPI SLO'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: integreatly.org/v1alpha1
 kind: GrafanaDashboard
 metadata:
-  name: spi-slo
+  name: remotesecret-metrics
   labels:
     app: grafana
 spec:
   json:
     ""
   configMapRef:
-    name: grafana-dashboard-spi-slo
-    key: spi-slo.json
+    name: grafana-dashboard-remotesecret-metrics
+    key: remotesecret-metrics.json
 EOF
 
 function decode() {
