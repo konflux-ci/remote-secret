@@ -146,7 +146,7 @@ echo
 echo 'Creating Grafana instance'
 
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: Grafana
 metadata:
   name: spi-grafana
@@ -205,7 +205,7 @@ echo
 PROM_INTERNAL_URL='http://'$(kubectl get endpoints/prometheus-operated -o json | jq -r '.subsets[0].addresses[0].ip')':9090'
 echo 'Creating prometheus-appstudio-ds DS for Grafana. Connecting to:'${PROM_INTERNALIP}
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDataSource
 metadata:
   name: spi-prometheus-grafanadatasource
@@ -228,7 +228,7 @@ kustomize build ${SCRIPT_DIR}/../config/monitoring/grafana/minikube | kubectl ap
 
 echo 'Creating Grafana dashboard Prometheus 2.0 Overview '
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: prometheus-overview
@@ -245,7 +245,7 @@ EOF
 
 echo 'Creating Grafana dashboard: Controller Runtime Controllers Detail'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: controller-runtime
@@ -261,7 +261,7 @@ EOF
 
 echo 'Creating Grafana dashboard: Go Processes'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: go-processes
@@ -277,7 +277,7 @@ EOF
 
 echo 'Creating Grafana dashboard: SPI SLO'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
-apiVersion: integreatly.org/v1alpha1
+apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: remotesecret-metrics
