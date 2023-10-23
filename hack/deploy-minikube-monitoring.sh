@@ -58,11 +58,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: spi-metrics-reader-prometheus
+  name: remotesecret-metrics-reader-prometheus
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: spi-metrics-reader
+  name: remotesecret-metrics-reader
 subjects:
 - kind: ServiceAccount
   name: prometheus
@@ -149,7 +149,7 @@ cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: grafana.integreatly.org/v1beta1
 kind: Grafana
 metadata:
-  name: spi-grafana
+  name: remotesecret-grafana
 spec:
   client:
     preferService: true
@@ -205,7 +205,7 @@ cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDataSource
 metadata:
-  name: spi-prometheus-grafanadatasource
+  name: remotesecret-prometheus-grafanadatasource
 spec:
   name: middleware.yaml
   datasources:
@@ -281,7 +281,7 @@ spec:
     key: go-processes_rev1.json
 EOF
 
-echo 'Creating Grafana dashboard: SPI SLO'
+echo 'Creating Grafana dashboard: RemoteSecret Metrics'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
