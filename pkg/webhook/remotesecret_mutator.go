@@ -97,10 +97,11 @@ func (m *RemoteSecretMutator) CopyDataFrom(ctx context.Context, user authv1.User
 	}
 
 	if err := m.checkHasPermissions(ctx, user, sourceName, sourceNamespace); err != nil {
-		metrics.UploadRejectionsCounter.WithLabelValues(metricCopyDataDataOperationLabel, "insufficient_permissions").Inc()
 		if errors.Is(err, errorCopyNotAllowed) {
+			metrics.UploadRejectionsCounter.WithLabelValues(metricCopyDataDataOperationLabel, "source_permissions_insufficient").Inc()
 			return fmt.Errorf("%w", err)
 		}
+		metrics.UploadRejectionsCounter.WithLabelValues(metricCopyDataDataOperationLabel, "permissions_check_failed").Inc()
 		return fmt.Errorf("failed to check the permissions of remote secret %s in namespace %s for user %s: %w", sourceName, sourceNamespace, user.Username, err)
 	}
 

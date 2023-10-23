@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
