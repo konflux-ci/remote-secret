@@ -28,11 +28,11 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
-	k8s.io/api v0.26.1
-	k8s.io/apimachinery v0.27.4
-	k8s.io/client-go v0.26.1
+	k8s.io/api v0.26.10
+	k8s.io/apimachinery v0.27.7
+	k8s.io/client-go v0.26.10
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/utils v0.0.0-20230209194617-a36077c30491
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.14.6
 )
 
