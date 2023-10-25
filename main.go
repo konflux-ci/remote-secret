@@ -23,6 +23,10 @@ import (
 	"net/http/pprof"
 	"os"
 
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+
+	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 
 	"github.com/alexflint/go-arg"
@@ -97,6 +101,11 @@ func main() {
 			Client: mgr.GetClient(),
 			Config: mgr.GetConfig(),
 		},
+	}
+
+	if err = rsmetrics.RegisterCommonMetrics(metrics.Registry); err != nil {
+		setupLog.Error(err, "failed to register common metrics")
+		os.Exit(1)
 	}
 
 	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, cf); err != nil {
