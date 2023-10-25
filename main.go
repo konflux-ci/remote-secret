@@ -18,14 +18,15 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"os"
 
-	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
-
 	"github.com/alexflint/go-arg"
+	"github.com/go-logr/logr"
+	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -74,7 +75,7 @@ func main() {
 	ctx = context.WithValue(ctx, config.InstanceIdContextKey, args.CommonCliArgs.InstanceId)
 	ctx = log.IntoContext(ctx, ctrl.Log.WithValues("instanceId", args.CommonCliArgs.InstanceId))
 
-	mgr, mgrErr := createManager(args)
+	mgr, mgrErr := createManager(setupLog, args)
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "unable to start manager")
 		os.Exit(1)
@@ -157,7 +158,7 @@ func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
 	return ret, nil
 }
 
-func createManager(args cmd.OperatorCliArgs) (manager.Manager, error) {
+func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, error) {
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
@@ -168,10 +169,19 @@ func createManager(args cmd.OperatorCliArgs) (manager.Manager, error) {
 	}
 	restConfig := ctrl.GetConfigOrDie()
 
+	if args.DisableHTTP2 {
+		lg.Info("Disabling HTTP/2")
+		options.TLSOpts = append(options.TLSOpts, disableHTTP2)
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager %w", err)
 	}
 
 	return mgr, nil
+}
+
+func disableHTTP2(c *tls.Config) {
+	c.NextProtos = []string{"http/1.1"}
 }
