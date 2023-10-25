@@ -26,6 +26,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"
+	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers"
@@ -98,6 +100,11 @@ func main() {
 			Client: mgr.GetClient(),
 			Config: mgr.GetConfig(),
 		},
+	}
+
+	if err = rsmetrics.RegisterCommonMetrics(metrics.Registry); err != nil {
+		setupLog.Error(err, "failed to register common metrics")
+		os.Exit(1)
 	}
 
 	if err = controllers.SetupAllReconcilers(mgr, &cfg, secretStorage, cf); err != nil {
