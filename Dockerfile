@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.21 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.19.13 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -24,7 +24,7 @@ COPY pkg/ pkg/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.2-750.1696515534 as remote-secret-operator
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.2-750.1697625013 as remote-secret-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf -y install shadow-utils \
 	&& groupadd --gid 65532 nonroot \
@@ -36,6 +36,12 @@ RUN microdnf -y install shadow-utils \
 		nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
+# It is mandatory to set these labels
+LABEL description="RHTAP RemoteSecret Operator"
+LABEL io.k8s.description="RHTAP RemoteSecret Operator"
+LABEL io.k8s.display-name="remotesecret-operator"
+LABEL summary="RHTAP RemoteSecret Operator"
+LABEL io.openshift.tags="rhtap"
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

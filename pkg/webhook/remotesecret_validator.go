@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -30,6 +32,7 @@ var (
 	errTargetsNotUnique                            = errors.New("targets are not unique in the remote secret")
 	errDataFromSpecifiedWhenDataAlreadyPresent     = errors.New("dataFrom is not supported if there is data already present in the remote secret")
 	errOnlyOneOfDataFromOrUploadDataCanBeSpecified = errors.New("only one of dataFrom or data can be specified")
+	metricValidateOperationLabel                   = "webhook_validate"
 )
 
 // WebhookValidator defines the contract between the RemoteSecretWebhook and the "thing" that
@@ -69,7 +72,8 @@ func validateUniqueTargets(rs *api.RemoteSecret) error {
 	for _, t := range rs.Spec.Targets {
 		tk := t.ToTargetKey(rs)
 		if _, present := targets[tk]; present {
-			return fmt.Errorf("%w", errTargetsNotUnique)
+			metrics.UploadRejectionsCounter.WithLabelValues(metricValidateOperationLabel, "unique_targets_check_failed").Inc()
+			return fmt.Errorf("%w %s: %#v", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
 		} else {
 			targets[tk] = struct{}{}
 		}
@@ -80,6 +84,7 @@ func validateUniqueTargets(rs *api.RemoteSecret) error {
 func validateDataFrom(rs *api.RemoteSecret) error {
 	var empty api.RemoteSecretDataFrom
 	if rs.DataFrom != empty && meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained)) {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricValidateOperationLabel, "data_already_exists").Inc()
 		return errDataFromSpecifiedWhenDataAlreadyPresent
 	}
 	return nil
@@ -89,6 +94,7 @@ func validateUploadDataAndDataFrom(rs *api.RemoteSecret) error {
 	var emptyDataFrom api.RemoteSecretDataFrom
 
 	if rs.DataFrom != emptyDataFrom && len(rs.UploadData) > 0 {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricValidateOperationLabel, "data_field_not_unique").Inc()
 		return errOnlyOneOfDataFromOrUploadDataCanBeSpecified
 	}
 	return nil
