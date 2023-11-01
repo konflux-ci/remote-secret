@@ -568,6 +568,7 @@ var _ = Describe("RemoteSecret", func() {
 
 				// now, try to remove the link by specifying an empty link array at the target
 				// while leaving the link in the secret spec of the remote secret.
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
 				rs.Spec.Targets[0].Secret = &api.SecretOverride{
 					LinkedTo: &[]api.SecretLink{},
 				}
