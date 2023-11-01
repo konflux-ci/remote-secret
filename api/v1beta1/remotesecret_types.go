@@ -113,11 +113,26 @@ type RemoteSecret struct {
 	// It is processed by Mutating Webhook and must not be persisted,
 	// to make sure (in a case if something happened with Webhook) it is constrained
 	//+kubebuilder:validation:MaxProperties=0
-	UploadData map[string]string `json:"data,omitempty"`
+	UploadData map[string][]byte `json:"data,omitempty"`
+	// Similar to how one can specify the data in an ordinary Kubernetes secret using either
+	// the "data" or "stringData" fields, so one can do that when supplying the data to
+	// the remote secret. See the data field for more details about the behavior of these fields
+	// in remote secrets.
+	// Both in create and update, the contents of the stringData is merged into the data field first.
+	// This is the same behavior as with ordinary Kubernetes secret's stringData.
+	//+kubebuilder:validation:MaxProperties=0
+	StringUploadData map[string]string `json:"stringData,omitempty"`
+	// DataFrom is an optional field that can be used to copy data from another remote secret during the creation
+	// of the remote secret. This field can be specified only during creation of a remote secret (only one of data
+	// or dataFrom can be specified at the same time) or during an update of a remote secret that does not yet have
+	// data associated with it (its DataObtained condition is in the AwaitingData state).
+	DataFrom RemoteSecretDataFrom `json:"dataFrom,omitempty"`
 }
 
-var secretTypeMismatchError = errors.New("the type of upload secret and remote secret spec do not match")
-var secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
+var (
+	secretTypeMismatchError    = errors.New("the type of upload secret and remote secret spec do not match")
+	secretDataKeysMissingError = errors.New("the secret data does not contain the required keys")
+)
 
 // ValidateUploadSecret checks whether the uploadSecret type matches the RemoteSecret type and whether upload secret
 // contains required keys.
@@ -251,6 +266,11 @@ const (
 	ServiceAccountLinkTypeSecret          ServiceAccountLinkType = "secret"
 	ServiceAccountLinkTypeImagePullSecret ServiceAccountLinkType = "imagePullSecret"
 )
+
+type RemoteSecretDataFrom struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
 
 // EffectiveSecretLinkType returns the secret link type applying the default value if LinkedSecretAs is unspecified by
 // the user.
