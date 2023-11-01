@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	kuberrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,6 +53,7 @@ var uploadSecretSelector = metav1.LabelSelector{
 }
 
 var remoteSecretDoesntExist = errors.New("remote secret does not exist")
+var metricOperationNameLabel = "secret_data_upload"
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;create;update;list;delete
@@ -80,7 +83,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-q	lg := log.FromContext(ctx)
+	lg := log.FromContext(ctx)
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile Upload Secret")
 
@@ -131,11 +134,14 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret)
 	if err != nil {
+		metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "find_remote_secret_failed").Inc()
 		return fmt.Errorf("attempt to find the remote secret failed: %w", err)
+
 	}
 	if !partialUpdate && remoteSecret == nil {
 		remoteSecret, err = r.createRemoteSecret(ctx, uploadSecret)
 		if err != nil {
+			metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "create_remote_secret_failed").Inc()
 			return fmt.Errorf("failed to create the remote secret: %w", err)
 		}
 	}
@@ -163,12 +169,14 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 		err = remoteSecret.ValidateUploadSecret(uploadSecret)
 		if err != nil {
 			auditLog.Info("manual secret upload not started because of invalid upload secret")
+			metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "invalid_upload_secret").Inc()
 			return fmt.Errorf("validation of upload secret failed: %w ", err)
 		}
 
 		auditLog.Info("manual secret upload initiated", "action", "UPDATE")
 		if err = r.RemoteSecretStorage.Store(ctx, remoteSecret, &uploadSecret.Data); err != nil {
 			err = fmt.Errorf("failed to store the remote secret data: %w", err)
+			metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "storage_write_failed").Inc()
 			auditLog.Error(err, "manual secret upload failed")
 			return err
 		}

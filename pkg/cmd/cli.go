@@ -40,6 +40,7 @@ type CommonCliArgs struct {
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
 	DisableWebhooks   bool             `arg:"--disable-webhooks, env" default:"false" help:"whether to disable all webhooks (for local debug)"`
 	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
+	DisableHTTP2      bool             `arg:"--disable-http2, env" default:"true" help:"whether to support the HTTP/2 protocol in the webhook."`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
 }
