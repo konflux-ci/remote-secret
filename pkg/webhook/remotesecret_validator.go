@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 
 	"k8s.io/apimachinery/pkg/api/meta"

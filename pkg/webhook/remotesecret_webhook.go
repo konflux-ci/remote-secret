@@ -30,7 +30,7 @@ import (
 type RemoteSecretWebhook struct {
 	Validator WebhookValidator
 	Mutator   WebhookMutator
-	decoder   *wh.Decoder
+	Decoder   *wh.Decoder
 }
 
 // Handle implements admission.Handler.
@@ -93,12 +93,6 @@ func (w *RemoteSecretWebhook) handleDelete(ctx context.Context, req wh.Request, 
 	return wh.Allowed("")
 }
 
-// InjectDecoder implements admission.DecoderInjector.
-func (w *RemoteSecretWebhook) InjectDecoder(decoder *wh.Decoder) error {
-	w.decoder = decoder
-	return nil
-}
-
 func patchedOrAllowed(orig any, origRaw []byte, obj any) wh.Response {
 	if !reflect.DeepEqual(orig, obj) {
 		json, err := json.Marshal(obj)
@@ -111,6 +105,5 @@ func patchedOrAllowed(orig any, origRaw []byte, obj any) wh.Response {
 }
 
 var (
-	_ wh.DecoderInjector = (*RemoteSecretWebhook)(nil)
-	_ wh.Handler         = (*RemoteSecretWebhook)(nil)
+	_ wh.Handler = (*RemoteSecretWebhook)(nil)
 )
