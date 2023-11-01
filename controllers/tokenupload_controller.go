@@ -80,7 +80,7 @@ func (r *TokenUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
+q	lg := log.FromContext(ctx)
 	lg.V(logs.DebugLevel).Info("starting reconciliation")
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile Upload Secret")
 

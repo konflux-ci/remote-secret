@@ -4,4 +4,4 @@ metadata:
   name: controller-manager-environment-config
 data:
   TOKENSTORAGE: es
-  STORAGECONFIGJSON: '{"fake":{}}'
+#  STORAGECONFIGJSON: '{"fake":{}}'

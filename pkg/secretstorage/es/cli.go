@@ -17,19 +17,36 @@ package es
 import (
 	"context"
 	"fmt"
+	"io"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"os"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	es "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
-	"github.com/goccy/go-json"
-
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
 
-func NewESSecretStorage(_ context.Context, providerConfJSON string) (secretstorage.SecretStorage, error) {
+func NewESSecretStorage(ctx context.Context, configFilePath string) (secretstorage.SecretStorage, error) {
+	lg := log.FromContext(ctx)
 	providerConf := &es.SecretStoreProvider{}
-	err := json.Unmarshal([]byte(providerConfJSON), providerConf)
+	lg.Info("open config", "config", configFilePath)
+	file, err := os.Open(configFilePath) // #nosec:G304, path param and file is controlled by operator deployment
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshalling string: %s", err)
+		return nil, fmt.Errorf("error opening the config file from %s: %w", configFilePath, err)
 	}
-
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("Error closing file: %s\n", err)
+		}
+	}()
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the config file: %w", err)
+	}
+	lg.Info("reading config", "content", string(bytes[:]))
+	if err := yaml.Unmarshal(bytes, &providerConf); err != nil {
+		return nil, fmt.Errorf("error parsing the config file as YAML: %w", err)
+	}
+	lg.Info("es config complete")
 	return &ESStorage{ProviderConfig: providerConf}, nil
 }

@@ -42,7 +42,7 @@ func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (s
 	case AWSTokenStorage:
 		storage, err = awscli.NewAwsSecretStorage(ctx, args.InstanceId, &args.AWSCliArgs)
 	case ESSecretStorage:
-		storage, err = es.NewESSecretStorage(ctx, args.StorageConfigJSON)
+		storage, err = es.NewESSecretStorage(ctx, args.ConfigFile)
 	case InMemoryStorage:
 		storage = &memorystorage.MemoryStorage{}
 	default:

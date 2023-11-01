@@ -86,7 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := cmd.CreateInitializedSecretStorage(context.WithValue(ctx, "mgr", mgr), &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
