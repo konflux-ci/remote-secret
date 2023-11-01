@@ -36,9 +36,9 @@ type CommonCliArgs struct {
 	ProbeAddr         string           `arg:"--health-probe-bind-address, env" default:":8081" help:"The address the probe endpoint binds to."`
 	ConfigFile        string           `arg:"--config-file, env" default:"/etc/spi/config.yaml" help:"The location of the configuration file."`
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
-	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
+	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"memory" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
-	DisableWebhooks   bool             `arg:"--disable-webhooks, env" default:"false" help:"whether to disable all webhooks (for local debug)"`
+	DisableWebhooks   bool             `arg:"--disable-webhooks, env" default:"true" help:"whether to disable all webhooks (for local debug)"`
 	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
 	DisableHTTP2      bool             `arg:"--disable-http2, env" default:"true" help:"whether to support the HTTP/2 protocol in the webhook."`
 	vaultcli.VaultCliArgs

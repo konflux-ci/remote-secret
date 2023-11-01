@@ -239,47 +239,6 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-deploy_minikube: ensure-tmp manifests kustomize deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
-	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io VAULT_HOST=`hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_vault"
-	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
-
-deploy_minikube_es: ensure-tmp manifests kustomize ##deploy_vault_minikube ## Deploy controller to the Minikube cluster specified in ~/.kube/config with Vault tokenstorage.
-	CA_BUNDLE=`hack/generate_webhook_ca.sh` OAUTH_HOST=spi.`minikube ip`.nip.io IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "minikube" "overlays/minikube_es"
-#	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
-
-
-deploy_openshift: ensure-tmp manifests kustomize deploy_vault_openshift ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with Vault tokenstorage
-	VAULT_HOST=`./hack/vault-host.sh` IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_vault"
-	kubectl apply -f .tmp/approle_secret.yaml -n remotesecret
-	
-	
-deploy_openshift_aws: ensure-tmp manifests kustomize ## Deploy controller to the Openshift cluster specified in ~/.kube/config using the OpenShift kustomization with AWS
-	IMG=$(IMG) hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "openshift" "overlays/openshift_aws"
-	echo "secret 'aws-secretsmanager-credentials' with aws credentials must be manually created, './hack/aws-create-credentials-secret.sh' can help"
-
-undeploy_minikube: undeploy_vault_k8s ## Undeploy controller from the Minikube cluster specified in ~/.kube/config.
-	if [ ! -d ${TEMP_DIR}/deployment_minikube ]; then echo "No deployment files found in .tmp/deployment_minikube"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_minikube/default | kubectl delete -f -
-
-undeploy_openshift: undeploy_vault_openshift ## Undeploy controller from the Openshift cluster specified in ~/.kube/config.
-	if [ ! -d ${TEMP_DIR}/deployment_openshift ]; then echo "No deployment files found in .tmp/deployment_openshift"; exit 1; fi
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_openshift/default | kubectl delete -f -
-
-deploy_vault_openshift:
-	$(KUSTOMIZE) build config/vault/openshift | kubectl apply -f -
-	POD_NAME=vault-0 NAMESPACE=spi-vault hack/vault-init.sh
-
-undeploy_vault_openshift: kustomize
-	$(KUSTOMIZE) build config/vault/openshift | kubectl delete -f - || true
-
-deploy_vault_minikube: kustomize
-	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
-	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
-
-
-
-undeploy_vault_k8s: kustomize
-	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
 
 ##@ Build Dependencies
 
