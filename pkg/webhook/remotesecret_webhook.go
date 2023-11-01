@@ -41,7 +41,7 @@ func (w *RemoteSecretWebhook) Handle(ctx context.Context, req wh.Request) wh.Res
 		obj = req.OldObject
 	}
 
-	if err := w.decoder.DecodeRaw(obj, rs); err != nil {
+	if err := w.Decoder.DecodeRaw(obj, rs); err != nil {
 		return wh.Errored(http.StatusBadRequest, err)
 	}
 
@@ -50,7 +50,7 @@ func (w *RemoteSecretWebhook) Handle(ctx context.Context, req wh.Request) wh.Res
 		return w.handleCreate(ctx, req, rs)
 	case adm.Update:
 		old := &api.RemoteSecret{}
-		if err := w.decoder.DecodeRaw(req.OldObject, old); err != nil {
+		if err := w.Decoder.DecodeRaw(req.OldObject, old); err != nil {
 			return wh.Errored(http.StatusBadRequest, err)
 		}
 		return w.handleUpdate(ctx, req, old, rs)
