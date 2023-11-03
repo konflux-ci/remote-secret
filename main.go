@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
-	swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+	crebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers"
@@ -177,11 +177,11 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	webhookServerOptions := swebhook.Options{
+	webhookServerOptions := crebhook.Options{
 		TLSOpts: []func(config *tls.Config){disableHTTP2},
 	}
 
-	webhookServer := swebhook.NewServer(webhookServerOptions)
+	webhookServer := crebhook.NewServer(webhookServerOptions)
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
