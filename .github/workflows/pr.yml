@@ -77,6 +77,9 @@ jobs:
           k8s-version: ${{ env.K8S_VERSION }}
           kind-version: ${{ env.KIND_VERSION }}
           kind-worker-count: 2
+      - name: Run Go Tests
+        run: |
+          make test
       - uses: chainguard-dev/actions/kind-diag@main
         # Only upload logs on failure.
         if: ${{ failure() }}
@@ -84,9 +87,6 @@ jobs:
           cluster-resources: nodes,namespaces,
           namespace-resources: configmaps,pods,svc
           artifact-name: kind-logs
-      - name: Run Go Tests
-        run: |
-          make test
       - name: Codecov
         uses: codecov/codecov-action@v3
   spi-check:
@@ -120,6 +120,10 @@ jobs:
           k8s-version: ${{ env.K8S_VERSION }}
           kind-version: ${{ env.KIND_VERSION }}
           kind-worker-count: 2
+      - name: Run Go Tests
+        run: |
+          cd spi
+          make test
       - uses: chainguard-dev/actions/kind-diag@main
         # Only upload logs on failure.
         if: ${{ failure() }}
@@ -127,10 +131,6 @@ jobs:
           cluster-resources: nodes,namespaces,
           namespace-resources: configmaps,pods,svc
           artifact-name: kind-logs
-      - name: Run Go Tests
-        run: |
-          cd spi
-          make test
   docker-controller:
     name: Check controller docker image build
     runs-on: ubuntu-latest
