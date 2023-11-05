@@ -36,3 +36,6 @@ testbin/*
 
 # Jira CLI
 .jira.d/
+
+e2e/k8s/deploy
+e2e/suites/provider/provider.test

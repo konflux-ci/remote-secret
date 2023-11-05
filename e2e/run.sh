@@ -44,7 +44,7 @@ kubectl run --rm \
   --attach \
   --restart=Never \
   --pod-running-timeout=5m \
-  --labels="app=eso-e2e" \
+  --labels="app=rs-e2e" \
   --env="GINKGO_LABELS=${GINKGO_LABELS:-.*}" \
   --env="GCP_SM_SA_JSON=${GCP_SM_SA_JSON:-}" \
   --env="GCP_PROJECT_ID=${GCP_PROJECT_ID:-}" \

@@ -13,6 +13,7 @@ require (
 	github.com/redhat-appstudio/remote-secret v0.0.0
 	k8s.io/api v0.27.4
 	k8s.io/apimachinery v0.27.7
+	k8s.io/client-go v0.27.4
 	sigs.k8s.io/controller-runtime v0.15.1
 )
 
@@ -40,11 +41,11 @@ replace (
 	k8s.io/kubectl => k8s.io/kubectl v0.24.2
 	k8s.io/kubelet => k8s.io/kubelet v0.24.2
 	k8s.io/kubernetes => k8s.io/kubernetes v1.24.2
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.24.2
-	k8s.io/metrics => k8s.io/metrics v0.24.2
-	k8s.io/mount-utils => k8s.io/mount-utils v0.24.2
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.24.2
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.24.2
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.26.10
+	k8s.io/metrics => k8s.io/metrics v0.26.10
+	k8s.io/mount-utils => k8s.io/mount-utils v0.26.10
+	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.26.10
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.26.10
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.11.2
 )
 
@@ -212,9 +213,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	grpc.go4.org v0.0.0-20170609214715-11d0a25b4919 // indirect
 	k8s.io/apiextensions-apiserver v0.27.4 // indirect
-	k8s.io/apiserver v0.26.6 // indirect
+	k8s.io/apiserver v0.26.10 // indirect
 	k8s.io/cli-runtime v0.24.2 // indirect
-	k8s.io/client-go v0.27.4 // indirect
 	k8s.io/component-base v0.27.4 // indirect
 	k8s.io/component-helpers v0.24.2 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect

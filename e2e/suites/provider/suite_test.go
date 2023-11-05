@@ -21,17 +21,18 @@ import (
 	// nolint
 	. "github.com/onsi/gomega"
 
-	"github.com/external-secrets/external-secrets-e2e/framework/addon"
+	esoaddon "github.com/external-secrets/external-secrets-e2e/framework/addon"
 	"github.com/external-secrets/external-secrets-e2e/framework/util"
 	_ "github.com/external-secrets/external-secrets-e2e/suites/provider/cases"
+	"github.com/redhat-appstudio/remote-secret-e2e/framework/addon"
 )
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	cfg := &addon.Config{}
+	cfg := &esoaddon.Config{}
 	cfg.KubeConfig, cfg.KubeClientSet, cfg.CRClient = util.NewConfig()
 
-	By("installing eso")
-	addon.InstallGlobalAddon(addon.NewESO(addon.WithCRDs()), cfg)
+	By("installing rs")
+	esoaddon.InstallGlobalAddon(addon.NewRemoteSecretDeployment(cfg), cfg)
 
 	return nil
 }, func([]byte) {
@@ -42,9 +43,9 @@ var _ = SynchronizedAfterSuite(func() {
 	// noop
 }, func() {
 	By("Cleaning up global addons")
-	addon.UninstallGlobalAddons()
+	esoaddon.UninstallGlobalAddons()
 	if CurrentSpecReport().Failed() {
-		addon.PrintLogs()
+		esoaddon.PrintLogs()
 	}
 })
 
