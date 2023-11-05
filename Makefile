@@ -164,6 +164,9 @@ check: check_fmt lint test ## Check that the code conforms to all requirements f
 
 ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code ready for commit - formats, lints, vets, updates go.mod and runs tests
 
+.PHONY: test.e2e
+test.e2e: generate ## Run e2e tests
+	$(MAKE) -C ./e2e test
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
