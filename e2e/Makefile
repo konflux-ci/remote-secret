@@ -2,7 +2,7 @@ MAKEFLAGS   += --warn-undefined-variables
 SHELL       := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 GOARCH ?= $(shell go env GOARCH)
-KIND_IMG       = "kindest/node:v1.24.2@sha256:1f0cee2282f43150b52dc7933183ed96abdcfc8d293f30ec07082495874876f1"
+KIND_IMG       = "kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb"
 DOCKER_BUILD_ARGS     ?=
 
 export E2E_IMAGE_NAME ?= quay.io/redhat-appstudio/remote-secret-controller-e2e

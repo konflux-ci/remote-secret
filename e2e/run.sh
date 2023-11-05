@@ -15,10 +15,6 @@
 # limitations under the License.
 set -euo pipefail
 
-echo '111111222'
-echo '111111222'
-echo '111111222'
-echo '111111222'
 if ! command -v kind --version &> /dev/null; then
   echo "kind is not installed. Use the package manager or visit the official site https://kind.sigs.k8s.io/"
   exit 1
