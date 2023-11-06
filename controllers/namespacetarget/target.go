@@ -42,13 +42,20 @@ func (t *NamespaceTarget) GetSpec() api.LinkableSecretSpec {
 			ret.GenerateName = t.TargetSpec.Secret.GenerateName
 		}
 		if t.TargetSpec.Secret.Labels != nil {
-			ret.Labels = *t.TargetSpec.Secret.Labels
+			ret.Labels = make(map[string]string, len(*t.TargetSpec.Secret.Labels))
+			for k, v := range *t.TargetSpec.Secret.Labels {
+				ret.Labels[k] = v
+			}
 		}
 		if t.TargetSpec.Secret.Annotations != nil {
-			ret.Annotations = *t.TargetSpec.Secret.Annotations
+			ret.Annotations = make(map[string]string, len(*t.TargetSpec.Secret.Annotations))
+			for k, v := range *t.TargetSpec.Secret.Annotations {
+				ret.Annotations[k] = v
+			}
 		}
 		if t.TargetSpec.Secret.LinkedTo != nil {
-			ret.LinkedTo = *t.TargetSpec.Secret.LinkedTo
+			ret.LinkedTo = make([]api.SecretLink, 0, len(*t.TargetSpec.Secret.LinkedTo))
+			copy(ret.LinkedTo, *t.TargetSpec.Secret.LinkedTo)
 		}
 	}
 

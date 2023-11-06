@@ -156,11 +156,13 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 
 		// now that all the SAs are unlinked, we can finally delete the secret
 		if err := d.Target.GetClient().Delete(ctx, staleSecret); err != nil {
-			return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to delete the stale secret %s when processing the deployment target (%s) %s: %w",
-				client.ObjectKeyFromObject(staleSecret),
-				d.Target.GetType(),
-				d.Target.GetTargetObjectKey(),
-				err)
+			if !k8serrors.IsNotFound(err) {
+				return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to delete the stale secret %s when processing the deployment target (%s) %s: %w",
+					client.ObjectKeyFromObject(staleSecret),
+					d.Target.GetType(),
+					d.Target.GetTargetObjectKey(),
+					err)
+			}
 		}
 	}
 
@@ -256,7 +258,9 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 	for _, s := range sl {
 		if s.Name != checkPoint.secretName {
 			if err := d.Target.GetClient().Delete(ctx, s); err != nil {
-				return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
+				if !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
+				}
 			}
 		}
 	}
@@ -298,11 +302,13 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 						err)
 				} else if managed {
 					if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
-						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
-							sa.Name,
-							d.Target.GetType(),
-							d.Target.GetTargetObjectKey(),
-							err))
+						if !k8serrors.IsNotFound(err) {
+							return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
+								sa.Name,
+								d.Target.GetType(),
+								d.Target.GetTargetObjectKey(),
+								err))
+						}
 					}
 					// we don't need to do anything more on the SA because we just deleted it :)
 					return nil, nil

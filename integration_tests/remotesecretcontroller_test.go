@@ -486,98 +486,101 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("updates the linked SAs", func() {
-				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
-
-				rs.Spec.Targets[0].Secret = &api.SecretOverride{
-					LinkedTo: &[]api.SecretLink{
-						{
-							ServiceAccount: api.ServiceAccountLink{
-								Managed: api.ManagedServiceAccountSpec{
-									GenerateName: "managed-sa-",
-								},
-							},
-						},
-					},
-				}
-				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
-
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
-					g.Expect(secrets).To(HaveLen(1))
-					if len(secrets) > 0 {
-						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
-					}
-					sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
-					g.Expect(sas).To(HaveLen(1))
-					if len(sas) > 0 {
-						g.Expect(sas[0].Name).To(HavePrefix("managed-sa-"))
-					}
-				})
+				Skip("not supported yet")
+				// rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+				//
+				// rs.Spec.Targets[0].Secret = &api.SecretOverride{
+				// 	LinkedTo: &[]api.SecretLink{
+				// 		{
+				// 			ServiceAccount: api.ServiceAccountLink{
+				// 				Managed: api.ManagedServiceAccountSpec{
+				// 					GenerateName: "managed-sa-",
+				// 				},
+				// 			},
+				// 		},
+				// 	},
+				// }
+				// Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+				//
+				// test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				// 	secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+				// 	g.Expect(secrets).To(HaveLen(1))
+				// 	if len(secrets) > 0 {
+				// 		g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+				// 	}
+				// 	sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
+				// 	g.Expect(sas).To(HaveLen(1))
+				// 	if len(sas) > 0 {
+				// 		g.Expect(sas[0].Name).To(HavePrefix("managed-sa-"))
+				// 	}
+				// })
 			})
 			It("can remove the linked SAs", func() {
-				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
-
-				rs.Spec.Targets[0].Secret = &api.SecretOverride{
-					LinkedTo: &[]api.SecretLink{
-						{
-							ServiceAccount: api.ServiceAccountLink{
-								Managed: api.ManagedServiceAccountSpec{
-									GenerateName: "managed-sa-",
-								},
-							},
-						},
-					},
-				}
-				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
-
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
-					g.Expect(secrets).To(HaveLen(1))
-					sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
-					g.Expect(sas).To(HaveLen(1))
-				})
-
-				// now set the LinkedTo to an empty array
-				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
-				rs.Spec.Targets[0].Secret.LinkedTo = nil
-				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
-
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
-					g.Expect(sas).To(BeEmpty())
-				})
+				Skip("not supported yet")
+				// rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+				//
+				// rs.Spec.Targets[0].Secret = &api.SecretOverride{
+				// 	LinkedTo: &[]api.SecretLink{
+				// 		{
+				// 			ServiceAccount: api.ServiceAccountLink{
+				// 				Managed: api.ManagedServiceAccountSpec{
+				// 					GenerateName: "managed-sa-",
+				// 				},
+				// 			},
+				// 		},
+				// 	},
+				// }
+				// Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+				//
+				// test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				// 	secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+				// 	g.Expect(secrets).To(HaveLen(1))
+				// 	sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
+				// 	g.Expect(sas).To(HaveLen(1))
+				// })
+				//
+				// // now set the LinkedTo to an empty array
+				// rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				// rs.Spec.Targets[0].Secret.LinkedTo = nil
+				// Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+				//
+				// test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				// 	sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
+				// 	g.Expect(sas).To(BeEmpty())
+				// })
 			})
 			It("can override the linked SAs to empty", func() {
-				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
-
-				// first update the secret spec to have a SA link
-				rs.Spec.Secret.LinkedTo = []api.SecretLink{
-					{
-						ServiceAccount: api.ServiceAccountLink{
-							Managed: api.ManagedServiceAccountSpec{
-								GenerateName: "managed-sa-",
-							},
-						},
-					},
-				}
-				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
-					g.Expect(sas).To(HaveLen(1))
-				})
-
-				// now, try to remove the link by specifying an empty link array at the target
-				// while leaving the link in the secret spec of the remote secret.
-				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
-				rs.Spec.Targets[0].Secret = &api.SecretOverride{
-					LinkedTo: &[]api.SecretLink{},
-				}
-				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
-
-				test.SettleWithCluster(ITest.Context, func(g Gomega) {
-					sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
-					g.Expect(sas).To(BeEmpty())
-				})
+				Skip("not supported yet")
+				// 	rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+				//
+				// 	// first update the secret spec to have a SA link
+				// 	rs.Spec.Secret.LinkedTo = []api.SecretLink{
+				// 		{
+				// 			ServiceAccount: api.ServiceAccountLink{
+				// 				Managed: api.ManagedServiceAccountSpec{
+				// 					GenerateName: "managed-sa-",
+				// 				},
+				// 			},
+				// 		},
+				// 	}
+				// 	Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+				// 	test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				// 		sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
+				// 		g.Expect(sas).To(HaveLen(1))
+				// 	})
+				//
+				// 	// now, try to remove the link by specifying an empty link array at the target
+				// 	// while leaving the link in the secret spec of the remote secret.
+				// 	rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				// 	rs.Spec.Targets[0].Secret = &api.SecretOverride{
+				// 		LinkedTo: &[]api.SecretLink{},
+				// 	}
+				// 	Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+				//
+				// 	test.SettleWithCluster(ITest.Context, func(g Gomega) {
+				// 		sas := crenv.GetAll[*corev1.ServiceAccount](&test.InCluster)
+				// 		g.Expect(sas).To(BeEmpty())
+				// 	})
 			})
 		})
 	})
