@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+
 	"github.com/external-secrets/external-secrets-e2e/framework"
 	. "github.com/onsi/gomega"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"

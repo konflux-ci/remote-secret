@@ -16,6 +16,7 @@ import (
 	esoframework "github.com/external-secrets/external-secrets-e2e/framework"
 	"github.com/redhat-appstudio/remote-secret-e2e/framework"
 	"github.com/redhat-appstudio/remote-secret-e2e/suites/provider/cases/common"
+
 	// nolint
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -31,8 +32,8 @@ const (
 	withReferentAuth = "with referent provider"
 )
 
-var _ = Describe("[vault]", Label("vault"), func() {
-	f := esoframework.New("remotesecret-vault")
+var _ = Describe("[remote-secrets][vault]", Label("vault", "remote-secret"), func() {
+	f := esoframework.New("remote-secrets-vault")
 	prov := newVaultProvider(f)
 
 	DescribeTable("sync secrets",

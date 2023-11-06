@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+
 	esframework "github.com/external-secrets/external-secrets-e2e/framework"
 	"github.com/redhat-appstudio/remote-secret-e2e/framework"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"

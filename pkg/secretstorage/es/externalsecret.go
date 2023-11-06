@@ -17,10 +17,11 @@ package es
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"strings"
 
 	"github.com/external-secrets/external-secrets/pkg/provider/aws"
 	"github.com/external-secrets/external-secrets/pkg/provider/fake"

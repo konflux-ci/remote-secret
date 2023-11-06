@@ -15,7 +15,7 @@ export VERSION := $(shell git describe --dirty --always --tags --exclude 'helm*'
 endif
 
 export E2E_IMAGE_NAME ?= quay.io/redhat-appstudio/remote-secret-controller-e2e
-export GINKGO_LABELS ?= !managed
+export GINKGO_LABELS ?= remote-secret
 export TEST_SUITES ?= provider
 
 start-kind: ## Start kind cluster

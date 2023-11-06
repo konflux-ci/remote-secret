@@ -23,13 +23,16 @@ import (
 
 	esoaddon "github.com/external-secrets/external-secrets-e2e/framework/addon"
 	"github.com/external-secrets/external-secrets-e2e/framework/util"
-	_ "github.com/external-secrets/external-secrets-e2e/suites/provider/cases"
 	"github.com/redhat-appstudio/remote-secret-e2e/framework/addon"
+	_ "github.com/redhat-appstudio/remote-secret-e2e/suites/provider/cases"
 )
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	cfg := &esoaddon.Config{}
 	cfg.KubeConfig, cfg.KubeClientSet, cfg.CRClient = util.NewConfig()
+
+	//By("installing eso")
+	//	esoaddon.InstallGlobalAddon(esoaddon.NewESO(esoaddon.WithCRDs()), cfg)
 
 	By("installing rs")
 	esoaddon.InstallGlobalAddon(addon.NewRemoteSecretDeployment(cfg), cfg)
@@ -49,8 +52,8 @@ var _ = SynchronizedAfterSuite(func() {
 	}
 })
 
-func TestE2E(t *testing.T) {
+func TestRsE2E(t *testing.T) {
 	NewWithT(t)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "external-secrets e2e suite", Label("e2e"))
+	RunSpecs(t, "e2e suite", Label("remote-secrets"))
 }

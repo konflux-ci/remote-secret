@@ -44,6 +44,7 @@ for SUITE in ${TEST_SUITES}; do
   ACK_GINKGO_RC=true ginkgo "${ginkgo_args[@]}" \
     -label-filter="${GINKGO_LABELS}"            \
     -nodes="${E2E_NODES}"                       \
+    -focus='remote-secret' \
     /${SUITE}.test
 done
 
