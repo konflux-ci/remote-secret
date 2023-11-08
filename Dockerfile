@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi9/go-toolset:1.20.10 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR /workspace
+WORKDIR /opt/app-root/src
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -35,7 +35,7 @@ RUN microdnf -y install shadow-utils \
 		--gid 65532 \
 		nonroot
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=builder /opt/app-root/src/manager .
 # It is mandatory to set these labels
 LABEL description="RHTAP RemoteSecret Operator"
 LABEL io.k8s.description="RHTAP RemoteSecret Operator"
