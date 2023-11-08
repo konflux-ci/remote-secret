@@ -1,6 +1,6 @@
 module github.com/redhat-appstudio/remote-secret
 
-go 1.19
+go 1.20
 
 require (
 	github.com/alexflint/go-arg v1.4.3
