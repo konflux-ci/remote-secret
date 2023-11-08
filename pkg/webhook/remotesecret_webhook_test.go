@@ -35,14 +35,11 @@ func TestHandle_Create(t *testing.T) {
 	scheme := runtime.NewScheme()
 	api.AddToScheme(scheme)
 
-	decoder, err := admission.NewDecoder(scheme)
-	assert.NoError(t, err)
-
 	w := RemoteSecretWebhook{
 		Validator: validator,
 		Mutator:   mutator,
+		Decoder:   admission.NewDecoder(scheme),
 	}
-	w.InjectDecoder(decoder)
 
 	req := admission.Request{
 		AdmissionRequest: admissionv1.AdmissionRequest{
@@ -74,14 +71,11 @@ func TestHandle_Update(t *testing.T) {
 	scheme := runtime.NewScheme()
 	api.AddToScheme(scheme)
 
-	decoder, err := admission.NewDecoder(scheme)
-	assert.NoError(t, err)
-
 	w := RemoteSecretWebhook{
 		Validator: validator,
 		Mutator:   mutator,
+		Decoder:   admission.NewDecoder(scheme),
 	}
-	w.InjectDecoder(decoder)
 
 	req := admission.Request{
 		AdmissionRequest: admissionv1.AdmissionRequest{
@@ -113,11 +107,7 @@ func TestHandle_Delete(t *testing.T) {
 	scheme := runtime.NewScheme()
 	api.AddToScheme(scheme)
 
-	decoder, err := admission.NewDecoder(scheme)
-	assert.NoError(t, err)
-
-	w := RemoteSecretWebhook{}
-	w.InjectDecoder(decoder)
+	w := RemoteSecretWebhook{Decoder: admission.NewDecoder(scheme)}
 
 	req := admission.Request{
 		AdmissionRequest: admissionv1.AdmissionRequest{
