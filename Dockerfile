@@ -26,14 +26,17 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o ma
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1361 as remote-secret-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
-RUN microdnf -y install shadow-utils \
+RUN microdnf update -y \
+    && microdnf -y --setopt=tsflags=nodocs install shadow-utils \
+    && microdnf -y reinstall tzdata \
 	&& groupadd --gid 65532 nonroot \
 	&& adduser \
 		--no-create-home \
 		--no-user-group \
 		--uid 65532 \
 		--gid 65532 \
-		nonroot
+		nonroot \
+    && microdnf -y clean all
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
 # It is mandatory to set these labels
