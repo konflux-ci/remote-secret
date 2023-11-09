@@ -36,7 +36,8 @@ RUN microdnf update -y \
 		--uid 65532 \
 		--gid 65532 \
 		nonroot \
-    && microdnf -y clean all
+    && microdnf -y clean all \
+    && rm -rf /var/cache/yum
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
 # It is mandatory to set these labels
