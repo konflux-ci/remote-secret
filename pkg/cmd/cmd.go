@@ -19,6 +19,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/es"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage/vaultcli"
@@ -38,6 +41,10 @@ func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (s
 		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
 		storage, err = awscli.NewAwsSecretStorage(ctx, args.InstanceId, &args.AWSCliArgs)
+	case ESSecretStorage:
+		storage, err = es.NewESSecretStorage(ctx, args.StorageConfigJSON)
+	case InMemoryStorage:
+		storage = &memorystorage.MemoryStorage{}
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedSecretStorage, args.TokenStorage)
 	}
