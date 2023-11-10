@@ -23,12 +23,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 
 	"github.com/go-logr/logr"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -94,22 +92,21 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err = ctrl.NewControllerManagedBy(mgr).
 		For(&api.RemoteSecret{}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 		})).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.findRemoteSecretForUploadSecret),
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+				return r.findRemoteSecretForUploadSecret(o)
+			}),
 			builder.WithPredicates(pred, predicate.Funcs{
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).
-		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(mgr.GetLogger(), mgr.GetScheme(), o)
+		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
 		})).
-		Watches(&source.Kind{Type: &corev1.ServiceAccount{}}, handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-			return r.findRemoteSecretsInNamespaceForAuthSA(o)
-		}), builder.OnlyMetadata).
 		Complete(r)
 	if err != nil {
 		return fmt.Errorf("failed to configure the reconciler: %w", err)
@@ -133,10 +130,9 @@ func (r *RemoteSecretReconciler) findRemoteSecretForUploadSecret(secret client.O
 	}
 }
 
-func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
-	ctx := context.Background()
+func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o client.Object) []reconcile.Request {
 	nsMarker := namespacetarget.NamespaceObjectMarker{}
-
+	lg := log.FromContext(ctx)
 	refs, err := nsMarker.GetReferencingTargets(ctx, o)
 	if err != nil {
 		var gvk schema.GroupVersionKind
@@ -159,8 +155,7 @@ func linksToReconcileRequests(lg logr.Logger, scheme *runtime.Scheme, o client.O
 	return ret
 }
 
-func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(o client.Object) []reconcile.Request {
-	ctx := context.Background()
+func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
 
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil

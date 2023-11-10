@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	crebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers"
@@ -166,6 +167,21 @@ func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
 }
 
 func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, error) {
+
+	restConfig := ctrl.GetConfigOrDie()
+	disableHTTP2 := func(c *tls.Config) {
+		if !args.DisableHTTP2 {
+			return
+		}
+		lg.Info("Disabling HTTP/2")
+		c.NextProtos = []string{"http/1.1"}
+	}
+
+	webhookServerOptions := crebhook.Options{
+		TLSOpts: []func(config *tls.Config){disableHTTP2},
+	}
+
+	webhookServer := crebhook.NewServer(webhookServerOptions)
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     args.MetricsAddr,
@@ -173,12 +189,7 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "4279163b.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
-	}
-	restConfig := ctrl.GetConfigOrDie()
-
-	if args.DisableHTTP2 {
-		lg.Info("Disabling HTTP/2")
-		options.TLSOpts = append(options.TLSOpts, disableHTTP2)
+		WebhookServer:          webhookServer,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
@@ -187,8 +198,4 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	}
 
 	return mgr, nil
-}
-
-func disableHTTP2(c *tls.Config) {
-	c.NextProtos = []string{"http/1.1"}
 }

@@ -31,6 +31,7 @@ func SetupAllWebhooks(mgr ctrl.Manager, secretStorage secretstorage.SecretStorag
 				Storage: remoteSecretStorage,
 			},
 			Validator: &RemoteSecretValidator{},
+			Decoder:   wh.NewDecoder(mgr.GetScheme()),
 		},
 		RecoverPanic: false,
 	}
