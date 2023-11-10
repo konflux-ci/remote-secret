@@ -62,11 +62,13 @@ type SecretOverride struct {
 	// an undefined, nil, value and an empty map (clearing any annotations defined in the spec).
 	// +kubebuilder:validation:Optional
 	Annotations *map[string]string `json:"annotations,omitempty"`
-	// LinkedTo is the list of service accounts that the secret will be linked to in the target. This completely replaces the list defined
-	// in the secret spec. Note that this is a pointer to an array so that we can distinguish between an undefined, nil, value
-	// and an empty array(clearing any links defined in the spec).
-	// +kubebuilder:validation:Optional
-	LinkedTo *[]SecretLink `json:"linkedTo,omitempty"`
+	// Overriding the linked SAs not implemented yet...
+	// // LinkedTo is the list of service accounts that the secret will be linked to in the target. This completely replaces the list defined
+	// // in the secret spec. Note that this is a pointer to an array so that we can distinguish between an undefined, nil, value
+	// // and an empty array(clearing any links defined in the spec).
+	// // +kubebuilder:validation:Optional
+	// LinkedTo *[]SecretLink `json:"linkedTo,omitempty"`
+
 	// Name is the name of the secret when deployed to the target. This overrides the name from the secret spec.
 	// +kubebuilder:validation:Optional
 	Name string `json:"name,omitempty"`

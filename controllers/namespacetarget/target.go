@@ -53,10 +53,11 @@ func (t *NamespaceTarget) GetSpec() api.LinkableSecretSpec {
 				ret.Annotations[k] = v
 			}
 		}
-		if t.TargetSpec.Secret.LinkedTo != nil {
-			ret.LinkedTo = make([]api.SecretLink, 0, len(*t.TargetSpec.Secret.LinkedTo))
-			copy(ret.LinkedTo, *t.TargetSpec.Secret.LinkedTo)
-		}
+		// Overriding of linked SAs not implemented yet...
+		// if t.TargetSpec.Secret.LinkedTo != nil {
+		// 	ret.LinkedTo = make([]api.SecretLink, 0, len(*t.TargetSpec.Secret.LinkedTo))
+		// 	copy(ret.LinkedTo, *t.TargetSpec.Secret.LinkedTo)
+		// }
 	}
 
 	return *ret
