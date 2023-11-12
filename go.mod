@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.47.9
 	github.com/aws/aws-sdk-go-v2 v1.22.2
 	github.com/aws/aws-sdk-go-v2/config v1.23.0
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.0
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.1
 	github.com/aws/smithy-go v1.16.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/go-logr/logr v1.3.0
