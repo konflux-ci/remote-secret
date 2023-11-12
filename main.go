@@ -162,7 +162,7 @@ func main() {
 }
 
 func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
-	ret := config.OperatorConfiguration{EnableRemoteSecrets: args.EnableRemoteSecrets, EnableTokenUpload: args.EnableRemoteSecrets}
+	ret := config.OperatorConfiguration{EnableTokenUpload: true}
 	return ret, nil
 }
 

@@ -91,8 +91,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.OperatorConfiguration = &config.OperatorConfiguration{
-		EnableTokenUpload:   true,
-		EnableRemoteSecrets: true,
+		EnableTokenUpload: true,
 	}
 
 	ITest.ClientFactory = TestClientFactory{
