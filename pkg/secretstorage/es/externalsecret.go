@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 
 	"github.com/external-secrets/external-secrets/pkg/provider/aws"
