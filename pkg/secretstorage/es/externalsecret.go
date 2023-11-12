@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-logr/logr"
 
 	"github.com/external-secrets/external-secrets/pkg/provider/aws"
 	"github.com/external-secrets/external-secrets/pkg/provider/fake"
 	"github.com/external-secrets/external-secrets/pkg/provider/vault"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	es "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
@@ -42,7 +42,6 @@ type ESStorage struct {
 	ProviderConfig *es.SecretStoreProvider
 	storage        es.SecretStore
 	provider       es.Provider
-	log            logr.Logger
 }
 
 type PushData struct {
@@ -60,8 +59,8 @@ func (p *PushData) GetProperty() string {
 
 func (p *ESStorage) Initialize(ctx context.Context) error {
 
-	p.log = log.FromContext(ctx)
-
+	lg := lg(ctx)
+	lg.Info("initializing ES storage")
 	p.storage = es.SecretStore{
 		Spec: es.SecretStoreSpec{
 			Provider: p.ProviderConfig,
@@ -73,7 +72,7 @@ func (p *ESStorage) Initialize(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed getting provider %w", err)
 	}
-	p.log.V(logs.DebugLevel).Info("initialized ExternalSecret storage", ":", p.storage)
+	lg.V(logs.DebugLevel).Info("initialized ExternalSecret storage", ":", p.storage)
 	return nil
 }
 
@@ -88,7 +87,7 @@ func (p *ESStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte,
 	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: id.String()})
 	if err != nil {
 		if errors.Is(err, es.NoSecretErr) {
-			p.log.Info("No secret found ", "ID", id.String())
+			lg(ctx).Info("No secret found ", "ID", id.String())
 			return nil, secretstorage.NotFoundError
 		}
 		return nil, fmt.Errorf("failed getting the secret %w", err)
@@ -130,4 +129,8 @@ func (p *ESStorage) Store(ctx context.Context, id secretstorage.SecretID, data [
 	}
 
 	return nil
+}
+
+func lg(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx, "secretstorage", "es")
 }
