@@ -16,6 +16,7 @@ package es
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/external-secrets/external-secrets/pkg/provider/aws"
@@ -61,10 +62,6 @@ func (p *ESStorage) Initialize(ctx context.Context) error {
 
 	p.log = log.FromContext(ctx)
 
-	if p.ProviderConfig == nil {
-		return fmt.Errorf("failed initializing ExternalSecret provider, ProviderConfig is not set")
-	}
-
 	p.storage = es.SecretStore{
 		Spec: es.SecretStoreSpec{
 			Provider: p.ProviderConfig,
@@ -74,7 +71,7 @@ func (p *ESStorage) Initialize(ctx context.Context) error {
 	var err error
 	p.provider, err = es.GetProvider(&p.storage)
 	if err != nil {
-		return fmt.Errorf("failed getting provider %s", err)
+		return fmt.Errorf("failed getting provider %w", err)
 	}
 	p.log.V(logs.DebugLevel).Info("initialized ExternalSecret storage", ":", p.storage)
 	return nil
@@ -85,16 +82,16 @@ func (p *ESStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte,
 	// TODO Kubeclient and namespace, do we need it?
 	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed creating new client %s", err)
+		return nil, fmt.Errorf("failed creating new client %w", err)
 	}
 
 	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: id.String()})
 	if err != nil {
-		if err == es.NoSecretErr {
+		if errors.Is(err, es.NoSecretErr) {
 			p.log.Info("No secret found ", "ID", id.String())
 			return nil, secretstorage.NotFoundError
 		}
-		return nil, fmt.Errorf("failed getting the secret %s", err)
+		return nil, fmt.Errorf("failed getting the secret %w", err)
 	}
 
 	return secret, nil
@@ -105,12 +102,12 @@ func (p *ESStorage) Delete(ctx context.Context, id secretstorage.SecretID) error
 	// TODO Kubeclient and namespace, do we need it?
 	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
 	if err != nil {
-		return fmt.Errorf("failed creating new client %s", err)
+		return fmt.Errorf("failed creating new client %w", err)
 	}
 
 	err = client.DeleteSecret(ctx, &PushData{RemoteKey: id.String()})
 	if err != nil {
-		return fmt.Errorf("failed deleting the secret %s", err)
+		return fmt.Errorf("failed deleting the secret %w", err)
 	}
 
 	// TODO need to close?
@@ -123,13 +120,13 @@ func (p *ESStorage) Store(ctx context.Context, id secretstorage.SecretID, data [
 	// TODO Kubeclient and namespace, do we need it?
 	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
 	if err != nil {
-		return fmt.Errorf("failed creating new client %s", err)
+		return fmt.Errorf("failed creating new client %w", err)
 	}
 
 	// id.String() -> namespace/name
 	err = client.PushSecret(ctx, data, &PushData{RemoteKey: id.String()})
 	if err != nil {
-		return fmt.Errorf("failed storing the secret %s", err)
+		return fmt.Errorf("failed storing the secret %w", err)
 	}
 
 	return nil

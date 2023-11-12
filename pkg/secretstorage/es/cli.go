@@ -28,7 +28,7 @@ func NewESSecretStorage(_ context.Context, providerConfJSON string) (secretstora
 	providerConf := &es.SecretStoreProvider{}
 	err := json.Unmarshal([]byte(providerConfJSON), providerConf)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshalling string: %s", err)
+		return nil, fmt.Errorf("failed unmarshalling string: %w", err)
 	}
 
 	return &ESStorage{ProviderConfig: providerConf}, nil
