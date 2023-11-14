@@ -19,8 +19,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
