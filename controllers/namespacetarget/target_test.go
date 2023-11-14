@@ -63,6 +63,12 @@ func TestNamespaceTarget_GetSpec(t *testing.T) {
 		assert.Equal(t, api.LinkableSecretSpec{
 			Name:         "target-secret",
 			GenerateName: "kachny-",
+			Labels: map[string]string{
+				"k": "v",
+			},
+			Annotations: map[string]string{
+				"k": "v",
+			},
 		}, nt.GetSpec())
 	})
 }
@@ -109,8 +115,10 @@ func getTestRemoteSecret() *api.RemoteSecret {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace:           "target-ns",
-					SecretName:          "kachny-asdf",
+					Namespace: "target-ns",
+					Secret: api.TargetSecretStatus{
+						Name: "kachny-asdf",
+					},
 					ServiceAccountNames: []string{"a", "b"},
 				},
 			},
@@ -133,6 +141,12 @@ func getTestRemoteSecretWithOverrides() *api.RemoteSecret {
 					Namespace: "target-ns",
 					Secret: &api.SecretOverride{
 						Name: "target-secret",
+						Labels: &map[string]string{
+							"k": "v",
+						},
+						Annotations: &map[string]string{
+							"k": "v",
+						},
 					},
 				},
 			},
@@ -140,8 +154,10 @@ func getTestRemoteSecretWithOverrides() *api.RemoteSecret {
 		Status: api.RemoteSecretStatus{
 			Targets: []api.TargetStatus{
 				{
-					Namespace:           "target-ns",
-					SecretName:          "target-secret",
+					Namespace: "target-ns",
+					Secret: api.TargetSecretStatus{
+						Name: "target-secret",
+					},
 					ServiceAccountNames: []string{"a", "b"},
 				},
 			},

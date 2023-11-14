@@ -110,6 +110,49 @@ func TestClassifyReordered(t *testing.T) {
 			Status: api.RemoteSecretStatus{
 				Targets: []api.TargetStatus{
 					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_c",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{},
+					},
+				},
+			},
+		},
+		"no-overrides-legacy-secretname": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+					},
+					{
+						Namespace: "ns_b",
+					},
+					{
+						Namespace: "ns_c",
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
 						Namespace:           "ns_b",
 						SecretName:          "sec",
 						ServiceAccountNames: []string{},
@@ -153,6 +196,55 @@ func TestClassifyReordered(t *testing.T) {
 			Status: api.RemoteSecretStatus{
 				Targets: []api.TargetStatus{
 					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec2",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec1",
+						},
+						ServiceAccountNames: []string{},
+					},
+				},
+			},
+		},
+		"name-overrides-legacy-secretname": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							Name: "sec1",
+						},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							Name: "sec2",
+						},
+					},
+					{
+						Namespace: "ns_a",
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
 						Namespace:           "ns_a",
 						SecretName:          "sec2",
 						ServiceAccountNames: []string{},
@@ -171,6 +263,55 @@ func TestClassifyReordered(t *testing.T) {
 			},
 		},
 		"generateName-overrides": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					GenerateName: "sec-",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							GenerateName: "sec1-",
+						},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							GenerateName: "sec2-",
+						},
+					},
+					{
+						Namespace: "ns_a",
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec2-asdf",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec-asfd",
+						},
+						ServiceAccountNames: []string{},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec1-asdf",
+						},
+						ServiceAccountNames: []string{},
+					},
+				},
+			},
+		},
+		"generateName-overrides-legacy-secretname": {
 			Spec: api.RemoteSecretSpec{
 				Secret: api.LinkableSecretSpec{
 					GenerateName: "sec-",
@@ -250,6 +391,32 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 			Status: api.RemoteSecretStatus{
 				Targets: []api.TargetStatus{
 					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"no-overrides-legacy-secretname": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+					},
+					{
+						Namespace: "ns_b",
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
 						Namespace:           "ns_b",
 						SecretName:          "sec",
 						ServiceAccountNames: []string{"sa_a", "sa_b"},
@@ -280,6 +447,38 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 			Status: api.RemoteSecretStatus{
 				Targets: []api.TargetStatus{
 					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "secb",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"name-overrides-legacy-secretname": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							Name: "seca",
+						},
+					},
+					{
+						Namespace: "ns_b",
+						Secret: &api.SecretOverride{
+							Name: "secb",
+						},
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
 						Namespace:           "ns_b",
 						SecretName:          "secb",
 						ServiceAccountNames: []string{"sa_a", "sa_b"},
@@ -288,6 +487,38 @@ func TestClassifyWithSomeMissingFromStatus(t *testing.T) {
 			},
 		},
 		"generateName-overrides": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					GenerateName: "sec-",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							GenerateName: "seca-",
+						},
+					},
+					{
+						Namespace: "ns_b",
+						Secret: &api.SecretOverride{
+							GenerateName: "secb-",
+						},
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "secb-asdf",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"generateName-overrides-legacy-secretname": {
 			Spec: api.RemoteSecretSpec{
 				Secret: api.LinkableSecretSpec{
 					GenerateName: "sec-",
@@ -350,9 +581,37 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 			Status: api.RemoteSecretStatus{
 				Targets: []api.TargetStatus{
 					{
-						Namespace:           "ns_b",
-						SecretName:          "sec",
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
 						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"no-overrides-legacy-secretname": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
+						Namespace:  "ns_b",
+						SecretName: "sec",
 					},
 					{
 						Namespace:           "ns_a",
@@ -363,6 +622,39 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 			},
 		},
 		"name-overrides": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					Name: "sec",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							Name: "seca",
+						},
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "sec",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "seca",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"name-overrides-legacy-secretname": {
 			Spec: api.RemoteSecretSpec{
 				Secret: api.LinkableSecretSpec{
 					Name: "sec",
@@ -392,6 +684,39 @@ func TestClassifyWithSomeMoreInStatus(t *testing.T) {
 			},
 		},
 		"generateName-overrides": {
+			Spec: api.RemoteSecretSpec{
+				Secret: api.LinkableSecretSpec{
+					GenerateName: "sec-",
+				},
+				Targets: []api.RemoteSecretTarget{
+					{
+						Namespace: "ns_a",
+						Secret: &api.SecretOverride{
+							GenerateName: "seca-",
+						},
+					},
+				},
+			},
+			Status: api.RemoteSecretStatus{
+				Targets: []api.TargetStatus{
+					{
+						Namespace: "ns_b",
+						Secret: api.TargetSecretStatus{
+							Name: "sec-asdf",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+					{
+						Namespace: "ns_a",
+						Secret: api.TargetSecretStatus{
+							Name: "seca-asdf",
+						},
+						ServiceAccountNames: []string{"sa_a", "sa_b"},
+					},
+				},
+			},
+		},
+		"generateName-overrides-legacy-secretname": {
 			Spec: api.RemoteSecretSpec{
 				Secret: api.LinkableSecretSpec{
 					GenerateName: "sec-",
@@ -682,39 +1007,136 @@ func TestClassifyByCluster(t *testing.T) {
 func TestClassificationWithOverrides(t *testing.T) {
 	t.Run("simple", func(t *testing.T) {
 		t.Run("name overrides spec name", func(t *testing.T) {
-			rs := &api.RemoteSecret{
-				Spec: api.RemoteSecretSpec{
-					Secret: api.LinkableSecretSpec{
-						Name: "spec",
+			tests := map[string]*api.RemoteSecret{
+				"secretname-in-status-target-secret": {
+					Spec: api.RemoteSecretSpec{
+						Secret: api.LinkableSecretSpec{
+							Name: "spec",
+						},
+						Targets: []api.RemoteSecretTarget{
+							{
+								Namespace: "ns",
+								Secret: &api.SecretOverride{
+									Name: "override",
+								},
+							},
+						},
 					},
-					Targets: []api.RemoteSecretTarget{
-						{
-							Namespace: "ns",
-							Secret: &api.SecretOverride{
-								Name: "override",
+					Status: api.RemoteSecretStatus{
+						Targets: []api.TargetStatus{
+							{
+								Namespace: "ns",
+								Secret: api.TargetSecretStatus{
+									Name: "override",
+								},
 							},
 						},
 					},
 				},
-				Status: api.RemoteSecretStatus{
-					Targets: []api.TargetStatus{
-						{
-							Namespace:  "ns",
-							SecretName: "override",
+				"legacy-secretname": {
+					Spec: api.RemoteSecretSpec{
+						Secret: api.LinkableSecretSpec{
+							Name: "spec",
+						},
+						Targets: []api.RemoteSecretTarget{
+							{
+								Namespace: "ns",
+								Secret: &api.SecretOverride{
+									Name: "override",
+								},
+							},
+						},
+					},
+					Status: api.RemoteSecretStatus{
+						Targets: []api.TargetStatus{
+							{
+								Namespace:  "ns",
+								SecretName: "override",
+							},
 						},
 					},
 				},
 			}
 
-			nc := ClassifyTargetNamespaces(rs)
+			for name, rs := range tests {
+				t.Run(name, func(t *testing.T) {
+					nc := ClassifyTargetNamespaces(rs)
 
-			assert.Equal(t, 1, len(nc.Sync))
-			assert.Empty(t, nc.DuplicateTargetSpecs)
-			assert.Empty(t, nc.Remove)
-			assert.Empty(t, nc.OrphanDuplicateStatuses)
+					assert.Equal(t, 1, len(nc.Sync))
+					assert.Empty(t, nc.DuplicateTargetSpecs)
+					assert.Empty(t, nc.Remove)
+					assert.Empty(t, nc.OrphanDuplicateStatuses)
+				})
+			}
 		})
 		t.Run("generateName overrides generateName in spec", func(t *testing.T) {
-			rs := &api.RemoteSecret{
+			tests := map[string]*api.RemoteSecret{
+				"secretname-in-status-target-secret": {
+					Spec: api.RemoteSecretSpec{
+						Secret: api.LinkableSecretSpec{
+							GenerateName: "spec",
+						},
+						Targets: []api.RemoteSecretTarget{
+							{
+								Namespace: "ns",
+								Secret: &api.SecretOverride{
+									GenerateName: "override",
+								},
+							},
+						},
+					},
+					Status: api.RemoteSecretStatus{
+						Targets: []api.TargetStatus{
+							{
+								Namespace: "ns",
+								Secret: api.TargetSecretStatus{
+									Name: "overrideasdf",
+								},
+							},
+						},
+					},
+				},
+				"legacy-secretname": {
+					Spec: api.RemoteSecretSpec{
+						Secret: api.LinkableSecretSpec{
+							GenerateName: "spec",
+						},
+						Targets: []api.RemoteSecretTarget{
+							{
+								Namespace: "ns",
+								Secret: &api.SecretOverride{
+									GenerateName: "override",
+								},
+							},
+						},
+					},
+					Status: api.RemoteSecretStatus{
+						Targets: []api.TargetStatus{
+							{
+								Namespace:  "ns",
+								SecretName: "overrideasdf",
+							},
+						},
+					},
+				},
+			}
+
+			for name, rs := range tests {
+				t.Run(name, func(t *testing.T) {
+					nc := ClassifyTargetNamespaces(rs)
+
+					assert.Equal(t, 1, len(nc.Sync))
+					assert.Empty(t, nc.DuplicateTargetSpecs)
+					assert.Empty(t, nc.Remove)
+					assert.Empty(t, nc.OrphanDuplicateStatuses)
+				})
+			}
+		})
+	})
+
+	t.Run("concrete name disregards generateName", func(t *testing.T) {
+		tests := map[string]*api.RemoteSecret{
+			"secretname-in-status-target-secret": {
 				Spec: api.RemoteSecretSpec{
 					Secret: api.LinkableSecretSpec{
 						GenerateName: "spec",
@@ -723,8 +1145,51 @@ func TestClassificationWithOverrides(t *testing.T) {
 						{
 							Namespace: "ns",
 							Secret: &api.SecretOverride{
-								GenerateName: "override",
+								Name: "override",
 							},
+						},
+						{
+							Namespace: "ns",
+						},
+					},
+				},
+				Status: api.RemoteSecretStatus{
+					Targets: []api.TargetStatus{
+						{
+							Namespace: "ns",
+							Secret: api.TargetSecretStatus{
+								Name: "overrideasdf",
+							},
+						},
+						{
+							Namespace: "ns",
+							Secret: api.TargetSecretStatus{
+								Name: "override",
+							},
+						},
+						{
+							Namespace: "ns",
+							Secret: api.TargetSecretStatus{
+								Name: "specasdf",
+							},
+						},
+					},
+				},
+			},
+			"legacy-secretname": {
+				Spec: api.RemoteSecretSpec{
+					Secret: api.LinkableSecretSpec{
+						GenerateName: "spec",
+					},
+					Targets: []api.RemoteSecretTarget{
+						{
+							Namespace: "ns",
+							Secret: &api.SecretOverride{
+								Name: "override",
+							},
+						},
+						{
+							Namespace: "ns",
 						},
 					},
 				},
@@ -734,115 +1199,130 @@ func TestClassificationWithOverrides(t *testing.T) {
 							Namespace:  "ns",
 							SecretName: "overrideasdf",
 						},
-					},
-				},
-			}
-
-			nc := ClassifyTargetNamespaces(rs)
-
-			assert.Equal(t, 1, len(nc.Sync))
-			assert.Empty(t, nc.DuplicateTargetSpecs)
-			assert.Empty(t, nc.Remove)
-			assert.Empty(t, nc.OrphanDuplicateStatuses)
-		})
-	})
-
-	t.Run("concrete name disregards generateName", func(t *testing.T) {
-		rs := &api.RemoteSecret{
-			Spec: api.RemoteSecretSpec{
-				Secret: api.LinkableSecretSpec{
-					GenerateName: "spec",
-				},
-				Targets: []api.RemoteSecretTarget{
-					{
-						Namespace: "ns",
-						Secret: &api.SecretOverride{
-							Name: "override",
+						{
+							Namespace:  "ns",
+							SecretName: "override",
 						},
-					},
-					{
-						Namespace: "ns",
-					},
-				},
-			},
-			Status: api.RemoteSecretStatus{
-				Targets: []api.TargetStatus{
-					{
-						Namespace:  "ns",
-						SecretName: "overrideasdf",
-					},
-					{
-						Namespace:  "ns",
-						SecretName: "override",
-					},
-					{
-						Namespace:  "ns",
-						SecretName: "specasdf",
+						{
+							Namespace:  "ns",
+							SecretName: "specasdf",
+						},
 					},
 				},
 			},
 		}
 
-		nc := ClassifyTargetNamespaces(rs)
+		for name, rs := range tests {
+			t.Run(name, func(t *testing.T) {
+				nc := ClassifyTargetNamespaces(rs)
 
-		assert.Equal(t, 2, len(nc.Sync))
-		assert.Equal(t, 1, len(nc.Remove))
-		assert.Empty(t, nc.DuplicateTargetSpecs)
-		assert.Empty(t, nc.OrphanDuplicateStatuses)
+				assert.Equal(t, 2, len(nc.Sync))
+				assert.Equal(t, 1, len(nc.Remove))
+				assert.Empty(t, nc.DuplicateTargetSpecs)
+				assert.Empty(t, nc.OrphanDuplicateStatuses)
 
-		assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(0)])
-		assert.Equal(t, StatusTargetIndex(2), nc.Sync[SpecTargetIndex(1)])
-		assert.Contains(t, nc.Remove, StatusTargetIndex(0))
+				assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(0)])
+				assert.Equal(t, StatusTargetIndex(2), nc.Sync[SpecTargetIndex(1)])
+				assert.Contains(t, nc.Remove, StatusTargetIndex(0))
+			})
+		}
 	})
 
 	t.Run("names take precedence over generateNames", func(t *testing.T) {
-		rs := &api.RemoteSecret{
-			Spec: api.RemoteSecretSpec{
-				Secret: api.LinkableSecretSpec{
-					GenerateName: "spec-",
-				},
-				Targets: []api.RemoteSecretTarget{
-					{
-						Namespace: "ns",
+		tests := map[string]*api.RemoteSecret{
+			"secretname-in-status-target-secret": {
+				Spec: api.RemoteSecretSpec{
+					Secret: api.LinkableSecretSpec{
+						GenerateName: "spec-",
 					},
-					{
-						Namespace: "ns",
-						Secret: &api.SecretOverride{
-							Name: "spec-asdf",
+					Targets: []api.RemoteSecretTarget{
+						{
+							Namespace: "ns",
+						},
+						{
+							Namespace: "ns",
+							Secret: &api.SecretOverride{
+								Name: "spec-asdf",
+							},
+						},
+						{
+							Namespace: "ns",
+							Secret: &api.SecretOverride{
+								Name:         "spec2-asdf",
+								GenerateName: "spec-",
+							},
 						},
 					},
-					{
-						Namespace: "ns",
-						Secret: &api.SecretOverride{
-							Name:         "spec2-asdf",
-							GenerateName: "spec-",
+				},
+				Status: api.RemoteSecretStatus{
+					Targets: []api.TargetStatus{
+						{
+							Namespace: "ns",
+							Secret: api.TargetSecretStatus{
+								Name: "spec-asdf",
+							},
+						},
+						{
+							Namespace: "ns",
+							Secret: api.TargetSecretStatus{
+								Name: "spec-asdfasdf",
+							},
 						},
 					},
 				},
 			},
-			Status: api.RemoteSecretStatus{
-				Targets: []api.TargetStatus{
-					{
-						Namespace:  "ns",
-						SecretName: "spec-asdf",
+			"legacy-secretname": {
+				Spec: api.RemoteSecretSpec{
+					Secret: api.LinkableSecretSpec{
+						GenerateName: "spec-",
 					},
-					{
-						Namespace:  "ns",
-						SecretName: "spec-asdfasdf",
+					Targets: []api.RemoteSecretTarget{
+						{
+							Namespace: "ns",
+						},
+						{
+							Namespace: "ns",
+							Secret: &api.SecretOverride{
+								Name: "spec-asdf",
+							},
+						},
+						{
+							Namespace: "ns",
+							Secret: &api.SecretOverride{
+								Name:         "spec2-asdf",
+								GenerateName: "spec-",
+							},
+						},
+					},
+				},
+				Status: api.RemoteSecretStatus{
+					Targets: []api.TargetStatus{
+						{
+							Namespace:  "ns",
+							SecretName: "spec-asdf",
+						},
+						{
+							Namespace:  "ns",
+							SecretName: "spec-asdfasdf",
+						},
 					},
 				},
 			},
 		}
 
-		nc := ClassifyTargetNamespaces(rs)
+		for name, rs := range tests {
+			t.Run(name, func(t *testing.T) {
+				nc := ClassifyTargetNamespaces(rs)
 
-		assert.Equal(t, 3, len(nc.Sync))
-		assert.Empty(t, nc.Remove)
-		assert.Empty(t, nc.DuplicateTargetSpecs)
-		assert.Empty(t, nc.OrphanDuplicateStatuses)
+				assert.Equal(t, 3, len(nc.Sync))
+				assert.Empty(t, nc.Remove)
+				assert.Empty(t, nc.DuplicateTargetSpecs)
+				assert.Empty(t, nc.OrphanDuplicateStatuses)
 
-		assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(0)])
-		assert.Equal(t, StatusTargetIndex(0), nc.Sync[SpecTargetIndex(1)])
-		assert.Equal(t, StatusTargetIndex(-1), nc.Sync[SpecTargetIndex(2)])
+				assert.Equal(t, StatusTargetIndex(1), nc.Sync[SpecTargetIndex(0)])
+				assert.Equal(t, StatusTargetIndex(0), nc.Sync[SpecTargetIndex(1)])
+				assert.Equal(t, StatusTargetIndex(-1), nc.Sync[SpecTargetIndex(2)])
+			})
+		}
 	})
 }

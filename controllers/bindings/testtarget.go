@@ -32,6 +32,8 @@ type TestDeploymentTarget struct {
 	GetSpecImpl                      func() api.LinkableSecretSpec
 	GetActualSecretNameImpl          func() string
 	GetActualServiceAccountNamesImpl func() []string
+	GetActualManagedLabelsImpl       func() []string
+	GetActualManagedAnnotationsImpl  func() []string
 }
 
 var _ SecretDeploymentTarget = (*TestDeploymentTarget)(nil)
@@ -56,6 +58,22 @@ type TestObjectMarker struct {
 }
 
 var _ ObjectMarker = (*TestObjectMarker)(nil)
+
+// GetActualManagedAnnotations implements SecretDeploymentTarget.
+func (t *TestDeploymentTarget) GetActualManagedAnnotations() []string {
+	if t.GetActualManagedAnnotationsImpl != nil {
+		return t.GetActualManagedAnnotationsImpl()
+	}
+	return nil
+}
+
+// GetActualManagedLabels implements SecretDeploymentTarget.
+func (t *TestDeploymentTarget) GetActualManagedLabels() []string {
+	if t.GetActualManagedLabelsImpl != nil {
+		return t.GetActualManagedLabelsImpl()
+	}
+	return nil
+}
 
 // GetActualSecretName implements SecretDeploymentTarget
 func (t *TestDeploymentTarget) GetActualSecretName() string {

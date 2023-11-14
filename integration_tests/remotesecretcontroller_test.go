@@ -370,7 +370,43 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the labels", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain labels
+				rs.Spec.Secret.Labels = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the label
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Labels).NotTo(BeNil())
+						g.Expect(secrets[0].Labels).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to contain no labels
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Labels: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the labels are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						// the secret will have a label marking it as linked to the remote secret
+						// but it should not contain the labels defined by the secret spec of the RS.
+						g.Expect(secrets[0].Labels).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("updates the annotations", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
@@ -395,7 +431,41 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the annotations", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain annotations
+				rs.Spec.Secret.Annotations = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the annotation
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(BeNil())
+						g.Expect(secrets[0].Annotations).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to not contain annotations
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Annotations: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the annotations are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("override the name", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
