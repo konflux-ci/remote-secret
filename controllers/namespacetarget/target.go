@@ -32,7 +32,35 @@ type NamespaceTarget struct {
 var _ bindings.SecretDeploymentTarget = (*NamespaceTarget)(nil)
 
 func (t *NamespaceTarget) GetSpec() api.LinkableSecretSpec {
-	return *t.SecretSpec
+	ret := t.SecretSpec
+	if t.TargetSpec.Secret != nil {
+		ret = t.SecretSpec.DeepCopy()
+		if t.TargetSpec.Secret.Name != "" {
+			ret.Name = t.TargetSpec.Secret.Name
+		}
+		if t.TargetSpec.Secret.GenerateName != "" {
+			ret.GenerateName = t.TargetSpec.Secret.GenerateName
+		}
+		if t.TargetSpec.Secret.Labels != nil {
+			ret.Labels = make(map[string]string, len(*t.TargetSpec.Secret.Labels))
+			for k, v := range *t.TargetSpec.Secret.Labels {
+				ret.Labels[k] = v
+			}
+		}
+		if t.TargetSpec.Secret.Annotations != nil {
+			ret.Annotations = make(map[string]string, len(*t.TargetSpec.Secret.Annotations))
+			for k, v := range *t.TargetSpec.Secret.Annotations {
+				ret.Annotations[k] = v
+			}
+		}
+		// Overriding of linked SAs not implemented yet...
+		// if t.TargetSpec.Secret.LinkedTo != nil {
+		// 	ret.LinkedTo = make([]api.SecretLink, 0, len(*t.TargetSpec.Secret.LinkedTo))
+		// 	copy(ret.LinkedTo, *t.TargetSpec.Secret.LinkedTo)
+		// }
+	}
+
+	return *ret
 }
 
 func (t *NamespaceTarget) GetClient() client.Client {

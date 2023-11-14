@@ -49,11 +49,22 @@ func TestNamespaceTarget_GetTargetObjectKey(t *testing.T) {
 }
 
 func TestNamespaceTarget_GetSpec(t *testing.T) {
-	bt := getTestNamespaceTarget()
+	t.Run("simple", func(t *testing.T) {
+		bt := getTestNamespaceTarget()
 
-	assert.Equal(t, api.LinkableSecretSpec{
-		GenerateName: "kachny-",
-	}, bt.GetSpec())
+		assert.Equal(t, api.LinkableSecretSpec{
+			GenerateName: "kachny-",
+		}, bt.GetSpec())
+	})
+
+	t.Run("with overrides", func(t *testing.T) {
+		nt := getNamespaceTargetFrom(getTestRemoteSecretWithOverrides())
+
+		assert.Equal(t, api.LinkableSecretSpec{
+			Name:         "target-secret",
+			GenerateName: "kachny-",
+		}, nt.GetSpec())
+	})
 }
 
 func TestNamespaceTarget_GetTargetNamespace(t *testing.T) {
@@ -66,7 +77,10 @@ func TestNamespaceTarget_GetType(t *testing.T) {
 }
 
 func getTestNamespaceTarget() NamespaceTarget {
-	rs := getTestRemoteSecret()
+	return getNamespaceTargetFrom(getTestRemoteSecret())
+}
+
+func getNamespaceTargetFrom(rs *api.RemoteSecret) NamespaceTarget {
 	return NamespaceTarget{
 		Client:       nil,
 		TargetKey:    client.ObjectKeyFromObject(rs),
@@ -97,6 +111,37 @@ func getTestRemoteSecret() *api.RemoteSecret {
 				{
 					Namespace:           "target-ns",
 					SecretName:          "kachny-asdf",
+					ServiceAccountNames: []string{"a", "b"},
+				},
+			},
+		},
+	}
+}
+
+func getTestRemoteSecretWithOverrides() *api.RemoteSecret {
+	return &api.RemoteSecret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "remotesecret",
+			Namespace: "ns",
+		},
+		Spec: api.RemoteSecretSpec{
+			Secret: api.LinkableSecretSpec{
+				GenerateName: "kachny-",
+			},
+			Targets: []api.RemoteSecretTarget{
+				{
+					Namespace: "target-ns",
+					Secret: &api.SecretOverride{
+						Name: "target-secret",
+					},
+				},
+			},
+		},
+		Status: api.RemoteSecretStatus{
+			Targets: []api.TargetStatus{
+				{
+					Namespace:           "target-ns",
+					SecretName:          "target-secret",
 					ServiceAccountNames: []string{"a", "b"},
 				},
 			},

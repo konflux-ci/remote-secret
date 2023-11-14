@@ -167,7 +167,7 @@ ready: manifests generate fmt fmt_license go.mod vet lint test ## Make the code 
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out -covermode=atomic -coverpkg=./...
 
 itest: manifests generate envtest ## Run only integration tests. Use make itest focus=... to focus Ginkgo only to certain tests
 	GOMEGA_DEFAULT_EVENTUALLY_TIMEOUT=10s KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v ./integration_tests/... -ginkgo.focus="${focus}" -ginkgo.progress 
