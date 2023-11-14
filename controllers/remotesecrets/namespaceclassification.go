@@ -14,7 +14,11 @@
 
 package remotesecrets
 
-import api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+import (
+	"sort"
+
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
+)
 
 type SpecTargetIndex int
 type StatusTargetIndex int
@@ -53,8 +57,8 @@ type NamespaceClassification struct {
 // Targets in spec that do not have a corresponding status (i.e. the new targets that have not yet been
 // deployed to) have the status index set to -1 in the returned classification's Sync map.
 func ClassifyTargetNamespaces(rs *api.RemoteSecret) NamespaceClassification {
-	specIndices, duplicateSpecs := specNamespaceIndices(rs.Spec.Targets)
-	statusIndices, duplicateStatuses := statusNamespaceIndices(rs.Status.Targets)
+	specIndices, duplicateSpecs := specNamespaceIndices(rs)
+	statusIndices, duplicateStatuses := statusNamespaceIndices(rs)
 
 	ret := NamespaceClassification{
 		Sync:                 map[SpecTargetIndex]StatusTargetIndex{},
@@ -62,22 +66,35 @@ func ClassifyTargetNamespaces(rs *api.RemoteSecret) NamespaceClassification {
 		DuplicateTargetSpecs: map[SpecTargetIndex]map[SpecTargetIndex]StatusTargetIndex{},
 	}
 
-	for specApiUrl, specIdxByNs := range specIndices {
-		for specNs, specIdx := range specIdxByNs {
-			stIdx, ok := statusIndices[specApiUrl][specNs]
-			if ok {
-				ret.Sync[specIdx] = stIdx
-				delete(statusIndices[specApiUrl], specNs)
-			} else {
-				ret.Sync[specIdx] = -1
-			}
+	// we need to extract the keys so that we can reorder them to process the targets
+	// with specific secret names first so that they take precedence over targets
+	// that are matched using just a generateName.
+	tks := make([]api.TargetKey, 0, len(specIndices))
+	for tk := range specIndices {
+		tks = append(tks, tk)
+	}
+
+	sort.Slice(tks, func(a, b int) bool {
+		if tks[a].SecretName != "" && tks[b].SecretName == "" {
+			return true
+		}
+		return false
+	})
+
+	for i := range tks {
+		tk := tks[i]
+		specIdx := specIndices[tk]
+		stIdx, stKey, ok := findInStatus(tk, statusIndices)
+		if ok {
+			ret.Sync[specIdx] = stIdx
+			delete(statusIndices, stKey)
+		} else {
+			ret.Sync[specIdx] = -1
 		}
 	}
 
-	for _, stIdxByNs := range statusIndices {
-		for _, stIdx := range stIdxByNs {
-			ret.Remove = append(ret.Remove, stIdx)
-		}
+	for _, stIdx := range statusIndices {
+		ret.Remove = append(ret.Remove, stIdx)
 	}
 
 	// You may ask the Golang authors why they don't include this function in the standard library.
@@ -89,93 +106,106 @@ func ClassifyTargetNamespaces(rs *api.RemoteSecret) NamespaceClassification {
 		return b
 	}
 
-	for specApiUrl, specIdxsByNs := range duplicateSpecs {
-		for specNs, specIdxs := range specIdxsByNs {
-			originalSpecIdx := specIndices[specApiUrl][specNs]
+	for tk, specIdxs := range duplicateSpecs {
+		originalSpecIdx := specIndices[tk]
 
-			targetDuplicates, targetDuplicatesPresent := ret.DuplicateTargetSpecs[originalSpecIdx]
-			if !targetDuplicatesPresent {
-				targetDuplicates = map[SpecTargetIndex]StatusTargetIndex{}
-				ret.DuplicateTargetSpecs[originalSpecIdx] = targetDuplicates
-			}
+		targetDuplicates, targetDuplicatesPresent := ret.DuplicateTargetSpecs[originalSpecIdx]
+		if !targetDuplicatesPresent {
+			targetDuplicates = map[SpecTargetIndex]StatusTargetIndex{}
+			ret.DuplicateTargetSpecs[originalSpecIdx] = targetDuplicates
+		}
 
-			// We can match a duplicate spec with a duplicate status rather blindly because we
-			// a duplicate does not have any state (i.e. it doesn't deploy anything into the target cluster).
-			// They are merely matched by the target key (apiUrl + namespace).
+		// We can match a duplicate spec with a duplicate status rather blindly because we
+		// a duplicate does not have any state (i.e. it doesn't deploy anything into the target cluster).
+		// They are merely matched by the target key (apiUrl + namespace).
 
-			stIdxs := duplicateStatuses[specApiUrl][specNs]
-			commonLength := min(len(specIdxs), len(stIdxs))
-			// match the specs with all the statuses we can
-			for i := 0; i < commonLength; i++ {
-				targetDuplicates[specIdxs[i]] = stIdxs[i]
-			}
-			// if there are any unmatched specs, mark them as such
-			for i := commonLength; i < len(specIdxs); i++ {
-				targetDuplicates[specIdxs[i]] = -1
-			}
-			// if there are any unmatched status, proclaim them orphans
-			for i := commonLength; i < len(stIdxs); i++ {
-				ret.OrphanDuplicateStatuses = append(ret.OrphanDuplicateStatuses, stIdxs[i])
-			}
+		stIdxs, duplicateKey, foundDuplicates := findInStatus(tk, duplicateStatuses)
+		commonLength := min(len(specIdxs), len(stIdxs))
 
-			// clean up, because we'll be going through the statuses once more to see if there aren't
-			// any more leftovers. These ones have been processed though..
-			if stIdxs != nil {
-				delete(duplicateStatuses[specApiUrl], specNs)
-			}
+		// match the specs with all the statuses we can
+		for i := 0; i < commonLength; i++ {
+			targetDuplicates[specIdxs[i]] = stIdxs[i]
+		}
+		// if there are any unmatched specs, mark them as such
+		for i := commonLength; i < len(specIdxs); i++ {
+			targetDuplicates[specIdxs[i]] = -1
+		}
+		// if there are any unmatched status, proclaim them orphans
+		for i := commonLength; i < len(stIdxs); i++ {
+			ret.OrphanDuplicateStatuses = append(ret.OrphanDuplicateStatuses, stIdxs[i])
+		}
+
+		// clean up, because we'll be going through the statuses once more to see if there aren't
+		// any more leftovers. These ones have been processed though..
+		if foundDuplicates {
+			delete(duplicateStatuses, duplicateKey)
 		}
 	}
 
-	for _, stIdxsByNs := range duplicateStatuses {
-		for _, stIdxs := range stIdxsByNs {
-			ret.OrphanDuplicateStatuses = append(ret.OrphanDuplicateStatuses, stIdxs...)
-		}
+	for _, stIdxs := range duplicateStatuses {
+		ret.OrphanDuplicateStatuses = append(ret.OrphanDuplicateStatuses, stIdxs...)
 	}
 
 	return ret
 }
 
-func specNamespaceIndices(targets []api.RemoteSecretTarget) (classifiedSpec map[string]map[string]SpecTargetIndex, duplicateTargets map[string]map[string][]SpecTargetIndex) {
-	classifiedSpec = make(map[string]map[string]SpecTargetIndex, len(targets))
-	duplicateTargets = map[string]map[string][]SpecTargetIndex{}
-	for ti, t := range targets {
-		indicesByNamespace, clusterPresent := classifiedSpec[t.ApiUrl]
-		if !clusterPresent {
-			indicesByNamespace = map[string]SpecTargetIndex{}
-			classifiedSpec[t.ApiUrl] = indicesByNamespace
-		}
-		if _, namespacePresent := indicesByNamespace[t.Namespace]; namespacePresent {
-			clusterDuplicates, duplicateClusterPresent := duplicateTargets[t.ApiUrl]
-			if !duplicateClusterPresent {
-				clusterDuplicates = map[string][]SpecTargetIndex{}
-				duplicateTargets[t.ApiUrl] = clusterDuplicates
+func findInStatus[T any](tk api.TargetKey, statusMap map[api.TargetKey]T) (T, api.TargetKey, bool) {
+
+	var found T
+	var foundKey api.TargetKey
+	var isFound bool
+
+	for stk, val := range statusMap {
+		switch tk.CorrespondsTo(stk) {
+		case api.NameCorrespondence:
+			// short-circuit, because name correspondence is the best
+			return val, stk, true
+		case api.GenerateNameCorrespondence:
+			if !isFound {
+				found = val
+				foundKey = stk
+				isFound = true
 			}
-			clusterDuplicates[t.Namespace] = append(clusterDuplicates[t.Namespace], SpecTargetIndex(ti))
+		}
+	}
+	return found, foundKey, isFound
+}
+
+func specNamespaceIndices(rs *api.RemoteSecret) (classifiedSpec map[api.TargetKey]SpecTargetIndex, duplicateTargets map[api.TargetKey][]SpecTargetIndex) {
+	classifiedSpec = make(map[api.TargetKey]SpecTargetIndex, len(rs.Spec.Targets))
+	duplicateTargets = map[api.TargetKey][]SpecTargetIndex{}
+	for ti := range rs.Spec.Targets {
+		key := rs.Spec.Targets[ti].ToTargetKey(rs)
+		if _, isDuplicate := classifiedSpec[key]; isDuplicate {
+			duplicates, duplicatesAlreadyPresent := duplicateTargets[key]
+			if !duplicatesAlreadyPresent {
+				duplicates = []SpecTargetIndex{SpecTargetIndex(ti)}
+			} else {
+				duplicates = append(duplicates, SpecTargetIndex(ti))
+			}
+			duplicateTargets[key] = duplicates
 		} else {
-			indicesByNamespace[t.Namespace] = SpecTargetIndex(ti)
+			classifiedSpec[key] = SpecTargetIndex(ti)
 		}
 	}
 	return
 }
 
-func statusNamespaceIndices(targets []api.TargetStatus) (classifiedStatus map[string]map[string]StatusTargetIndex, duplicateStatuses map[string]map[string][]StatusTargetIndex) {
-	classifiedStatus = make(map[string]map[string]StatusTargetIndex, len(targets))
-	duplicateStatuses = map[string]map[string][]StatusTargetIndex{}
-	for i, t := range targets {
-		byNamespace, clusterPresent := classifiedStatus[t.ApiUrl]
-		if !clusterPresent {
-			byNamespace = map[string]StatusTargetIndex{}
-			classifiedStatus[t.ApiUrl] = byNamespace
-		}
-		if _, namespacePresent := byNamespace[t.Namespace]; namespacePresent {
-			clusterDuplicates, duplicateClusterPresent := duplicateStatuses[t.ApiUrl]
-			if !duplicateClusterPresent {
-				clusterDuplicates = map[string][]StatusTargetIndex{}
-				duplicateStatuses[t.ApiUrl] = clusterDuplicates
+func statusNamespaceIndices(rs *api.RemoteSecret) (classifiedStatus map[api.TargetKey]StatusTargetIndex, duplicateStatuses map[api.TargetKey][]StatusTargetIndex) {
+	classifiedStatus = make(map[api.TargetKey]StatusTargetIndex, len(rs.Status.Targets))
+	duplicateStatuses = map[api.TargetKey][]StatusTargetIndex{}
+	for i := range rs.Status.Targets {
+		key := rs.Status.Targets[i].ToTargetKey()
+		if _, isDuplicate := classifiedStatus[key]; isDuplicate {
+			duplicates, duplicatesAlreadyPresent := duplicateStatuses[key]
+			if !duplicatesAlreadyPresent {
+				duplicates = []StatusTargetIndex{StatusTargetIndex(i)}
+			} else {
+				duplicates = append(duplicates, StatusTargetIndex(i))
 			}
-			clusterDuplicates[t.Namespace] = append(clusterDuplicates[t.Namespace], StatusTargetIndex(i))
+			duplicateStatuses[key] = duplicates
 		} else {
-			byNamespace[t.Namespace] = StatusTargetIndex(i)
+			classifiedStatus[key] = StatusTargetIndex(i)
 		}
 	}
 	return
