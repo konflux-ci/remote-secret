@@ -22,6 +22,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -104,7 +105,6 @@ func (d *DependentsHandler[K]) detectLinks(ctx context.Context, secretName strin
 }
 
 func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents, string, error) {
-
 	// syncing the service accounts and secrets is a 3 step process.
 	// First, an empty service account needs to be created.
 	// Second, a secret linking to the service account needs to be created.
@@ -143,7 +143,6 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 			}
 			err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, d.Target.GetClient(), attempt, "retrying unlinking of stale secret from SA due to a conflict",
 				fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, staleSecret.Name, d.Target.GetType(), d.Target.GetTargetObjectKey()))
-
 			if err != nil {
 				return nil, string(ErrorReasonServiceAccountUpdate),
 					fmt.Errorf("failed to unlink the stale secret %s from the service account %s while processing the deployment target (%s) %s: %w",
@@ -157,11 +156,13 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 
 		// now that all the SAs are unlinked, we can finally delete the secret
 		if err := d.Target.GetClient().Delete(ctx, staleSecret); err != nil {
-			return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to delete the stale secret %s when processing the deployment target (%s) %s: %w",
-				client.ObjectKeyFromObject(staleSecret),
-				d.Target.GetType(),
-				d.Target.GetTargetObjectKey(),
-				err)
+			if !k8serrors.IsNotFound(err) {
+				return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to delete the stale secret %s when processing the deployment target (%s) %s: %w",
+					client.ObjectKeyFromObject(staleSecret),
+					d.Target.GetType(),
+					d.Target.GetTargetObjectKey(),
+					err)
+			}
 		}
 	}
 
@@ -201,11 +202,13 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 				err)
 		} else if managed {
 			if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
-				return fmt.Errorf("failed to delete the managed service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
-					client.ObjectKeyFromObject(sa),
-					d.Target.GetType(),
-					d.Target.GetTargetObjectKey(),
-					err)
+				if !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete the managed service account %s while cleaning up dependent objects of the secret deployment target (%s) %s: %w",
+						client.ObjectKeyFromObject(sa),
+						d.Target.GetType(),
+						d.Target.GetTargetObjectKey(),
+						err)
+				}
 			}
 		} else {
 			persist := false
@@ -227,11 +230,13 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 
 	for _, s := range sl {
 		if err := d.Target.GetClient().Delete(ctx, s); err != nil {
-			return fmt.Errorf("failed to delete the secret %s while cleaning up dependent objects of secret deployment target (%s) %s: %w",
-				client.ObjectKeyFromObject(s),
-				d.Target.GetType(),
-				d.Target.GetTargetObjectKey(),
-				err)
+			if !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete the secret %s while cleaning up dependent objects of secret deployment target (%s) %s: %w",
+					client.ObjectKeyFromObject(s),
+					d.Target.GetType(),
+					d.Target.GetTargetObjectKey(),
+					err)
+			}
 		}
 	}
 
@@ -253,7 +258,9 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 	for _, s := range sl {
 		if s.Name != checkPoint.secretName {
 			if err := d.Target.GetClient().Delete(ctx, s); err != nil {
-				return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
+				if !k8serrors.IsNotFound(err) {
+					return fmt.Errorf("failed to delete obsolete synced secret %s: %w", s.Name, err)
+				}
 			}
 		}
 	}
@@ -295,11 +302,13 @@ func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoi
 						err)
 				} else if managed {
 					if err := d.Target.GetClient().Delete(ctx, sa); err != nil {
-						return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
-							sa.Name,
-							d.Target.GetType(),
-							d.Target.GetTargetObjectKey(),
-							err))
+						if !k8serrors.IsNotFound(err) {
+							return nil, backoff.Permanent(fmt.Errorf("failed to delete obsolete service account %s originally linked to the secret deployment target (%s) %s: %w", //nolint:wrapcheck // this is just signalling to backoff.. will not bubble up.
+								sa.Name,
+								d.Target.GetType(),
+								d.Target.GetTargetObjectKey(),
+								err))
+						}
 					}
 					// we don't need to do anything more on the SA because we just deleted it :)
 					return nil, nil

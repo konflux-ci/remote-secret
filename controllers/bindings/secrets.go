@@ -33,14 +33,30 @@ var (
 	// pre-allocated empty map so that we don't have to allocate new empty instances in the serviceAccountSecretDiffOpts
 	emptySecretData = map[string][]byte{}
 
+	// secretIgnoredFields is TypeMeta + all most of the fields from ObjectMeta.
+	// We only care for changes in name, generateName, namespace, finalizers, labels and annotations and therefore
+	// should react to changes only in those.
+	secretIgnoredFields = []string{
+		"TypeMeta",
+		"ObjectMeta.SelfLink",
+		"ObjectMeta.UID",
+		"ObjectMeta.ResourceVersion",
+		"ObjectMeta.Generation",
+		"ObjectMeta.CreationTimestamp",
+		"ObjectMeta.DeletionTimestamp",
+		"ObjectMeta.DeletionGracePeriodSeconds",
+		"ObjectMeta.OwnerReferences",
+		"ObjectMeta.ManagedFields",
+	}
+
 	secretDiffOpts = cmp.Options{
-		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
+		cmpopts.IgnoreFields(corev1.Secret{}, secretIgnoredFields...),
 	}
 
 	// the service account secrets are treated specially by Kubernetes that automatically adds "ca.crt", "namespace" and
 	// "token" entries into the secret's data.
 	serviceAccountSecretDiffOpts = cmp.Options{
-		cmpopts.IgnoreFields(corev1.Secret{}, "TypeMeta", "ObjectMeta"),
+		cmpopts.IgnoreFields(corev1.Secret{}, secretIgnoredFields...),
 		cmp.FilterPath(func(p cmp.Path) bool {
 			return p.Last().String() == ".Data"
 		}, cmp.Comparer(func(a map[string][]byte, b map[string][]byte) bool {
@@ -75,7 +91,8 @@ type secretHandler[K any] struct {
 // A secret in the target can become stale if it no longer corresponds to the spec of the target.
 func (h *secretHandler[K]) GetStale(ctx context.Context) (*corev1.Secret, error) {
 	existingSecretName := h.Target.GetActualSecretName()
-	if existingSecretName == "" || NameCorresponds(existingSecretName, h.Target.GetSpec().Name, h.Target.GetSpec().GenerateName) {
+	spec := h.Target.GetSpec()
+	if existingSecretName == "" || NameCorresponds(existingSecretName, spec.Name, spec.GenerateName) {
 		return nil, nil
 	}
 
@@ -99,14 +116,16 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}
 
+	spec := h.Target.GetSpec()
+
 	secretName := h.Target.GetActualSecretName()
 	if recreate || secretName == "" {
-		secretName = h.Target.GetSpec().Name
+		secretName = spec.Name
 	}
 
 	diffOpts := secretDiffOpts
 
-	if h.Target.GetSpec().Type == corev1.SecretTypeServiceAccountToken {
+	if spec.Type == corev1.SecretTypeServiceAccountToken {
 		diffOpts = serviceAccountSecretDiffOpts
 	}
 
@@ -117,13 +136,13 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         secretName,
-			GenerateName: h.Target.GetSpec().GenerateName,
+			GenerateName: spec.GenerateName,
 			Namespace:    h.Target.GetTargetNamespace(),
-			Labels:       h.Target.GetSpec().Labels,
-			Annotations:  h.Target.GetSpec().Annotations,
+			Labels:       spec.Labels,
+			Annotations:  spec.Annotations,
 		},
 		Data: data,
-		Type: h.Target.GetSpec().Type,
+		Type: spec.Type,
 	}
 
 	if secret.GenerateName == "" {

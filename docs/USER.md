@@ -10,6 +10,7 @@ In this Manual we consider the main SPI use cases as well as give SPI API refere
     - [Associating the secret with a service account in the targets](#associating-the-secret-with-a-service-account-in-the-targets)
     - [RemoteSecret has to be created with target namespace and Environment](#RemoteSecret-has-to-be-created-with-target-namespace-and-Environment)
     - [RemoteSecret has to be created all Environments of certain component and application](#RemoteSecret-has-to-be-created-all-Environments-of-certain-component-and-application)
+    - [Overriding secret metadata per target](#Overriding-secret-metadata-per-target)
 - [Security](#Security)
 - [Partial Updates of the Secret Data](#Partial-Updates-of-the-Secret-Data)
 
@@ -859,3 +860,85 @@ data:
 ```
 
 Note that the deleted keys take precedence over the keys in the data. So if you specify the same key both in the value of the `appstudio.redhat.com/remotesecret-delete-keys` annotation and in the data of the upload secret, the key is deleted from the secret data.
+
+#### Overriding secret metadata per target
+There may be occasions where you want to deliver the same secret to a couple of target namespaces with slightly different metadata in each. The metadata might be the `name` of the secret (or its `generateName`) or its `annotations` or `labels`. To do that you don't have to create a couple of remote secrets with the same data, but instead you can take advantage of the per-target overrides of the secret metadata.
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret-secret
+    namespace: jdoe-workspace
+spec:
+    secret:
+        name: private-image-repo
+    target:
+    - namespace: my-app
+    - namespace: build-pipeline
+      secret:
+        name: image-repository-credentials
+```
+
+In the above example, the secret data of the remote secret will be delivered to 2 namespaces. In the `my-app` namespace, it will be delivered as a secret called `private-image-repo` but in the `build-pipeline` namespace, it will be delivered as `image-repository-credentials` because that's the name other tooling operating in that namespace expects.
+
+You can even deliver the same remote secret twice into the same namespace under two different secret names:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret-secret
+    namespace: jdoe-workspace
+spec:
+    secret:
+        name: private-image-repo
+    target:
+    - namespace: my-app
+    - namespace: my-app
+      secret:
+        name: image-repository-credentials
+```
+
+If your tooling requires presence of certain labels for certain functionality, you can provide overrides of that too. Let's say the secret in the `build-pipeline` namespace needs to be labeled as `repository-credentials: true` to be picked up by the tooling operating in that namespace. We can achieve that like this:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret-secret
+    namespace: jdoe-workspace
+spec:
+    secret:
+        name: private-image-repo
+    target:
+    - namespace: my-app
+    - namespace: build-pipeline
+      secret:
+        name: image-repository-credentials
+        labels:
+          "repository-credentials": "true"
+```
+
+If in addition the secret needs to also be annotated, say, with the name of the team that uses it we can do that, too:
+
+```yaml
+apiVersion: appstudio.redhat.com/v1beta1
+kind: RemoteSecret
+metadata:
+    name: test-remote-secret-secret
+    namespace: jdoe-workspace
+spec:
+    secret:
+        name: private-image-repo
+    target:
+    - namespace: my-app
+    - namespace: build-pipeline
+      secret:
+        name: image-repository-credentials
+        labels:
+          "repository-credentials": "true"
+        annotations:
+          "owning-team": "the-stars"
+```
+
