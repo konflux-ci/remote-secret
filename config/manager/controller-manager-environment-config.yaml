@@ -5,4 +5,3 @@ metadata:
 data:
   VAULTHOST: ${VAULT_HOST}
   TOKENSTORAGE: vault
-  ENABLEREMOTESECRETS: "true"
