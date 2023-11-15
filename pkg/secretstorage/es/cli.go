@@ -26,12 +26,12 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
 
-func NewESSecretStorage(_ context.Context, client client.Client, providerConfJSON string) (secretstorage.SecretStorage, error) {
+func NewESSecretStorage(_ context.Context, client client.Client, instanceId string, providerConfJSON string) (secretstorage.SecretStorage, error) {
 	providerConf := &es.SecretStoreProvider{}
 	err := json.Unmarshal([]byte(providerConfJSON), providerConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed unmarshalling string: %w", err)
 	}
 
-	return &ExternalSecretStorage{ProviderConfig: providerConf, Client: client}, nil
+	return &ExternalSecretStorage{ProviderConfig: providerConf, InstanceId: instanceId, Client: client}, nil
 }

@@ -43,10 +43,12 @@ var (
 )
 
 type ExternalSecretStorage struct {
-	ProviderConfig *es.SecretStoreProvider
-	Client         client.Client
-	storage        es.ClusterSecretStore
-	provider       es.Provider
+	ProviderConfig   *es.SecretStoreProvider
+	InstanceId       string
+	Client           client.Client
+	storage          es.ClusterSecretStore
+	provider         es.Provider
+	secretNameFormat string
 }
 
 type PushData struct {
@@ -81,6 +83,7 @@ func (p *ExternalSecretStorage) Initialize(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed getting provider %w", err)
 	}
+	p.secretNameFormat = p.initSecretNameFormat()
 	lg.V(logs.DebugLevel).Info("initialized ExternalSecret storage", ":", p.storage)
 	return nil
 }
@@ -98,7 +101,7 @@ func (p *ExternalSecretStorage) Get(ctx context.Context, id secretstorage.Secret
 		}
 	}()
 
-	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: id.String()})
+	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: fmt.Sprintf(p.secretNameFormat, id.Namespace, id.Name)})
 	if err != nil {
 		if errors.Is(err, es.NoSecretErr) {
 			lg(ctx).Info("No secret found ", "ID", id.String())
@@ -123,7 +126,7 @@ func (p *ExternalSecretStorage) Delete(ctx context.Context, id secretstorage.Sec
 		}
 	}()
 
-	err = client.DeleteSecret(ctx, &PushData{RemoteKey: id.String()})
+	err = client.DeleteSecret(ctx, &PushData{RemoteKey: fmt.Sprintf(p.secretNameFormat, id.Namespace, id.Name)})
 	if err != nil {
 		return fmt.Errorf("failed deleting the secret %w", err)
 	}
@@ -144,12 +147,20 @@ func (p *ExternalSecretStorage) Store(ctx context.Context, id secretstorage.Secr
 	}()
 
 	// id.String() -> namespace/name
-	err = client.PushSecret(ctx, data, &PushData{RemoteKey: id.String()})
+	err = client.PushSecret(ctx, data, &PushData{RemoteKey: fmt.Sprintf(p.secretNameFormat, id.Namespace, id.Name)})
 	if err != nil {
 		return fmt.Errorf("failed storing the secret %w", err)
 	}
 
 	return nil
+}
+
+func (p *ExternalSecretStorage) initSecretNameFormat() string {
+	if p.InstanceId == "" {
+		return "%s/%s"
+	} else {
+		return p.InstanceId + "/%s/%s"
+	}
 }
 
 func lg(ctx context.Context) logr.Logger {
