@@ -68,13 +68,14 @@ func (a *RemoteSecretValidator) ValidateDelete(_ context.Context, _ *api.RemoteS
 }
 
 func validateUniqueTargets(rs *api.RemoteSecret) error {
-	targets := make(map[api.RemoteSecretTarget]string, len(rs.Spec.Targets))
+	targets := make(map[api.TargetKey]struct{}, len(rs.Spec.Targets))
 	for _, t := range rs.Spec.Targets {
-		if _, present := targets[t]; present {
+		tk := t.ToTargetKey(rs)
+		if _, present := targets[tk]; present {
 			metrics.UploadRejectionsCounter.WithLabelValues(metricValidateOperationLabel, "unique_targets_check_failed").Inc()
-			return fmt.Errorf("%w %s: %s", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
+			return fmt.Errorf("%w %s: %#v", errTargetsNotUnique, rs.Name, rs.Spec.Targets)
 		} else {
-			targets[t] = ""
+			targets[tk] = struct{}{}
 		}
 	}
 	return nil

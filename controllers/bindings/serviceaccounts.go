@@ -45,9 +45,9 @@ type serviceAccountHandler struct {
 
 func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAccount, string, error) {
 	sas := []*corev1.ServiceAccount{}
-
-	for i := range h.Target.GetSpec().LinkedTo {
-		sa, errorReason, err := h.ensureServiceAccount(ctx, i, &h.Target.GetSpec().LinkedTo[i].ServiceAccount)
+	spec := h.Target.GetSpec()
+	for i := range spec.LinkedTo {
+		sa, errorReason, err := h.ensureServiceAccount(ctx, i, &spec.LinkedTo[i].ServiceAccount)
 		if err != nil {
 			return []*corev1.ServiceAccount{}, errorReason, err
 		}
@@ -60,11 +60,12 @@ func (h *serviceAccountHandler) Sync(ctx context.Context) ([]*corev1.ServiceAcco
 }
 
 func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccounts []*corev1.ServiceAccount, secret *corev1.Secret) error {
-	if len(h.Target.GetSpec().LinkedTo) != len(serviceAccounts) {
+	spec := h.Target.GetSpec()
+	if len(spec.LinkedTo) != len(serviceAccounts) {
 		return specInconsistentWithStatusError
 	}
 
-	for i, link := range h.Target.GetSpec().LinkedTo {
+	for i, link := range spec.LinkedTo {
 		sa := serviceAccounts[i]
 		linkType := link.ServiceAccount.EffectiveSecretLinkType()
 
@@ -84,7 +85,6 @@ func (h *serviceAccountHandler) LinkToSecret(ctx context.Context, serviceAccount
 
 		err := updateWithRetries(serviceAccountUpdateRetryCount, ctx, h.Target.GetClient(), attempt, "retrying SA secret linking update due to conflict",
 			fmt.Sprintf("failed to update the service account '%s' with the link to the secret '%s' while processing the deployment target (%s) '%s'", sa.Name, secret.Name, h.Target.GetType(), h.Target.GetTargetObjectKey()))
-
 		if err != nil {
 			return fmt.Errorf("failed to link the secret %s to the service account %s while processing the deployment target (%s) %s: %w",
 				client.ObjectKeyFromObject(secret),
@@ -209,7 +209,6 @@ func (h *serviceAccountHandler) unlinkSecretByName(secretName string, serviceAcc
 // ensureServiceAccount loads the service account configured in the deployment target from the cluster or creates a new one if needed.
 // It also makes sure that the service account is correctly labeled.
 func (h *serviceAccountHandler) ensureServiceAccount(ctx context.Context, specIdx int, spec *api.ServiceAccountLink) (*corev1.ServiceAccount, string, error) {
-
 	if spec.Reference.Name != "" {
 		return h.ensureReferencedServiceAccount(ctx, &spec.Reference)
 	} else if spec.Managed.Name != "" || spec.Managed.GenerateName != "" {
