@@ -109,7 +109,7 @@ jobs:
       - name: Check SPI mod
         run: |
           sed -i  '4 i replace github.com/redhat-appstudio/remote-secret => ../' ./spi/go.mod
-          sed -i  '5 i replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
+          sed -i  '5 i replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible' ./spi/go.mod
           cd spi
           cat go.mod
           go mod tidy
