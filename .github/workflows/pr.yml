@@ -110,8 +110,8 @@ jobs:
         run: |
           sed -i  '4 i replace github.com/redhat-appstudio/remote-secret => ../' ./spi/go.mod
           cd spi
-          go mod tidy
           cat go.mod
+          go mod tidy
           git diff
       - name: Setup KinD
         uses: chainguard-dev/actions/setup-kind@main
