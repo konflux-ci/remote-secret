@@ -90,10 +90,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	ITest.OperatorConfiguration = &config.OperatorConfiguration{
-		EnableTokenUpload:   true,
-		EnableRemoteSecrets: true,
-	}
+	ITest.OperatorConfiguration = &config.OperatorConfiguration{}
 
 	ITest.ClientFactory = TestClientFactory{
 		GetClientImpl: func(_ context.Context, _ string, _ *api.RemoteSecretTarget, _ *api.TargetStatus) (client.Client, error) {
