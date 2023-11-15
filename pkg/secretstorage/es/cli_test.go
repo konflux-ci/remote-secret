@@ -24,7 +24,7 @@ func TestUnmarshalSucceeds(t *testing.T) {
 
 	jsonString := `{"fake":{"data":[{"key":"key", "value":"val1", "valueMap":{"k1":"v1"} }]}}`
 
-	res, err := NewESSecretStorage(nil, jsonString)
+	res, err := NewESSecretStorage(nil, nil, jsonString)
 
 	assert.NotNil(t, res)
 	assert.Nil(t, err)
@@ -34,7 +34,7 @@ func TestUnmarshalFailed(t *testing.T) {
 
 	jsonString := `{"not_existed":{}}}`
 
-	res, err := NewESSecretStorage(nil, jsonString)
+	res, err := NewESSecretStorage(nil, nil, jsonString)
 
 	assert.Nil(t, res)
 	assert.NotNil(t, err)
