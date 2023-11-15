@@ -19,18 +19,21 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-logr/logr"
-
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/external-secrets/external-secrets/pkg/provider/aws"
 	"github.com/external-secrets/external-secrets/pkg/provider/fake"
 	"github.com/external-secrets/external-secrets/pkg/provider/vault"
+	"github.com/go-logr/logr"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	es "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
+
+var _ secretstorage.SecretStorage = (*ExternalSecretStorage)(nil)
 
 // init ESO Providers
 var (
@@ -39,9 +42,10 @@ var (
 	_ = aws.Provider{}
 )
 
-type ESStorage struct {
+type ExternalSecretStorage struct {
 	ProviderConfig *es.SecretStoreProvider
-	storage        es.SecretStore
+	Client         client.Client
+	storage        es.ClusterSecretStore
 	provider       es.Provider
 }
 
@@ -58,11 +62,15 @@ func (p *PushData) GetProperty() string {
 	return p.Property
 }
 
-func (p *ESStorage) Initialize(ctx context.Context) error {
-
+func (p *ExternalSecretStorage) Initialize(ctx context.Context) error {
 	lg := lg(ctx)
 	lg.Info("initializing ES storage")
-	p.storage = es.SecretStore{
+
+	p.storage = es.ClusterSecretStore{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       esv1beta1.ClusterSecretStoreKind,
+			APIVersion: esv1beta1.ClusterSecretStoreKindAPIVersion,
+		},
 		Spec: es.SecretStoreSpec{
 			Provider: p.ProviderConfig,
 		},
@@ -77,13 +85,15 @@ func (p *ESStorage) Initialize(ctx context.Context) error {
 	return nil
 }
 
-func (p *ESStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
-
-	// TODO Kubeclient and namespace, do we need it?
-	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
+func (p *ExternalSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
+	client, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating new client %w", err)
 	}
+
+	defer func() {
+		err = errors.Join(err, client.Close(ctx))
+	}()
 
 	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: id.String()})
 	if err != nil {
@@ -94,34 +104,35 @@ func (p *ESStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte,
 		return nil, fmt.Errorf("failed getting the secret %w", err)
 	}
 
-	return secret, nil
+	return secret, err
 }
 
-func (p *ESStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
+func (p *ExternalSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
+	client, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
 
-	// TODO Kubeclient and namespace, do we need it?
-	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
 	if err != nil {
 		return fmt.Errorf("failed creating new client %w", err)
 	}
+	defer func() {
+		err = errors.Join(err, client.Close(ctx))
+	}()
 
 	err = client.DeleteSecret(ctx, &PushData{RemoteKey: id.String()})
 	if err != nil {
 		return fmt.Errorf("failed deleting the secret %w", err)
 	}
 
-	// TODO need to close?
-	//client.Close(ctx)
-	return nil
+	return err
 }
 
-func (p *ESStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
-
-	// TODO Kubeclient and namespace, do we need it?
-	client, err := p.provider.NewClient(ctx, &p.storage, nil, "")
+func (p *ExternalSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
+	client, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed creating new client %w", err)
 	}
+	defer func() {
+		err = errors.Join(err, client.Close(ctx))
+	}()
 
 	// id.String() -> namespace/name
 	err = client.PushSecret(ctx, data, &PushData{RemoteKey: id.String()})
@@ -129,7 +140,7 @@ func (p *ESStorage) Store(ctx context.Context, id secretstorage.SecretID, data [
 		return fmt.Errorf("failed storing the secret %w", err)
 	}
 
-	return nil
+	return err
 }
 
 func lg(ctx context.Context) logr.Logger {
