@@ -18,8 +18,6 @@ type instanceIdContextKeyType struct{}
 var InstanceIdContextKey = instanceIdContextKeyType{}
 
 type OperatorConfiguration struct {
-	// Enable Token Upload controller
-	EnableTokenUpload bool
 }
 
 const (

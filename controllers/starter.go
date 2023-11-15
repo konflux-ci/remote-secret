@@ -43,19 +43,16 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return err
 	}
 
-	if cfg.EnableTokenUpload {
-		remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
-		if err := remoteSecretStorage.Initialize(ctx); err != nil {
-			return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
-		}
+	if err := remoteSecretStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
+	}
 
-		if err := (&TokenUploadReconciler{
-			Client:              mgr.GetClient(),
-			Scheme:              mgr.GetScheme(),
-			RemoteSecretStorage: remoteSecretStorage,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
+	if err := (&TokenUploadReconciler{
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		RemoteSecretStorage: remoteSecretStorage,
+	}).SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	return nil

@@ -162,7 +162,7 @@ func main() {
 }
 
 func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
-	ret := config.OperatorConfiguration{EnableTokenUpload: true}
+	ret := config.OperatorConfiguration{}
 	return ret, nil
 }
 
