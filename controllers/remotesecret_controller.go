@@ -51,9 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var (
-	unexpectedObjectTypeError = stdErrors.New("unexpected object type")
-)
+var unexpectedObjectTypeError = stdErrors.New("unexpected object type")
 
 const linkedObjectsFinalizerName = "appstudio.redhat.com/linked-objects"
 
@@ -320,6 +318,9 @@ func (r *RemoteSecretReconciler) obtainData(ctx context.Context, remoteSecret *a
 		remoteSecret.Status.SecretStatus.Keys[idx] = k
 		idx++
 	}
+	// we need to sort the keys alphabetically so that we don't get spurious changes caused by the random
+	// iteration order of the secretData map.
+	sort.Strings(remoteSecret.Status.SecretStatus.Keys)
 
 	result.ReturnValue = secretData
 
@@ -451,7 +452,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	var depErr, checkPointErr, syncErr, updateErr error
 
 	depHandler, depErr := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
-	if depErr != nil {
+	if depErr != nil && !stdErrors.Is(depErr, bindings.ErrorInvalidClientConfig) {
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
@@ -517,7 +518,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		for i, sa := range deps.ServiceAccounts {
 			saks[i] = client.ObjectKeyFromObject(sa)
 		}
-		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret))
+		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret), "SAs", saks)
 	}
 
 	// we want the inconsistency errors to be noted by the user, but we don't want them to
@@ -593,7 +594,7 @@ type remoteSecretLinksFinalizer struct {
 	storage       remotesecretstorage.RemoteSecretStorage
 }
 
-//var _ finalizer.Finalizer = (*linkedObjectsFinalizer)(nil)
+// var _ finalizer.Finalizer = (*linkedObjectsFinalizer)(nil)
 
 // Finalize removes the secret and possibly also service account synced to the actual binging being deleted
 func (f *remoteSecretLinksFinalizer) Finalize(ctx context.Context, obj client.Object) (finalizer.Result, error) {
