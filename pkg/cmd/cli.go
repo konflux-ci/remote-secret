@@ -48,7 +48,6 @@ type OperatorCliArgs struct {
 	CommonCliArgs
 	LoggingCliArgs
 	EnableLeaderElection bool `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
-	EnableRemoteSecrets  bool `arg:"--enable-remote-secrets, env" default:"true" help:"Enable the RemoteSecret controller."`
 }
 
 type TokenStorageType string
