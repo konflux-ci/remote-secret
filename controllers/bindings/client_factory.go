@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	auth "k8s.io/api/authentication/v1"
@@ -42,6 +44,7 @@ var (
 	noAuthServiceAccountFound                         = errors.New("No service account labeled with '" + api.RemoteSecretAuthServiceAccountLabel + "' was found that could be used to authenticate deployments to targets in the local cluster")
 	onlyOneAuthServiceAccountPerNamespaceAllowed      = errors.New("there can be only one service account labeled with '" + api.RemoteSecretAuthServiceAccountLabel + "' in a namespace")
 	noKubeConfigSpecifiedForConnectionToRemoteCluster = errors.New("a secret with kubeconfig with credentials for connecting to a remote cluster is required")
+	ErrorInvalidClientConfig                          = errors.New("invalid k8s client configuration")
 )
 
 // ClientFactory is a helper interface for the RemoteSecretReconciler that creates clients that are able to deploy to remote secret targets. The default (and only)
@@ -171,7 +174,6 @@ func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace 
 		if cf.ClientConfigurationInitializer != nil {
 			cf.ClientConfigurationInitializer(cfg, &opts)
 		}
-
 		cl, err = client.New(cfg, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct the kubernetes client: %w", err)
@@ -186,6 +188,11 @@ func (cf *CachingClientFactory) GetClient(ctx context.Context, currentNamespace 
 			ttl = cf.MaxClientCacheTTL
 		}
 
+		_, err = cl.(client.Client).RESTMapper().ResourcesFor(schema.GroupVersionResource{Version: "v1"})
+		if err != nil {
+			log.FromContext(ctx).Info("Not able to list available resources with target k8s client", "host", cfg.Host)
+			return nil, ErrorInvalidClientConfig
+		}
 		cf.cache.Set(key, cl, ttl)
 	}
 
