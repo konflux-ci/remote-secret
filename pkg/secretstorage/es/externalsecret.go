@@ -92,7 +92,10 @@ func (p *ExternalSecretStorage) Get(ctx context.Context, id secretstorage.Secret
 	}
 
 	defer func() {
-		err = errors.Join(err, client.Close(ctx))
+		err = client.Close(ctx)
+		if err != nil {
+			lg(ctx).Error(err, "failed closing client")
+		}
 	}()
 
 	secret, err := client.GetSecret(ctx, es.ExternalSecretDataRemoteRef{Key: id.String()})
@@ -104,7 +107,7 @@ func (p *ExternalSecretStorage) Get(ctx context.Context, id secretstorage.Secret
 		return nil, fmt.Errorf("failed getting the secret %w", err)
 	}
 
-	return secret, err
+	return secret, nil
 }
 
 func (p *ExternalSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
@@ -114,7 +117,10 @@ func (p *ExternalSecretStorage) Delete(ctx context.Context, id secretstorage.Sec
 		return fmt.Errorf("failed creating new client %w", err)
 	}
 	defer func() {
-		err = errors.Join(err, client.Close(ctx))
+		err = client.Close(ctx)
+		if err != nil {
+			lg(ctx).Error(err, "failed closing client")
+		}
 	}()
 
 	err = client.DeleteSecret(ctx, &PushData{RemoteKey: id.String()})
@@ -122,7 +128,7 @@ func (p *ExternalSecretStorage) Delete(ctx context.Context, id secretstorage.Sec
 		return fmt.Errorf("failed deleting the secret %w", err)
 	}
 
-	return err
+	return nil
 }
 
 func (p *ExternalSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
@@ -131,7 +137,10 @@ func (p *ExternalSecretStorage) Store(ctx context.Context, id secretstorage.Secr
 		return fmt.Errorf("failed creating new client %w", err)
 	}
 	defer func() {
-		err = errors.Join(err, client.Close(ctx))
+		err = client.Close(ctx)
+		if err != nil {
+			lg(ctx).Error(err, "failed closing client")
+		}
 	}()
 
 	// id.String() -> namespace/name
@@ -140,7 +149,7 @@ func (p *ExternalSecretStorage) Store(ctx context.Context, id secretstorage.Secr
 		return fmt.Errorf("failed storing the secret %w", err)
 	}
 
-	return err
+	return nil
 }
 
 func lg(ctx context.Context) logr.Logger {
