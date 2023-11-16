@@ -648,4 +648,129 @@ var _ = Describe("RemoteSecret", func() {
 		When("targets present", func() {
 		})
 	})
+
+	Describe("Conditions", func() {
+		When("data obtained but no targets present", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report true Deployed type condition with NoTargets reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					print(cond)
+					g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
+				})
+			})
+		})
+
+		When("one of the targets fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								GenerateName: "secret-from-rs-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "default",
+							}, {
+								Namespace: "other", // namespace does not exist, will fail to deploy
+							}},
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report false Deployed type condition with PartiallyInjected reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonPartiallyInjected)))
+				})
+			})
+		})
+
+		When("only present target fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								GenerateName: "secret-from-rs-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "other", // namespace does not exist, will fail to deploy
+							}},
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report false Deployed type condition with Error reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonError)))
+				})
+			})
+		})
+	})
 })
+
+func uploadArbitraryDataToRS(test *crenv.TestSetup) {
+	rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+	Expect(rs).NotTo(BeNil())
+	Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
+		"a": []byte("b"),
+	})).To(Succeed())
+}
