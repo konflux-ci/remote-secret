@@ -452,7 +452,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	var depErr, checkPointErr, syncErr, updateErr error
 
 	depHandler, depErr := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
-	if depErr != nil && !stdErrors.Is(depErr, bindings.ErrorInvalidClientConfig) {
+	if depErr != nil {
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
