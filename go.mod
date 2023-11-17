@@ -38,6 +38,8 @@ require (
 
 replace github.com/hashicorp/vault => github.com/hashicorp/vault v1.2.1-0.20230905152746-b97ec4912502
 
+replace google.golang.org/grpc => google.golang.org/grpc v1.58.0
+
 require (
 	cloud.google.com/go/cloudsqlconn v1.4.3 // indirect
 	cloud.google.com/go/compute v1.23.0 // indirect
