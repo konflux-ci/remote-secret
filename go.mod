@@ -15,7 +15,7 @@ require (
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.5.0
-	github.com/hashicorp/vault v1.2.1-0.20230905152746-b97ec4912502
+	github.com/hashicorp/vault v1.13.10
 	github.com/hashicorp/vault-plugin-secrets-kv v0.16.1
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/api/auth/approle v0.5.0
@@ -35,6 +35,8 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.15.3
 )
+
+replace github.com/hashicorp/vault => github.com/hashicorp/vault v1.2.1-0.20230905152746-b97ec4912502
 
 require (
 	cloud.google.com/go/cloudsqlconn v1.4.3 // indirect
