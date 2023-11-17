@@ -36,6 +36,7 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.15.3
 )
+
 // Caused by unexpected, backward incompatible, resource removal. See more https://github.com/Azure/azure-sdk-for-go/issues/18209
 replace github.com/Azure/azure-sdk-for-go => github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
 
