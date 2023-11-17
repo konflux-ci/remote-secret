@@ -46,6 +46,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	_ "google.golang.org/grpc"
 )
 
 var (
