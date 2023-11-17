@@ -28,6 +28,8 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
+	// https://issues.redhat.com/browse/SVPI-685 used to force go.mod to use the latest version without security issues
+	// can be removed after upgrade hashicorp/vault or external-secrets/external-secrets upgrade that contains fix.
 	google.golang.org/grpc v1.59.0
 	k8s.io/api v0.28.3
 	k8s.io/apimachinery v0.28.3
