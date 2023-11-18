@@ -106,11 +106,10 @@ jobs:
         run: echo "$GITHUB_CONTEXT"
       - name: Checkout SPI Repository
         run: |
-          # Extract repository owner and name from the forked repository full name
           IFS="/" read -r fork_owner forked_repo <<< "$(echo "${{ github.event.pull_request.head.repo.full_name }}" | tr '/' ' ')"
-          
+          echo "Fork owner: ${fork_owner}"
           # Check if there is a PR in the original repository from the fork owner with the same branch name
-          pr_number=$(gh pr list --repo redhat-appstudio/service-provider-integration-operator --state all --author ${fork_owner} --base main --head ${forked_repo}:${{ github.event.pull_request.head.ref }} --json number --jq '.[0].number' || true)
+          pr_number=$(gh pr list --repo "redhat-appstudio/service-provider-integration-operator" --state all --author "${fork_owner}" --base main --head "${forked_repo}:${{ github.event.pull_request.head.ref }}" --json number --jq '.[0].number' || true)
           echo "PR number: ${pr_number}"
           if [ -n "${pr_number}" ]; then
             # A PR exists, check out that branch
