@@ -100,10 +100,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "${{ env.GO_VERSION }}"
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
       - name: Checkout SPI Repository
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -118,7 +114,9 @@ jobs:
             # A PR exists, check out that branch
             mkdir -p spi
             cd spi          
-            gh pr checkout ${pr_number}
+            git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" .
+            git fetch origin pull/${pr_number}/head:${{ github.event.pull_request.head.ref }}
+            git checkout "${{ github.event.pull_request.head.ref }}"
           else
             # No PR, check out the main branch
             git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" spi
