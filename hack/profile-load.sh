@@ -45,7 +45,7 @@ done
 
 echo "starting the remote secret controller"
 
-sh -c 'echo $$ > pid.file; exec make -C '"$THIS_DIR"'/.. run PPROFBINDADDRESS=8082' &
+sh -c 'echo $$ > pid.file; exec make -C '"$THIS_DIR"'/.. run PPROFBINDADDRESS=127.0.0.1:8082' &
 until [ -f pid.file ]; do
 	sleep 1
 done
@@ -57,7 +57,7 @@ rm pid.file
 echo "collecting the heap info for $PROFILING_TIME consecutive seconds"
 
 for i in $(seq 1 $PROFILING_TIME); do
-	curl --retry 5 --retry-connrefused --retry-delay 1 -o heap-$i.out "http://localhost:8082/debug/pprof/heap"
+	curl --retry 5 --retry-connrefused --retry-delay 1 -o heap-$i.out "http://127.0.0.1:8082/debug/pprof/heap"
 	sleep 1
 done
 
@@ -67,7 +67,7 @@ echo "deleting all the created remote secrets"
 
 kubectl delete remotesecret -n default -l perf-test=true
 
-curl -o heap-after.out "http://localhost:8082/debug/pprof/heap"
+curl -o heap-after.out "http://127.0.0.1:8082/debug/pprof/heap"
 
 echo "killing the remote secret controller with PID $PID"
 kill $PID

@@ -128,13 +128,13 @@ make deploy_minikube IMG_BASE=<MY-CUSTOM-IMAGE-BASE> TAG_NAME=<MY-CUSTOM-TAG-NAM
 It is possible to run the operator locally with the pprof data exposed on desired port. To run the operator locally with profiling on, you can:
 
 ```
-make run PPROFBINDADDRESS=8082
+make run PPROFBINDADDRESS=127.0.0.1:8082
 ```
 
-The profiling data is then going to be present on `localhost:8082`.
+The profiling data is then going to be present on `127.0.0.1:8082`.
 
 You can use the `pprof` tool to examine the collected profiling data, e.g.:
 
 ```
-go tool prof -http :6006 http://localhost:8082/debug/pprof/heap
+go tool prof -http :6006 http://127.0.0.1:8082/debug/pprof/heap
 ```

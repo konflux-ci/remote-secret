@@ -17,8 +17,9 @@ package integrationtests
 import (
 	"context"
 	"path/filepath"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/webhook"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
