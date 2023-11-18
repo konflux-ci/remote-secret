@@ -105,6 +105,8 @@ jobs:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
       - name: Checkout SPI Repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           IFS="/" read -r fork_owner forked_repo <<< "$(echo "${{ github.event.pull_request.head.repo.full_name }}" | tr '/' ' ')"
           echo "Fork owner: ${fork_owner}"
