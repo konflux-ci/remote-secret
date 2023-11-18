@@ -5,10 +5,10 @@ go 1.20
 require (
 	github.com/alexflint/go-arg v1.4.3
 	github.com/aws/aws-sdk-go v1.47.9
-	github.com/aws/aws-sdk-go-v2 v1.22.2
-	github.com/aws/aws-sdk-go-v2/config v1.23.0
+	github.com/aws/aws-sdk-go-v2 v1.23.0
+	github.com/aws/aws-sdk-go-v2/config v1.25.3
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.1
-	github.com/aws/smithy-go v1.16.0
+	github.com/aws/smithy-go v1.17.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/external-secrets/external-secrets v0.9.4
 	github.com/go-logr/logr v1.3.0
@@ -73,15 +73,16 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.15.2 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.6.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.17.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.25.1 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.2 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.17.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.20.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.25.3 // indirect
 	github.com/axiomhq/hyperloglog v0.0.0-20220105174342-98591331716a // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
