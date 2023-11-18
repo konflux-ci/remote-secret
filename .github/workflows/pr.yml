@@ -104,7 +104,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract repository owner and name from the forked repository full name
+          # Extract repository owner from the forked repository full name
           fork_owner=$(echo "${{ github.event.pull_request.head.repo.full_name }}" | cut -d '/' -f1)
           echo "Fork owner: ${fork_owner}"
           # Check if there is a PR in the original repository from the fork owner with the same branch name
