@@ -32,9 +32,9 @@ require (
 	// https://issues.redhat.com/browse/SVPI-685 used to force go.mod to use the latest version without security issues
 	// can be removed after upgrade hashicorp/vault or external-secrets/external-secrets upgrade that contains fix.
 	google.golang.org/grpc v1.59.0
-	k8s.io/api v0.28.3
-	k8s.io/apimachinery v0.28.3
-	k8s.io/client-go v0.28.3
+	k8s.io/api v0.28.4
+	k8s.io/apimachinery v0.28.4
+	k8s.io/client-go v0.28.4
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.15.3
