@@ -68,7 +68,7 @@ func (d *DependentsHandler[K]) CheckPoint(ctx context.Context) (*CheckPoint, err
 	for _, n := range d.Target.GetActualServiceAccountNames() {
 		link, err := d.detectLinks(ctx, secretName, n)
 		if err != nil {
-			return &CheckPoint{}, err
+			return nil, err
 		}
 		names[n] = link
 	}
