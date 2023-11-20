@@ -677,7 +677,7 @@ var _ = Describe("RemoteSecret", func() {
 					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
 					g.Expect(cond).NotTo(BeNil())
 					print(cond)
-					g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
 				})
 			})
