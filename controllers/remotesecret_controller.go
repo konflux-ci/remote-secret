@@ -373,8 +373,8 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 
 		if len(remoteSecret.Status.Targets) == 0 { // same as: !hasAnyError && !hasAnySuccess
 			deploymentReason = api.RemoteSecretReasonNoTargets
-			deploymentStatus = metav1.ConditionTrue
-			deploymentMessage = "condition trivially met, as there are no targets to deploy to"
+			deploymentStatus = metav1.ConditionFalse
+			deploymentMessage = "there are no targets to deploy to"
 		} else if hasAnyError {
 			deploymentStatus = metav1.ConditionFalse
 			if hasAnySuccess {
