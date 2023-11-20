@@ -62,18 +62,18 @@ type CheckPoint struct {
 // names from the deployment target associated with the DependentsHandler. This can later be used to revert back to that
 // state again.
 // See RevertTo for more details.
-func (d *DependentsHandler[K]) CheckPoint(ctx context.Context) (CheckPoint, error) {
+func (d *DependentsHandler[K]) CheckPoint(ctx context.Context) (*CheckPoint, error) {
 	secretName := d.Target.GetActualSecretName()
 	names := make(map[string]serviceAccountLink, len(d.Target.GetActualServiceAccountNames()))
 	for _, n := range d.Target.GetActualServiceAccountNames() {
 		link, err := d.detectLinks(ctx, secretName, n)
 		if err != nil {
-			return CheckPoint{}, err
+			return &CheckPoint{}, err
 		}
 		names[n] = link
 	}
 
-	return CheckPoint{
+	return &CheckPoint{
 		secretName:          secretName,
 		serviceAccountNames: names,
 	}, nil
@@ -244,11 +244,11 @@ func (d *DependentsHandler[K]) Cleanup(ctx context.Context) error {
 }
 
 // RevertTo reverts the reconciliation "transaction". I.e. this should be called after Sync in case the subsequent steps in the reconciliation
-// fail and the operator needs to revert the changes made in sync so that the changes remain idempontent. The provided checkpoint represents
+// fail and the operator needs to revert the changes made in sync so that the changes remain idempotent. The provided checkpoint represents
 // the state obtained from the DependentsHandler.Target prior to making any changes by Sync().
 // Note that currently this method is only able to delete secrets/service accounts that should not be in the cluster. It cannot "undelete"
 // what has been deleted from the cluster. That should be OK though because we don't delete stuff during the Sync call.
-func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint CheckPoint) error {
+func (d *DependentsHandler[K]) RevertTo(ctx context.Context, checkPoint *CheckPoint) error {
 	secretHandler, serviceAccountHandler := d.childHandlers()
 
 	sl, err := secretHandler.List(ctx)

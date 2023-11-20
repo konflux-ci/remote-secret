@@ -456,7 +456,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
-	var checkPoint bindings.CheckPoint
+	var checkPoint *bindings.CheckPoint
 	if depHandler != nil {
 		checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
 		if checkPointErr != nil {
@@ -509,9 +509,12 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if updateErr != nil {
 			debugLog.Error(updateErr, "failed to update the status with the info about dependent objects")
 		}
-
-		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
+		if depHandler != nil && checkPoint != nil {
+			if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
+				debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
+			}
+		} else {
+			debugLog.Info("no checkpoint or depHandler  to revert to", "depHandler", depHandler, "checkPoint", checkPoint)
 		}
 	} else if debugLog.Enabled() && depErr == nil && checkPointErr == nil {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
