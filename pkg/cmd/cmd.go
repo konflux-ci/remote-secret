@@ -19,6 +19,13 @@ import (
 	"errors"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/es"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage/vaultcli"
@@ -29,15 +36,20 @@ var (
 	errNilSecretStorage         = errors.New("nil secret storage")
 )
 
-func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
+func CreateInitializedSecretStorage(ctx context.Context, client client.Client, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
 	var storage secretstorage.SecretStorage
 	var err error
+	lg := log.FromContext(ctx)
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
 		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs)
 	case AWSTokenStorage:
 		storage, err = awscli.NewAwsSecretStorage(ctx, args.InstanceId, &args.AWSCliArgs)
+	case ESSecretStorage:
+		storage, err = es.NewESSecretStorage(ctx, client, args.InstanceId, args.StorageConfigJSON)
+	case InMemoryStorage:
+		storage = &memorystorage.MemoryStorage{}
 	default:
 		return nil, fmt.Errorf("%w '%s'", errUnsupportedSecretStorage, args.TokenStorage)
 	}
@@ -53,6 +65,6 @@ func CreateInitializedSecretStorage(ctx context.Context, args *CommonCliArgs) (s
 	if err = storage.Initialize(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize the secret storage '%s': %w", args.TokenStorage, err)
 	}
-
+	lg.Info("Secret storage initialized successfully", "type", args.TokenStorage)
 	return storage, nil
 }
