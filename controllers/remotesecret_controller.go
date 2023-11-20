@@ -514,7 +514,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 				debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
 			}
 		} else {
-			debugLog.Info("no checkpoint or depHandler  to revert to", "depHandler", depHandler, "checkPoint", checkPoint)
+			debugLog.Info("no checkpoint or depHandler to revert to", "depHandler", depHandler, "checkPoint", checkPoint)
 		}
 	} else if debugLog.Enabled() && depErr == nil && checkPointErr == nil {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
