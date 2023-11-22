@@ -38,6 +38,7 @@ type CommonCliArgs struct {
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
+	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
 	DisableHTTP2      bool             `arg:"--disable-http2, env" default:"true" help:"whether to support the HTTP/2 protocol in the webhook."`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
@@ -47,7 +48,6 @@ type OperatorCliArgs struct {
 	CommonCliArgs
 	LoggingCliArgs
 	EnableLeaderElection bool `arg:"--leader-elect, env" default:"false" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
-	EnableRemoteSecrets  bool `arg:"--enable-remote-secrets, env" default:"true" help:"Enable the RemoteSecret controller."`
 }
 
 type TokenStorageType string
@@ -55,4 +55,6 @@ type TokenStorageType string
 const (
 	VaultTokenStorage TokenStorageType = "vault"
 	AWSTokenStorage   TokenStorageType = "aws"
+	ESSecretStorage   TokenStorageType = "es"
+	InMemoryStorage   TokenStorageType = "memory"
 )

@@ -33,31 +33,26 @@ func SetupAllReconcilers(mgr controllerruntime.Manager, cfg *config.OperatorConf
 		return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
 	}
 
-	if cfg.EnableRemoteSecrets {
-		if err := (&RemoteSecretReconciler{
-			Client:              mgr.GetClient(),
-			TargetClientFactory: cf,
-			Scheme:              mgr.GetScheme(),
-			Configuration:       cfg,
-			RemoteSecretStorage: remoteSecretStorage,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
+	if err := (&RemoteSecretReconciler{
+		Client:              mgr.GetClient(),
+		TargetClientFactory: cf,
+		Scheme:              mgr.GetScheme(),
+		Configuration:       cfg,
+		RemoteSecretStorage: remoteSecretStorage,
+	}).SetupWithManager(mgr); err != nil {
+		return err
 	}
 
-	if cfg.EnableTokenUpload {
-		remoteSecretStorage := remotesecretstorage.NewJSONSerializingRemoteSecretStorage(secretStorage)
-		if err := remoteSecretStorage.Initialize(ctx); err != nil {
-			return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
-		}
+	if err := remoteSecretStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize the remote secret storage: %w", err)
+	}
 
-		if err := (&TokenUploadReconciler{
-			Client:              mgr.GetClient(),
-			Scheme:              mgr.GetScheme(),
-			RemoteSecretStorage: remoteSecretStorage,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
+	if err := (&TokenUploadReconciler{
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		RemoteSecretStorage: remoteSecretStorage,
+	}).SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	return nil
