@@ -102,6 +102,11 @@ type TargetStatus struct {
 	ApiUrl string `json:"apiUrl,omitempty"`
 	// SecretName is the name of the secret that is actually deployed to the target namespace
 	SecretName string `json:"secretName"`
+	// ExpectedSecret defines how the name of the Secret to be deployed should look like. The value comes either from
+	// LinkableSecretSpec definition in RemoteSecret spec, or from SecretOverride in the target. The value
+	// as such is not important for users, but it is required for a correct matching of targets from spec to status.
+	// +optional
+	ExpectedSecret TargetSecretKey `json:"expectedSecret,omitempty"`
 	// ServiceAccountNames is the names of the service accounts that have been deployed to the target namespace
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`
@@ -111,6 +116,15 @@ type TargetStatus struct {
 	// Error the optional error message if the deployment of either the secret or the service accounts failed.
 	// +optional
 	Error string `json:"error,omitempty"`
+}
+
+type TargetSecretKey struct {
+	// Name is the exact name of the Secret to be deployed to target.
+	// +optional
+	Name string `json:"name,omitempty"`
+	// GenerateName is the name prefix for Secret to be deployed to the target.
+	// +optional
+	GenerateName string `json:"generateName,omitempty"`
 }
 
 // TargetKey is not used in the RemoteSecret spec as such but it represents an identifier of a target. As such it can be used
@@ -127,11 +141,19 @@ type TargetKey struct {
 }
 
 func (ts TargetStatus) ToTargetKey() TargetKey {
+	var secretName, secretGenerateName string
+	if ts.SecretName != "" {
+		secretName = ts.SecretName
+	} else {
+		secretName = ts.ExpectedSecret.Name
+		secretGenerateName = ts.ExpectedSecret.GenerateName
+	}
+
 	return TargetKey{
 		ApiUrl:             ts.ApiUrl,
 		Namespace:          ts.Namespace,
-		SecretName:         ts.SecretName,
-		SecretGenerateName: "",
+		SecretName:         secretName,
+		SecretGenerateName: secretGenerateName,
 	}
 }
 

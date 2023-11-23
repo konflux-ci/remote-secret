@@ -443,7 +443,7 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 	}
 }
 
-// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// deployToNamespace deploys the secret to the provided target and fills in the provided status with the result of the deployment. The status will also contain the error
 // if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
 // obviously, not recorded in the target status).
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
@@ -475,6 +475,15 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	inconsistent := false
 
+	secretKey := api.TargetSecretKey{}
+	if targetSpec.Secret != nil {
+		secretKey.Name = targetSpec.Secret.Name
+		secretKey.GenerateName = targetSpec.Secret.GenerateName
+	} else {
+		secretKey.Name = remoteSecret.Spec.Secret.Name
+		secretKey.GenerateName = remoteSecret.Spec.Secret.GenerateName
+	}
+
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
 		targetStatus.SecretName = deps.Secret.Name
@@ -487,6 +496,7 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
 		targetStatus.SecretName = ""
+		targetStatus.ExpectedSecret = secretKey
 		targetStatus.ServiceAccountNames = []string{}
 		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
 		// target.
