@@ -100,12 +100,27 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "${{ env.GO_VERSION }}"
-      - name: Check out SPI's code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          repository: 'redhat-appstudio/service-provider-integration-operator'
-          path: 'spi'
+      - name: Checkout SPI Repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract repository owner from the forked repository full name
+          fork_owner=$(echo "${{ github.event.pull_request.head.repo.full_name }}" | cut -d '/' -f1)
+          echo "Fork owner: ${fork_owner}"
+          # Check if there is a PR in the original repository from the fork owner with the same branch name
+          pr_number=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/redhat-appstudio/service-provider-integration-operator/pulls?state=all&base=main&head=${fork_owner}:${{ github.event.pull_request.head.ref }}" | jq -r '.[0].number' || true)
+          echo "PR number: ${pr_number}"
+          if [ -n "${pr_number}" ]; then
+            # A PR exists, check out that branch
+            mkdir -p spi
+            cd spi
+            git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" .
+            git fetch origin pull/${pr_number}/head:${{ github.event.pull_request.head.ref }}
+            git checkout "${{ github.event.pull_request.head.ref }}"
+          else
+            # No PR, check out the main branch
+            git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" spi
+          fi
       - name: Check SPI mod
         run: |
           sed -i  '4 i replace github.com/redhat-appstudio/remote-secret => ../' ./spi/go.mod
