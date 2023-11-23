@@ -75,7 +75,6 @@ kubectl patch configmap remote-secret-controller-manager-environment-config \
   -p '{"data":{"TOKENSTORAGE":"es","STORAGECONFIGJSON":"{\"aws\":{\"region\":\"us-east-1\",\"service\":\"SecretsManager\",\"auth\":{\"secretRef\":{\"accessKeyIDSecretRef\":{\"name\":\"aws-secretsmanager-credentials-eso\",\"namespace\":\"remotesecret\",\"key\":\"aws_access_key_id\"},\"secretAccessKeySecretRef\":{\"namespace\":\"remotesecret\",\"name\":\"aws-secretsmanager-credentials-eso\",\"key\":\"aws_secret_access_key\"}}}}}"}}'
 ```
 In this example we are using AWS Secrets Manager as a secret store. It is configured to use us-east-1 region and credentials from `aws-secretsmanager-credentials-eso` secret. This secret must be created in namespace `remotesecret`.
-Analogue of such Cluster
 
 Vault example:
 ```bash
