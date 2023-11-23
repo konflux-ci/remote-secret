@@ -109,8 +109,6 @@ jobs:
           echo "Fork owner: ${fork_owner}"
           # Check if there is a PR in the original repository from the fork owner with the same branch name
           pr_number=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/redhat-appstudio/service-provider-integration-operator/pulls?state=all&base=main&head=${fork_owner}:${{ github.event.pull_request.head.ref }}" | jq -r '.[0].number' || true)
-          # TODO before merge
-          pr_number='null'
           echo "PR number: ${pr_number}"
           re='^[0-9]+$'
           if [[ $pr_number =~ $re ]] ; then
