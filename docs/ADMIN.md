@@ -65,7 +65,7 @@ _Note: If you've used AWS cli locally, AWS configuration files should be at `~/.
 
 ### External secret powered storage
 Remote Secret operator can be configured to use [external secret powered storage](https://external-secrets.io/latest/introduction/overview/#secretstore). To enable it, set `--tokenstorage=es`.
-Additionally, to that --storage-config-json must be set to valid JSON with ESO ClusterSecretStore provider's configuration.
+Additionally to that, `--storage-config-json` must be set to valid JSON with ESO ClusterSecretStore provider's configuration.
 
 AWS example:
 ```bash
