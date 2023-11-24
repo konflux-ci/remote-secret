@@ -240,6 +240,7 @@ const (
 	RemoteSecretReasonInjected          RemoteSecretReason = "Injected"
 	RemoteSecretReasonPartiallyInjected RemoteSecretReason = "PartiallyInjected"
 	RemoteSecretReasonError             RemoteSecretReason = "Error"
+	RemoteSecretReasonNoTargets         RemoteSecretReason = "NoTargets"
 )
 
 //+kubebuilder:object:root=true
