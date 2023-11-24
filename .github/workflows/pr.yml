@@ -110,15 +110,16 @@ jobs:
           # Check if there is a PR in the original repository from the fork owner with the same branch name
           pr_number=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/redhat-appstudio/service-provider-integration-operator/pulls?state=all&base=main&head=${fork_owner}:${{ github.event.pull_request.head.ref }}" | jq -r '.[0].number' || true)
           echo "PR number: ${pr_number}"
-          if [ -n "${pr_number}" ]; then
-            # A PR exists, check out that branch
+          re='^[0-9]+$'
+          if [[ $pr_number =~ $re ]] ; then
+            echo "A PR exists, check out that branch"
             mkdir -p spi
-            cd spi          
+            cd spi
             git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" .
             git fetch origin pull/${pr_number}/head:${{ github.event.pull_request.head.ref }}
             git checkout "${{ github.event.pull_request.head.ref }}"
           else
-            # No PR, check out the main branch
+            echo "No PR, check out the main branch"
             git clone "https://github.com/redhat-appstudio/service-provider-integration-operator.git" spi
           fi
       - name: Check SPI mod

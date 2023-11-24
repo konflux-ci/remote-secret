@@ -138,3 +138,7 @@ You can use the `pprof` tool to examine the collected profiling data, e.g.:
 ```
 go tool prof -http :6006 http://127.0.0.1:8082/debug/pprof/heap
 ```
+## SPI Compatibility Verification
+
+Every pull request undergoes a dedicated check to verify that modifications in the codebase do not compromise SPI compatibility.
+This process involves cloning the `service-provider-integration-operator` repository, substituting the `remote-secret` dependency with the proposed changes from the pull request, and executing the make test target within the `service-provider-integration-operator` repository. If further adjustments are necessary in the SPI repository, they must be made from a fork owned by the same contributor and under a branch with an identical name.
