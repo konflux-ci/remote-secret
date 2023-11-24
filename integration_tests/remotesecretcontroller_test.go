@@ -765,6 +765,136 @@ var _ = Describe("RemoteSecret", func() {
 			})
 		})
 	})
+
+	Describe("ExpectedSecret in target Status", func() {
+		When("secret is successfully deployed to target", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "exact-secret-name",
+								GenerateName: "not-used-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "default",
+							}},
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("shows just the actual SecretName, without ExpectedSecret", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret).To(BeNil())
+				})
+			})
+		})
+
+		When("target with secret override fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "expected-name",
+								GenerateName: "expected-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "non-existing",
+							}},
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should should show ExpectedSecret name for the failed target", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-name"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
+				})
+			})
+		})
+
+		When("target with secret override fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "not-used-name",
+								GenerateName: "not-used-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "non-existing",
+								Secret: &api.SecretOverride{
+									Name:         "expected-override",
+									GenerateName: "expected-generate-",
+								},
+							},
+							},
+						},
+					},
+				},
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should should show ExpectedSecret name for the failed target", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-override"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
+				})
+			})
+		})
+	})
+
 })
 
 func uploadArbitraryDataToRS(test *crenv.TestSetup) {
