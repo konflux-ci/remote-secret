@@ -144,7 +144,7 @@ func (ts TargetStatus) ToTargetKey() TargetKey {
 	var secretName, secretGenerateName string
 	if ts.SecretName != "" {
 		secretName = ts.SecretName
-	} else {
+	} else if ts.ExpectedSecret != nil {
 		secretName = ts.ExpectedSecret.Name
 		secretGenerateName = ts.ExpectedSecret.GenerateName
 	}
