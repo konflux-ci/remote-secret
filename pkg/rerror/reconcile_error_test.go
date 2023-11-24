@@ -68,3 +68,10 @@ func TestAggregateNonNilErrors(t *testing.T) {
 		assert.Equal(t, "1, 2", agg.Error())
 	})
 }
+
+func TestAggregatedError_Unwrap(t *testing.T) {
+	sourceError := errors.New("source")
+	e := NewAggregatedError(errors.New("a"), sourceError, errors.New("c"))
+
+	assert.True(t, errors.Is(e, sourceError))
+}

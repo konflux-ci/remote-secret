@@ -156,7 +156,6 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
-
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
@@ -447,33 +446,101 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 // if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
 // obviously, not recorded in the target status).
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
+	ndsp := NamespaceDeploymentSyncProgress{Reconciler: r}
+
+	deps, reportError := ndsp.Start(ctx, remoteSecret, targetSpec, targetStatus)
+
+	updateErr := r.updateStatusWithNamespaceDeploymentResults(ctx, deps, reportError, remoteSecret, targetSpec, targetStatus)
+
+	err := ndsp.FinishAndGetErrorToReport(ctx, remoteSecret, updateErr, deps)
+	if err != nil {
+		return fmt.Errorf("failed to deploy to the namespace %s: %w", targetSpec.Namespace, err)
+	}
+	return nil
+}
+
+type NamespaceDeploymentSyncProgress struct {
+	syncError    error
+	depHandler   *bindings.DependentsHandler[*api.RemoteSecret]
+	checkPoint   *bindings.CheckPoint
+	Reconciler   *RemoteSecretReconciler
+	inconsistent bool
+}
+
+// Start begins the sync progress. The returned error, if any, is to be set in the error field of the targetStatus
+func (ndsp *NamespaceDeploymentSyncProgress) Start(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (*bindings.Dependents, error) {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
-
-	var depErr, checkPointErr, syncErr, updateErr error
-
-	depHandler, depErr := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
+	depHandler, depErr := newDependentsHandler(ctx, ndsp.Reconciler.TargetClientFactory, ndsp.Reconciler.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
 	if depErr != nil {
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
-	var checkPoint *bindings.CheckPoint
+	var checkPointErr error
 	if depHandler != nil {
-		checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
+		ndsp.checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
 		if checkPointErr != nil {
 			debugLog.Error(checkPointErr, "failed to construct a checkpoint to rollback to in case of target deployment error")
 		}
 	}
 
 	var deps *bindings.Dependents
-
 	if depHandler != nil && checkPointErr == nil {
-		deps, _, syncErr = depHandler.Sync(ctx, remoteSecret)
+		deps, _, ndsp.syncError = depHandler.Sync(ctx, remoteSecret)
 	}
 
+	err := rerror.AggregateNonNilErrors(depErr, checkPointErr, ndsp.syncError)
+
+	ndsp.inconsistent = stdErrors.Is(err, bindings.DependentsInconsistencyError)
+
+	if err != nil {
+		if ndsp.inconsistent {
+			debugLog.Info("encountered an inconsistency error", "error", err.Error())
+		} else {
+			debugLog.Error(err, "failed to sync the dependent objects")
+		}
+	}
+
+	return deps, err //nolint: wrapcheck //wrapped at a higher level
+}
+
+// FinishAndGetErrorToReport finishes the deployment to the namespace and returns an error, if any, to be returned from the reconcile. I.e. if this
+// returns an error, the reconciliation should be retried.
+func (ndsp *NamespaceDeploymentSyncProgress) FinishAndGetErrorToReport(ctx context.Context, remoteSecret *api.RemoteSecret, updateError error, deps *bindings.Dependents) error {
+	debugLog := log.FromContext(ctx, "remoteSecret", client.ObjectKeyFromObject(remoteSecret)).V(logs.DebugLevel)
+
+	// first, let's check if we encountered a condition that should force us to revert the change we did to the dependent objects in the target.
+	if ndsp.syncError != nil || updateError != nil {
+		if ndsp.depHandler != nil && ndsp.checkPoint != nil {
+			if rerr := ndsp.depHandler.RevertTo(ctx, ndsp.checkPoint); rerr != nil {
+				debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "syncError", ndsp.syncError, "updateError", updateError)
+			}
+		} else {
+			debugLog.Info("no checkpoint or dependency handler to use for reverting a failed sync", "syncError", ndsp.syncError, "updateError", updateError)
+		}
+	} else if debugLog.Enabled() && deps != nil {
+		// there is no sync error nor an update error. The deps should always be non-nil in that case but let's be super-paranoid.
+		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
+		for i, sa := range deps.ServiceAccounts {
+			saks[i] = client.ObjectKeyFromObject(sa)
+		}
+		debugLog.Info("successfully synced dependent objects of remote secret", "syncedSecret", client.ObjectKeyFromObject(deps.Secret), "SAs", saks)
+	} else if deps == nil {
+		debugLog.Error(nil, "Sync of the dependent objects reported no error yet we don't have a record of the performed changes. This should not happen.")
+	}
+
+	// we want the inconsistency errors to be noted by the user, but we don't want them to
+	// bubble up and cause reconcile retries
+	syncError := ndsp.syncError
+	if ndsp.inconsistent {
+		syncError = nil
+	}
+
+	return rerror.AggregateNonNilErrors(syncError, updateError) //nolint: wrapcheck // wrapped at a higher level
+}
+
+func (r *RemoteSecretReconciler) updateStatusWithNamespaceDeploymentResults(ctx context.Context, deps *bindings.Dependents, syncProgressError error, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) error {
 	targetStatus.ApiUrl = targetSpec.ApiUrl
 	targetStatus.ClusterCredentialsSecret = targetSpec.ClusterCredentialsSecret
-
-	inconsistent := false
 
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
@@ -483,58 +550,19 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		for i, sa := range deps.ServiceAccounts {
 			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
-		targetStatus.Error = ""
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
 		targetStatus.SecretName = ""
 		targetStatus.ServiceAccountNames = []string{}
-		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
-		// target.
-		targetStatus.Error = rerror.AggregateNonNilErrors(depErr, checkPointErr, syncErr).Error()
-		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
-			inconsistent = true
-		}
 	}
 
-	updateErr = r.Client.Status().Update(ctx, remoteSecret)
-	if syncErr != nil || updateErr != nil {
-		if syncErr != nil {
-			if inconsistent {
-				debugLog.Info("encountered an inconsistency error", "error", syncErr.Error())
-			} else {
-				debugLog.Error(syncErr, "failed to sync the dependent objects")
-			}
-		}
-
-		if updateErr != nil {
-			debugLog.Error(updateErr, "failed to update the status with the info about dependent objects")
-		}
-		if depHandler != nil && checkPoint != nil {
-			if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-				debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
-			}
-		} else {
-			debugLog.Info("no checkpoint or depHandler to revert to", "depHandler", depHandler, "checkPoint", checkPoint)
-		}
-	} else if debugLog.Enabled() && depErr == nil && checkPointErr == nil {
-		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
-		for i, sa := range deps.ServiceAccounts {
-			saks[i] = client.ObjectKeyFromObject(sa)
-		}
-		debugLog.Info("successfully synced dependent objects of remote secret", "remoteSecret", client.ObjectKeyFromObject(remoteSecret), "syncedSecret", client.ObjectKeyFromObject(deps.Secret), "SAs", saks)
+	if syncProgressError != nil {
+		targetStatus.Error = syncProgressError.Error()
+	} else {
+		targetStatus.Error = ""
 	}
 
-	// we want the inconsistency errors to be noted by the user, but we don't want them to
-	// bubble up and cause reconcile retries
-	if inconsistent {
-		syncErr = nil
-	}
-	err := rerror.AggregateNonNilErrors(syncErr, updateErr)
-	if err != nil {
-		err = fmt.Errorf("failed to deploy to the namespace %s: %w", targetSpec.Namespace, err)
-	}
-
-	return err
+	return r.Client.Status().Update(ctx, remoteSecret) //nolint: wrapcheck //wrapped at a higher level
 }
 
 func (r *RemoteSecretReconciler) deleteFromNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, statusTargetIndex remotesecrets.StatusTargetIndex) error {
