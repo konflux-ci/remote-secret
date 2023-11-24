@@ -106,7 +106,7 @@ type TargetStatus struct {
 	// LinkableSecretSpec definition in RemoteSecret spec, or from SecretOverride in the target. The value
 	// as such is not important for users, but it is required for a correct matching of targets from spec to status.
 	// +optional
-	ExpectedSecret TargetSecretKey `json:"expectedSecret,omitempty"`
+	ExpectedSecret *TargetSecretKey `json:"expectedSecret,omitempty"`
 	// ServiceAccountNames is the names of the service accounts that have been deployed to the target namespace
 	// +optional
 	ServiceAccountNames []string `json:"serviceAccountNames,omitempty"`

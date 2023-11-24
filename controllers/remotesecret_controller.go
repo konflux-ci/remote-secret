@@ -475,8 +475,9 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	inconsistent := false
 
-	secretKey := api.TargetSecretKey{}
-	if targetSpec.Secret != nil {
+	// construct ExpectedSecret from overriding secret definition in target or if there is none, definition of secret in RS spec.
+	secretKey := &api.TargetSecretKey{}
+	if targetSpec.Secret != nil && (targetSpec.Secret.Name != "" || targetSpec.Secret.GenerateName != "") {
 		secretKey.Name = targetSpec.Secret.Name
 		secretKey.GenerateName = targetSpec.Secret.GenerateName
 	} else {
