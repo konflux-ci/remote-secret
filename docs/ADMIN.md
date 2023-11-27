@@ -14,7 +14,7 @@ The `remote-secret-controller-manager-environment-config` config map contains co
 | --pprof-bind-address                                  | PPROFBINDADDRESS               | 0                        | Is the TCP address that the controller should bind to for serving pprof.                                                                                                                                                           |
 | --allow-insecure-urls                                 | ALLOWINSECUREURLS              | false                    | Whether it is allowed or not to use insecure (http) URLs in service provider or token storage configurations.                                                                                                                      |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                    | The address the probe endpoint binds to.                                                                                                                                                                                           |
-| --tokenstorage                                        | TOKENSTORAGE                   | vault                    | The type of the token storage. Supported types: 'vault', 'aws' (experimental)                                                                                                                                                      |
+| --tokenstorage                                        | TOKENSTORAGE                   | vault                    | The type of the token storage. Supported types: 'vault', 'aws', 'memory', 'es'                                                                                                                                                     |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200    | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                    | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
 | --vault-auth-method                                   | VAULTAUTHMETHOD                | approle                  | Authentication method to Vault token storage. Options: 'kubernetes', 'approle'.                                                                                                                                                    |
@@ -39,6 +39,7 @@ The `remote-secret-controller-manager-environment-config` config map contains co
 | --token-match-policy                                  | TOKENMATCHPOLICY               | any                      | The policy to match the token against the binding. Options:  'any', 'exact'."`                                                                                                                                                     |
 | --deletion-grace-period                               | DELETIONGRACEPERIOD            | 2s                       | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                                                                                 |
 | --disable-http2                                       | DISABLEHTTP2                   | true                     | Whether to disable webhook communication over HTTP/2 protocol or not.                                                                                                                                                              |
+| --storage-config-json                                 | STORAGECONFIGJSON              |                          | JSON with ESO ClusterSecretStore provider's configuration. Example: '{\"fake\":{}}'                                                                                                                                                |
 |
 
 ## Token Storage
@@ -56,13 +57,33 @@ There are a couple of support scripts to work with Vault
 
 ### AWS Secrets Manager
 
-_Warning: AWS Secrets Manager as token storage is currently in experimental phase of implementation. Usage is not recommended for production use, implementation can change with backward breaking changes anytime without any further notice._
-
 To enable AWS Secrets Manager as token storage, set `--tokenstorage=aws`. `make deploy_minikube_aws` or `make deploy_openshift_aws` configures it automatically.
 
 SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
 
 _Note: If you've used AWS cli locally, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`. To create the secret, use `./hack/aws-create-credentials-secret.sh`_
+
+### External secret powered storage
+Remote Secret operator can be configured to use [external secret powered storage](https://external-secrets.io/latest/introduction/overview/#secretstore). To enable it, set `--tokenstorage=es`.
+Additionally to that, `--storage-config-json` must be set to valid JSON with ESO ClusterSecretStore provider's configuration.
+
+AWS example:
+```bash
+kubectl patch configmap remote-secret-controller-manager-environment-config \
+  -n remotesecret\
+  --type merge \
+  -p '{"data":{"TOKENSTORAGE":"es","STORAGECONFIGJSON":"{\"aws\":{\"region\":\"us-east-1\",\"service\":\"SecretsManager\",\"auth\":{\"secretRef\":{\"accessKeyIDSecretRef\":{\"name\":\"aws-secretsmanager-credentials-eso\",\"namespace\":\"remotesecret\",\"key\":\"aws_access_key_id\"},\"secretAccessKeySecretRef\":{\"namespace\":\"remotesecret\",\"name\":\"aws-secretsmanager-credentials-eso\",\"key\":\"aws_secret_access_key\"}}}}}"}}'
+```
+In this example we are using AWS Secrets Manager as a secret store. It is configured to use us-east-1 region and credentials from `aws-secretsmanager-credentials-eso` secret. This secret must be created in namespace `remotesecret`.
+
+Vault example:
+```bash
+kubectl patch configmap remote-secret-controller-manager-environment-config \
+-n remotesecret\
+--type merge \
+-p '{"data":{"TOKENSTORAGE":"es","STORAGECONFIGJSON":"{\"vault\":{\"server\":\"http://vault.spi-vault.svc.cluster.local:8200\",\"path\":\"spi\",\"version\":\"v2\",\"auth\":{\"appRole\":{\"path\":\"approle\",\"roleId\":\"'"$VAULT_APP_ROLE_ID"'\",\"secretRef\":{\"name\":\"vault-approle-remote-secret-operator\",\"key\":\"secret_id\",\"namespace\":\"remotesecret\"}}}}}"}}'
+```
+In this example we are using Vault as a secret store. It is configured to use `http://vault.spi-vault.svc.cluster.local:8200` as a server, `spi` as a path, `v2` as a version and `approle` as an authentication method. AppRole authentication method is configured to use `vault-approle-remote-secret-operator` secret to get `secret_id` and `role_id` values. This secret must be created in namespace `remotesecret`.
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 

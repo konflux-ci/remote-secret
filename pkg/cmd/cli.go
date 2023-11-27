@@ -38,7 +38,7 @@ type CommonCliArgs struct {
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	PprofBindAddress  string           `arg:"--pprof-bind-address, env" default:"0" help:"Is the TCP address that the controller should bind to for serving pprof. Disabled by default."`
-	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
+	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with ESO ClusterSecretStore provider's configuration. Example: '{\"fake\":{}}'"`
 	DisableHTTP2      bool             `arg:"--disable-http2, env" default:"true" help:"whether to support the HTTP/2 protocol in the webhook."`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs
