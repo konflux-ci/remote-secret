@@ -85,6 +85,47 @@ kubectl patch configmap remote-secret-controller-manager-environment-config \
 ```
 In this example we are using Vault as a secret store. It is configured to use `http://vault.spi-vault.svc.cluster.local:8200` as a server, `spi` as a path, `v2` as a version and `approle` as an authentication method. AppRole authentication method is configured to use `vault-approle-remote-secret-operator` secret to get `secret_id` and `role_id` values. This secret must be created in namespace `remotesecret`.
 
+
+### Safe cross-cluster data migration
+
+Safe remote secret migration without revealing the actual secrets data can be performed by attaching the special targets to the existing remote secret.
+Those targets will be used to transfer the actual secrets data to the new remote secret, using the upload-secret technique.
+
+The migration process is as follows:
+1. Create a copy of remote secret being migrated on a target cluster. It will remain in the `AwaitingData` state, as the actual secrets data is not yet transferred.
+2. Attach the specially formed target to the existing remote secret on the source cluster.
+   Its purpose is to create the upload-secret on the target cluster, and to transfer the actual secrets data via it.
+   This secret will be consumed by the remote secret operator on the target cluster and immediately cleaned up.
+   The target must contain the following information (see complete example below):
+    - `apiUrl` - the URL of the target cluster API server
+    - `namespace` - the namespace where the remote secret is located on a target cluster
+    - `clusterCredentialsSecret` - the reference to the secret containing the target cluster credentials
+    - secret labels and annotations override - the labels and annotations that will be applied to the secret to identify it as an upload-secret on the target cluster
+
+The example of the target:
+```yaml
+...
+spec:
+  secret:
+    name: test-remote-secret-secret
+  targets:
+    - ...<existing targets>...
+    - apiUrl: https://api.cluster-2d2mp.dynamic.opentlc.com:6443   # target cluster API URL
+      clusterCredentialsSecret: test-remote-kubeconfig   # the reference to the secret containing the target cluster credentials
+      namespace: default  # the namespace where the remote secret is located on a target cluster
+      secret:
+        name: tmp-upload # it is optional, can be used for the debugging purposes, if not set, the name will be same as the secret part of the spec
+        labels:  # labels and annotations override, will be applied to the secret to identify it as an upload-secret on the target cluster
+          appstudio.redhat.com/upload-secret: remotesecret
+        annotations:
+          appstudio.redhat.com/remotesecret-name: demo-secret 
+```
+
+If everything is configured correctly, operator on the source side will create the upload secret, which will be immediately consumed
+by the operator on the target side, data will be injected, and the remote secret must switch to the `Injected` state.
+After that, the target (or whole remote secret) can be removed from the source remote secret, and the migration is complete.
+
+
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 
  There is a defined list of Service Level Objectives (SLO-s), for which RemoteSecret operator should collect indicator metrics, 
