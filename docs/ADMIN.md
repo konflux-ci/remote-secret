@@ -123,7 +123,8 @@ spec:
 
 If everything is configured correctly, operator on the source side will create the upload secret, which will be immediately consumed
 by the operator on the target side, data will be injected, and the remote secret must switch to the `Injected` state.
-After that, the target (or whole remote secret) can be removed on the source side, and the data migration is complete.
+After that, the target (or whole remote secret) should be removed on the source side (to prevent forthcoming upload secret re-creation), 
+and the data migration is complete.
 
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
