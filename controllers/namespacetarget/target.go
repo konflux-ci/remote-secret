@@ -32,16 +32,24 @@ type NamespaceTarget struct {
 var _ bindings.SecretDeploymentTarget = (*NamespaceTarget)(nil)
 
 func (t *NamespaceTarget) GetActualManagedAnnotations() []string {
-	ret := make([]string, 0, len(t.TargetStatus.Secret.Annotations))
-	for k := range t.TargetStatus.Secret.Annotations {
+	var annos map[string]string
+	if t.TargetStatus.DeployedSecret != nil {
+		annos = t.TargetStatus.DeployedSecret.Annotations
+	}
+	ret := make([]string, 0, len(annos))
+	for k := range annos {
 		ret = append(ret, k)
 	}
 	return ret
 }
 
 func (t *NamespaceTarget) GetActualManagedLabels() []string {
-	ret := make([]string, 0, len(t.TargetStatus.Secret.Labels))
-	for k := range t.TargetStatus.Secret.Labels {
+	var labels map[string]string
+	if t.TargetStatus.DeployedSecret != nil {
+		labels = t.TargetStatus.DeployedSecret.Labels
+	}
+	ret := make([]string, 0, len(labels))
+	for k := range labels {
 		ret = append(ret, k)
 	}
 	return ret
@@ -104,10 +112,10 @@ func (t *NamespaceTarget) GetTargetNamespace() string {
 }
 
 func (t *NamespaceTarget) GetActualSecretName() string {
-	if t.TargetStatus == nil {
+	if t.TargetStatus == nil || t.TargetStatus.DeployedSecret == nil {
 		return ""
 	} else {
-		return t.TargetStatus.Secret.Name
+		return t.TargetStatus.DeployedSecret.Name
 	}
 }
 

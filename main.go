@@ -46,6 +46,9 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+
+	// transitive dependency used to force specific version in go.mod
+	_ "google.golang.org/grpc"
 )
 
 var (
@@ -90,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, &args.CommonCliArgs)
+	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
@@ -162,7 +165,7 @@ func main() {
 }
 
 func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
-	ret := config.OperatorConfiguration{EnableRemoteSecrets: args.EnableRemoteSecrets, EnableTokenUpload: args.EnableRemoteSecrets}
+	ret := config.OperatorConfiguration{}
 	return ret, nil
 }
 

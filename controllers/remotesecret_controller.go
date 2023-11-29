@@ -156,7 +156,6 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
-
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
@@ -341,10 +340,27 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 	var deploymentReason api.RemoteSecretReason
 	var deploymentMessage string
 
+	// To decide if the RemoteSecretReason should be Error, NoTargets, PartiallyInjected, or Injected, we need to know
+	// if there are any failed deployments and if there are any successful deployments.
+	hasAnyError := false
+	hasAnySuccess := false
+	for _, ts := range remoteSecret.Status.Targets {
+		if ts.Error != "" {
+			hasAnyError = true
+		} else {
+			hasAnySuccess = true
+		}
+	}
+
 	if aerr.HasErrors() {
 		log.FromContext(ctx).Error(aerr, "failed to deploy the secret to some targets")
-
-		deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		// The aggregate has errors, thus we cannot set RemoteSecretReason to 'Injected' or 'NoTargets'
+		// even if there are no targets because that would signal that everything is ok.
+		if hasAnySuccess {
+			deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		} else {
+			deploymentReason = api.RemoteSecretReasonError
+		}
 		deploymentStatus = metav1.ConditionFalse
 		deploymentMessage = aerr.Error()
 		// we want to retry the reconciliation because we failed to deploy to some targets in a retryable way
@@ -353,17 +369,20 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 	} else {
 		// we might have no hard errors bubbling up but the individual targets might still have failed
 		// in a way that is not retryable. let's check for that...
-		hasErrors := false
-		for _, ts := range remoteSecret.Status.Targets {
-			if ts.Error != "" {
-				hasErrors = true
-			}
-		}
 
-		if hasErrors {
-			deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		if len(remoteSecret.Status.Targets) == 0 { // same as: !hasAnyError && !hasAnySuccess
+			deploymentReason = api.RemoteSecretReasonNoTargets
 			deploymentStatus = metav1.ConditionFalse
-			deploymentMessage = "some targets were not successfully deployed"
+			deploymentMessage = "there are no targets to deploy to"
+		} else if hasAnyError {
+			deploymentStatus = metav1.ConditionFalse
+			if hasAnySuccess {
+				deploymentReason = api.RemoteSecretReasonPartiallyInjected
+				deploymentMessage = "some targets were not successfully deployed"
+			} else {
+				deploymentReason = api.RemoteSecretReasonError
+				deploymentMessage = "all targets were not successfully deployed"
+			}
 		} else {
 			deploymentReason = api.RemoteSecretReasonInjected
 			deploymentStatus = metav1.ConditionTrue
@@ -443,7 +462,7 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 	}
 }
 
-// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// deployToNamespace deploys the secret to the provided target and fills in the provided status with the result of the deployment. The status will also contain the error
 // if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
 // obviously, not recorded in the target status).
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
@@ -452,11 +471,11 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	var depErr, checkPointErr, syncErr, updateErr error
 
 	depHandler, depErr := newDependentsHandler(ctx, r.TargetClientFactory, r.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
-	if depErr != nil {
+	if depErr != nil && !stdErrors.Is(depErr, bindings.ErrorInvalidClientConfig) {
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
-	var checkPoint bindings.CheckPoint
+	var checkPoint *bindings.CheckPoint
 	if depHandler != nil {
 		checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
 		if checkPointErr != nil {
@@ -475,9 +494,20 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	inconsistent := false
 
+	// construct ExpectedSecret from overriding secret definition in target or if there is none, definition of secret in RS spec.
+	secretKey := &api.TargetSecretKey{}
+	if targetSpec.Secret != nil && (targetSpec.Secret.Name != "" || targetSpec.Secret.GenerateName != "") {
+		secretKey.Name = targetSpec.Secret.Name
+		secretKey.GenerateName = targetSpec.Secret.GenerateName
+	} else {
+		secretKey.Name = remoteSecret.Spec.Secret.Name
+		secretKey.GenerateName = remoteSecret.Spec.Secret.GenerateName
+	}
+
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
-		targetStatus.Secret.Name = deps.Secret.Name
+		targetStatus.DeployedSecret = &api.DeployedSecretStatus{}
+		targetStatus.DeployedSecret.Name = deps.Secret.Name
 
 		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
@@ -491,14 +521,14 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		// The `deps` contains the actual secret as it exists in the target, which will contain more labels and annos (either set by someone
 		// else for the pre-existing secrets or the tracking labels and annos set by the dep handler).
 		depTargetSpec := depHandler.Target.GetSpec()
-		targetStatus.Secret.Labels = depTargetSpec.Labels
-		targetStatus.Secret.Annotations = depTargetSpec.Annotations
+		targetStatus.DeployedSecret.Labels = depTargetSpec.Labels
+		targetStatus.DeployedSecret.Annotations = depTargetSpec.Annotations
+		targetStatus.ExpectedSecret = nil
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
-		targetStatus.Secret.Name = ""
+		targetStatus.DeployedSecret = nil
+		targetStatus.ExpectedSecret = secretKey
 		targetStatus.ServiceAccountNames = []string{}
-		targetStatus.Secret.Labels = nil
-		targetStatus.Secret.Annotations = nil
 		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
 		// target.
 		targetStatus.Error = rerror.AggregateNonNilErrors(depErr, checkPointErr, syncErr).Error()
@@ -508,7 +538,11 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 	}
 
 	// keep the backwards-compatibility for users that use this field
-	targetStatus.SecretName = targetStatus.Secret.Name //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	if targetStatus.DeployedSecret != nil {
+		targetStatus.SecretName = targetStatus.DeployedSecret.Name //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	} else {
+		targetStatus.SecretName = "" //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	}
 
 	updateErr = r.Client.Status().Update(ctx, remoteSecret)
 	if syncErr != nil || updateErr != nil {
@@ -523,9 +557,12 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if updateErr != nil {
 			debugLog.Error(updateErr, "failed to update the status with the info about dependent objects")
 		}
-
-		if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
-			debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
+		if depHandler != nil && checkPoint != nil {
+			if rerr := depHandler.RevertTo(ctx, checkPoint); rerr != nil {
+				debugLog.Error(rerr, "failed to revert the sync of the dependent objects of the remote secret after a failure", "statusUpdateError", updateErr, "syncError", syncErr)
+			}
+		} else {
+			debugLog.Info("no checkpoint or depHandler to revert to", "depHandler", depHandler, "checkPoint", checkPoint)
 		}
 	} else if debugLog.Enabled() && depErr == nil && checkPointErr == nil {
 		saks := make([]client.ObjectKey, len(deps.ServiceAccounts))
@@ -664,6 +701,11 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 	retErr := rerror.NewAggregatedError()
 
+	secretName := ""
+	// should always be non-nil in this method, but let's be paranoid to avoid panics..
+	if target.DeployedSecret != nil {
+		secretName = target.DeployedSecret.Name
+	}
 	secretEv := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: rs.Name + "-",
@@ -675,7 +717,7 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		Related: &corev1.ObjectReference{
 			Kind:       "Secret",
 			Namespace:  target.Namespace,
-			Name:       target.Secret.Name,
+			Name:       secretName,
 			APIVersion: "v1",
 		},
 		Type:          "Warning",
