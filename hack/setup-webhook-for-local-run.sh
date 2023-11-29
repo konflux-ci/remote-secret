@@ -1,4 +1,14 @@
 #!/bin/sh
+
+# Use this script when you want to setup connection for a locally running webhook, from a minikube cluster.
+
+# This script creates certificates in /tmp/k8s-webhook-server/serving-certs/ required for webhook and afterward
+# creates/patches the MutatingWebhookConfiguration so that requests are routed out of minikube into the localhost where
+# controller (with webhook) will be running.
+
+# Note that if you change your mind and want to run the controller in cluster, you will have to create/restore the original
+# MutatingWebhookConfiguration. The easiest way is to run `make deploy_minikube`
+
 set -e
 
 THIS_DIR="$(dirname "$(realpath "$0")")"

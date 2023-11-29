@@ -184,7 +184,7 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 .PHONY: run
-run: manifests generate fmt vet build ## Run a controller from your host using Vault running in the cluster (assumes ones of the deploy_* targets has been applied)
+run: manifests generate fmt vet build ## Run a controller from your host using Vault running in the cluster (assumes the deploy_minikube target has been applied)
 	hack/persist_vault_creds_in_tmp.sh
 	hack/setup-webhook-for-local-run.sh
 	ZAPDEVEL=true VAULTHOST="https://vault.$(shell minikube ip).nip.io" VAULTAPPROLEROLEIDFILEPATH="./.tmp/role_id" VAULTAPPROLESECRETIDFILEPATH="./.tmp/secret_id" VAULTINSECURETLS=true bin/manager
