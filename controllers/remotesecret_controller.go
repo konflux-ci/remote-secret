@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -156,7 +157,6 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
-
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
@@ -194,6 +194,17 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
+
+	origRemoteSecret := remoteSecret.DeepCopy()
+	defer func() {
+		tlg := lg.WithValues("troubleshoot", true)
+		diff := cmp.Diff(origRemoteSecret, remoteSecret)
+		if diff == "" {
+			tlg.Info("reconciliation didn't change the remote secret")
+		} else {
+			tlg.Info("reconciliation changed the remote secret", "diff", diff)
+		}
+	}()
 
 	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
