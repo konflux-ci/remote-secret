@@ -13,7 +13,7 @@ The `remote-secret-controller-manager-environment-config` config map contains co
 | --metrics-bind-address                                | METRICSADDR                    | 127.0.0.1:8080           | The address the metric endpoint binds to. Note: While this is the default from the operator binary point of view, the metrics are still available externally through the authorized endpoint provided by kube-rbac-proxy           |
 | --allow-insecure-urls                                 | ALLOWINSECUREURLS              | false                    | Whether it is allowed or not to use insecure (http) URLs in service provider or token storage configurations.                                                                                                                      |
 | --health-probe-bind-address HEALTH-PROBE-BIND-ADDRESS | PROBEADDR                      | :8081                    | The address the probe endpoint binds to.                                                                                                                                                                                           |
-| --tokenstorage                                        | TOKENSTORAGE                   | vault                    | The type of the token storage. Supported types: 'vault', 'aws' (experimental)                                                                                                                                                      |
+| --tokenstorage                                        | TOKENSTORAGE                   | vault                    | The type of the token storage. Supported types: 'vault', 'aws', 'memory', 'es'                                                                                                                                                     |
 | --vault-host                                          | VAULTHOST                      | http://spi-vault:8200    | Vault host URL. Default is internal kubernetes service.                                                                                                                                                                            |
 | --vault-insecure-tls                                  | VAULTINSECURETLS               | false                    | Whether is allowed or not insecure vault tls connection.                                                                                                                                                                           |
 | --vault-auth-method                                   | VAULTAUTHMETHOD                | approle                  | Authentication method to Vault token storage. Options: 'kubernetes', 'approle'.                                                                                                                                                    |
@@ -39,6 +39,7 @@ The `remote-secret-controller-manager-environment-config` config map contains co
 | --deletion-grace-period                               | DELETIONGRACEPERIOD            | 2s                       | The grace period between a condition for deleting a binding or token is satisfied and the token or binding actually being deleted.                                                                                                 |
 | --expose-profiling                                    | EXPOSEPROFILING                | false                    | Whether or not expose the profiling information on the metrics endpoint under /debug/pprof path.                                                                                                                                   |
 | --disable-http2                                       | DISABLEHTTP2                   | true                     | Whether to disable webhook communication over HTTP/2 protocol or not.                                                                                                                                                              |
+| --storage-config-json                                 | STORAGECONFIGJSON              |                          | JSON with ESO ClusterSecretStore provider's configuration. Example: '{\"fake\":{}}'                                                                                                                                                |
 |
 
 ## Token Storage
@@ -56,13 +57,75 @@ There are a couple of support scripts to work with Vault
 
 ### AWS Secrets Manager
 
-_Warning: AWS Secrets Manager as token storage is currently in experimental phase of implementation. Usage is not recommended for production use, implementation can change with backward breaking changes anytime without any further notice._
-
 To enable AWS Secrets Manager as token storage, set `--tokenstorage=aws`. `make deploy_minikube_aws` or `make deploy_openshift_aws` configures it automatically.
 
 SPI require 2 AWS configuration files, `config` and `credentials`. These can be set with `--aws-config-filepath` and `--aws-credentials-filepath`.
 
 _Note: If you've used AWS cli locally, AWS configuration files should be at `~/.aws/config` and `~/.aws/credentials`. To create the secret, use `./hack/aws-create-credentials-secret.sh`_
+
+### External secret powered storage
+Remote Secret operator can be configured to use [external secret powered storage](https://external-secrets.io/latest/introduction/overview/#secretstore). To enable it, set `--tokenstorage=es`.
+Additionally to that, `--storage-config-json` must be set to valid JSON with ESO ClusterSecretStore provider's configuration.
+
+AWS example:
+```bash
+kubectl patch configmap remote-secret-controller-manager-environment-config \
+  -n remotesecret\
+  --type merge \
+  -p '{"data":{"TOKENSTORAGE":"es","STORAGECONFIGJSON":"{\"aws\":{\"region\":\"us-east-1\",\"service\":\"SecretsManager\",\"auth\":{\"secretRef\":{\"accessKeyIDSecretRef\":{\"name\":\"aws-secretsmanager-credentials-eso\",\"namespace\":\"remotesecret\",\"key\":\"aws_access_key_id\"},\"secretAccessKeySecretRef\":{\"namespace\":\"remotesecret\",\"name\":\"aws-secretsmanager-credentials-eso\",\"key\":\"aws_secret_access_key\"}}}}}"}}'
+```
+In this example we are using AWS Secrets Manager as a secret store. It is configured to use us-east-1 region and credentials from `aws-secretsmanager-credentials-eso` secret. This secret must be created in namespace `remotesecret`.
+
+Vault example:
+```bash
+kubectl patch configmap remote-secret-controller-manager-environment-config \
+-n remotesecret\
+--type merge \
+-p '{"data":{"TOKENSTORAGE":"es","STORAGECONFIGJSON":"{\"vault\":{\"server\":\"http://vault.spi-vault.svc.cluster.local:8200\",\"path\":\"spi\",\"version\":\"v2\",\"auth\":{\"appRole\":{\"path\":\"approle\",\"roleId\":\"'"$VAULT_APP_ROLE_ID"'\",\"secretRef\":{\"name\":\"vault-approle-remote-secret-operator\",\"key\":\"secret_id\",\"namespace\":\"remotesecret\"}}}}}"}}'
+```
+In this example we are using Vault as a secret store. It is configured to use `http://vault.spi-vault.svc.cluster.local:8200` as a server, `spi` as a path, `v2` as a version and `approle` as an authentication method. AppRole authentication method is configured to use `vault-approle-remote-secret-operator` secret to get `secret_id` and `role_id` values. This secret must be created in namespace `remotesecret`.
+
+
+### Safe cross-cluster data migration
+
+Safe remote secret migration without revealing the actual secrets data can be performed by attaching the special targets to the existing remote secret.
+Those targets will be used to transfer the actual secrets data to the new remote secret, using the upload-secret technique.
+
+The migration process is as follows:
+1. Create a copy of remote secret being migrated on a target cluster. It will remain in the `AwaitingData` state, as the actual secrets data is not yet transferred.
+2. Attach the specially formed target to the existing remote secret on the source cluster.
+   Its purpose is to create the upload-secret on the target cluster, and to transfer the actual secrets data via it.
+   This secret will be consumed by the remote secret operator on the target cluster and immediately cleaned up.
+   The target must contain the following information (see complete example below):
+    - `apiUrl` - the URL of the target cluster API server
+    - `namespace` - the namespace where the remote secret is located on a target cluster
+    - `clusterCredentialsSecret` - the reference to the secret containing the target cluster credentials
+    - secret labels and annotations override - the labels and annotations that will be applied to the secret to identify it as an upload-secret on the target cluster
+
+The example of the target:
+```yaml
+...
+spec:
+  secret:
+    name: test-remote-secret-secret
+  targets:
+    - ...<existing targets>...
+    - apiUrl: https://api.cluster-2d2mp.dynamic.opentlc.com:6443   # target cluster API URL
+      clusterCredentialsSecret: test-remote-kubeconfig   # the reference to the secret containing the target cluster credentials
+      namespace: default  # the namespace where the remote secret is located on a target cluster
+      secret:
+        name: tmp-upload # it is optional, can be used for the debugging purposes, if not set, the name will be same as the secret part of the spec
+        labels:  # labels and annotations override, will be applied to the secret to identify it as an upload-secret on the target cluster
+          appstudio.redhat.com/upload-secret: remotesecret
+        annotations:
+          appstudio.redhat.com/remotesecret-name: demo-secret 
+```
+
+If everything is configured correctly, operator on the source side will create the upload secret, which will be immediately consumed
+by the operator on the target side, data will be injected, and the remote secret must switch to the `Injected` state.
+After that, the target (or whole remote secret) should be removed on the source side (to prevent forthcoming upload secret re-creation), 
+and the data migration is complete.
+
 
 ## [Service Level Objectives monitoring](#service-level-objectives-monitoring)
 
