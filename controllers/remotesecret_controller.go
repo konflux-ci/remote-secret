@@ -185,8 +185,15 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile RemoteSecret")
 
 	remoteSecret := &api.RemoteSecret{}
+	var err error
 
-	if err := r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
+	origRemoteSecret := remoteSecret.DeepCopy()
+	defer func() {
+		diff := cmp.Diff(origRemoteSecret, remoteSecret)
+		lg.Info("reconciliation complete", "troubleshoot", true, "error", err, "diff", diff)
+	}()
+
+	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
@@ -195,18 +202,8 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
 
-	origRemoteSecret := remoteSecret.DeepCopy()
-	defer func() {
-		tlg := lg.WithValues("troubleshoot", true)
-		diff := cmp.Diff(origRemoteSecret, remoteSecret)
-		if diff == "" {
-			tlg.Info("reconciliation didn't change the remote secret")
-		} else {
-			tlg.Info("reconciliation changed the remote secret", "diff", diff)
-		}
-	}()
-
-	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
+	var finalizationResult finalizer.Result
+	finalizationResult, err = r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
 		// we get another reconciliation due to cluster state change
@@ -231,12 +228,14 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	var dataResult stageResult[*map[string][]byte]
+	dataResult, err = handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
 	}
 
-	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
+	var deployResult stageResult[any]
+	deployResult, err = handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
 	if err != nil || deployResult.Cancellation.Cancel {
 		return deployResult.Cancellation.Result, err
 	}
