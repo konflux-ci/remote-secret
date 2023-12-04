@@ -35,6 +35,8 @@ type SecretDeploymentTarget interface {
 	// should be deployed to.
 	GetTargetNamespace() string
 	// GetSpec gives the spec from which the secrets and service accounts should be created.
+	// Make sure to do a DeepCopy of this object before you make modifications to it to avoid
+	// modifying the shared state stored in maps and slices therein.
 	GetSpec() api.LinkableSecretSpec
 	// GetActualSecretName returns the actual name of the secret, if any (as opposed to the
 	// configured name from the spec, which may not fully represent what's in the cluster

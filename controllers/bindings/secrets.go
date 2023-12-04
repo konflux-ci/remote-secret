@@ -116,7 +116,10 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}
 
-	desiredSpec := h.Target.GetSpec()
+	// we're going to be modifying the spec, so let's make sure we do that on a copy (including the copies of labels and annos, for which we do need the DeepCopy instead of
+	// the mere shallow copy produced by an assignment).
+	tmp := h.Target.GetSpec()
+	desiredSpec := (&tmp).DeepCopy()
 	secretName := h.Target.GetActualSecretName()
 	if recreate || secretName == "" {
 		secretName = desiredSpec.Name
