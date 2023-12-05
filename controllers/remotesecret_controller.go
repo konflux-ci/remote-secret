@@ -22,10 +22,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -94,65 +91,21 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
-		// for logging purposes, this Named + Watches replaces the For(&api.RemoteSecret) call.
-		Named("remotesecret").
-		Watches(&api.RemoteSecret{}, handler.Funcs{
-			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
-				if e.Object == nil {
-					return
-				}
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
-				q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
-			},
-			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-				diff := cmp.Diff(e.ObjectOld, e.ObjectNew, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "update", "remoteSecret", client.ObjectKeyFromObject(e.ObjectOld), "diff", diff)
-				// logic copied from handler.EnqueueRequestForObject
-				if e.ObjectNew != nil {
-					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
-				} else if e.ObjectOld != nil {
-					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
-				}
-			},
-			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "delete", "remoteSecret", client.ObjectKeyFromObject(e.Object))
-				if e.Object != nil {
-					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
-				}
-			},
-			GenericFunc: func(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "generic", "remoteSecret", client.ObjectKeyFromObject(e.Object))
-				if e.Object != nil {
-					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
-				}
-			},
-		}).
+		For(&api.RemoteSecret{}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			reqs := linksToReconcileRequests(ctx, mgr.GetScheme(), o)
-			if len(reqs) > 0 {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "link")
-			}
-			return reqs
+			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 		})).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-				reqs := r.findRemoteSecretForUploadSecret(o)
-				if len(reqs) > 0 {
-					log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "dataUpload")
-				}
-				return reqs
+				return r.findRemoteSecretForUploadSecret(o)
 			}),
 			builder.WithPredicates(pred, predicate.Funcs{
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			reqs := r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
-			if len(reqs) > 0 {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKing", "serviceAccount", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "authSA")
-			}
-			return reqs
+			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
 		})).
 		Complete(r)
 	if err != nil {
@@ -203,6 +156,7 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
+
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
@@ -231,15 +185,8 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile RemoteSecret")
 
 	remoteSecret := &api.RemoteSecret{}
-	var err error
 
-	var origRemoteSecret *api.RemoteSecret
-	defer func() {
-		diff := cmp.Diff(origRemoteSecret, remoteSecret, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
-		lg.Info("reconcile complete", "troubleshoot", true, "error", err, "diff", diff)
-	}()
-
-	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
@@ -247,10 +194,8 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
-	origRemoteSecret = remoteSecret.DeepCopy()
 
-	var finalizationResult finalizer.Result
-	finalizationResult, err = r.finalizers.Finalize(ctx, remoteSecret)
+	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
 		// we get another reconciliation due to cluster state change
@@ -275,14 +220,12 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-	var dataResult stageResult[*map[string][]byte]
-	dataResult, err = handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
 	}
 
-	var deployResult stageResult[any]
-	deployResult, err = handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
+	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
 	if err != nil || deployResult.Cancellation.Cancel {
 		return deployResult.Cancellation.Result, err
 	}
