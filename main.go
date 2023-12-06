@@ -165,12 +165,13 @@ func main() {
 }
 
 func LoadFrom(args *cmd.OperatorCliArgs) (config.OperatorConfiguration, error) {
-	ret := config.OperatorConfiguration{}
+	ret := config.OperatorConfiguration{
+		ReconcileLogging: args.ReconcileLogging,
+	}
 	return ret, nil
 }
 
 func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, error) {
-
 	restConfig := ctrl.GetConfigOrDie()
 	disableHTTP2 := func(c *tls.Config) {
 		if !args.DisableHTTP2 {

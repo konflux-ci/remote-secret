@@ -101,12 +101,16 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if e.Object == nil {
 					return
 				}
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
 				q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
 			},
 			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 				diff := cmp.Diff(e.ObjectOld, e.ObjectNew, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "update", "remoteSecret", client.ObjectKeyFromObject(e.ObjectOld), "diff", diff)
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "update", "remoteSecret", client.ObjectKeyFromObject(e.ObjectOld), "diff", diff)
+				}
 				// logic copied from handler.EnqueueRequestForObject
 				if e.ObjectNew != nil {
 					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
@@ -115,13 +119,17 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 			},
 			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "delete", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "delete", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
 				if e.Object != nil {
 					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
 				}
 			},
 			GenericFunc: func(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "generic", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "generic", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
 				if e.Object != nil {
 					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
 				}
@@ -129,8 +137,8 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			reqs := linksToReconcileRequests(ctx, mgr.GetScheme(), o)
-			if len(reqs) > 0 {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "link")
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "link")
 			}
 			return reqs
 		})).
@@ -138,8 +146,8 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 				reqs := r.findRemoteSecretForUploadSecret(o)
-				if len(reqs) > 0 {
-					log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "dataUpload")
+				if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "dataUpload")
 				}
 				return reqs
 			}),
@@ -149,8 +157,8 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			reqs := r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
-			if len(reqs) > 0 {
-				log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "reactOnSource", "sourceKing", "serviceAccount", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "authSA")
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKing", "serviceAccount", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "authSA")
 			}
 			return reqs
 		})).
@@ -236,7 +244,9 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	var origRemoteSecret *api.RemoteSecret
 	defer func() {
 		diff := cmp.Diff(origRemoteSecret, remoteSecret, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
-		lg.Info("reconcile complete", "troubleshoot", true, "error", err, "diff", diff)
+		if r.Configuration.ReconcileLogging {
+			reconcileLogger(lg).Info("reconcile complete", "error", err, "diff", diff)
+		}
 	}()
 
 	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
@@ -803,4 +813,8 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		return fmt.Errorf("failed to create the cleanup failure event(s): %w", retErr)
 	}
 	return nil
+}
+
+func reconcileLogger(lg logr.Logger) logr.Logger {
+	return lg.WithValues("diagnostics", "reconcile")
 }
