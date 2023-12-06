@@ -102,7 +102,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return
 				}
 				if r.Configuration.ReconcileLogging {
-					log.FromContext(ctx, "troubleshoot", true).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
 				}
 				q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
 			},
