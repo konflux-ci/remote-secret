@@ -134,7 +134,7 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
 				}
 			},
-		}).
+		}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			reqs := linksToReconcileRequests(ctx, mgr.GetScheme(), o)
 			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
