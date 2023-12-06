@@ -32,9 +32,18 @@ func New(client client.Client) Syncer {
 	return Syncer{client: client}
 }
 
+type LabelsAndAnnotationsSyncOptions struct {
+	// ManagedLabelKeys is a set of label keys that should be managed by the Sync(). All other annotations are kept
+	// on the object.
+	ManagedLabelKeys []string
+	// ManagedAnnotationKeys is a set of annotation keys that should be managed by the Sync(). All other annotations
+	// are kept on the object.
+	ManagedAnnotationKeys []string
+}
+
 // Sync syncs the blueprint to the cluster in a generic (as much as Go allows) manner.
 // Returns true if the object was created or updated, false if there was no change detected.
-func (s *Syncer) Sync(ctx context.Context, owner client.Object, blueprint client.Object, diffOpts cmp.Option) (bool, client.Object, error) {
+func (s *Syncer) Sync(ctx context.Context, owner client.Object, blueprint client.Object, diffOpts cmp.Option, laOpts LabelsAndAnnotationsSyncOptions) (bool, client.Object, error) {
 	lg := log.FromContext(ctx)
 
 	var actual client.Object
@@ -66,7 +75,7 @@ func (s *Syncer) Sync(ctx context.Context, owner client.Object, blueprint client
 		return true, actual, nil
 	}
 
-	return s.update(ctx, owner, actual, blueprint, diffOpts)
+	return s.update(ctx, owner, actual, blueprint, diffOpts, laOpts)
 }
 
 // Delete deletes the supplied object from the cluster.
@@ -142,13 +151,14 @@ func (s *Syncer) create(ctx context.Context, owner client.Object, blueprint clie
 	return actual, nil
 }
 
-func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.Object, blueprint client.Object, diffOpts cmp.Option) (bool, client.Object, error) {
+func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.Object, blueprint client.Object, diffOpts cmp.Option, laOpts LabelsAndAnnotationsSyncOptions) (bool, client.Object, error) {
 	lg := log.FromContext(ctx)
 	diff := cmp.Diff(actual, blueprint, diffOpts)
 	if len(diff) > 0 {
 		// we need to handle labels and annotations specially in case the cluster admin has modified them.
 		// if the current object in the cluster has the same annos/labels, they get overwritten with what's
-		// in the blueprint. Any additional labels/annos on the object are kept though.
+		// in the blueprint. If there are any managed labels/annos, they are deleted from the current object if not in the blueprint.
+		// Any additional labels/annos on the object are kept though.
 		targetLabels := map[string]string{}
 		targetAnnos := map[string]string{}
 
@@ -164,6 +174,27 @@ func (s *Syncer) update(ctx context.Context, owner client.Object, actual client.
 		}
 		for k, v := range blueprint.GetLabels() {
 			targetLabels[k] = v
+		}
+
+		// now go through the labels and annos and remove all that are managed and not in the blueprint
+		for k := range targetLabels {
+			for _, mlk := range laOpts.ManagedLabelKeys {
+				if mlk == k {
+					if _, ok := blueprint.GetLabels()[k]; !ok {
+						delete(targetLabels, k)
+					}
+				}
+			}
+		}
+
+		for k := range targetAnnos {
+			for _, mak := range laOpts.ManagedAnnotationKeys {
+				if mak == k {
+					if _, ok := blueprint.GetAnnotations()[k]; !ok {
+						delete(targetAnnos, k)
+					}
+				}
+			}
 		}
 
 		blueprint.SetAnnotations(targetAnnos)

@@ -574,16 +574,27 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
-		targetStatus.SecretName = deps.Secret.Name
+		targetStatus.DeployedSecret = &api.DeployedSecretStatus{}
+		targetStatus.DeployedSecret.Name = deps.Secret.Name
 
 		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
 		targetStatus.Error = ""
+
+		// so let's use it to remember the labels and annotations that we are explicitly setting on the secret so that we can properly
+		// depTargetSpec contains the labels and annotations derived from the spec of the remote secret (taking into account the overrides)
+		// manage them in case of changes.
+		// The `deps` contains the actual secret as it exists in the target, which will contain more labels and annos (either set by someone
+		// else for the pre-existing secrets or the tracking labels and annos set by the dep handler).
+		depTargetSpec := depHandler.Target.GetSpec()
+		targetStatus.DeployedSecret.Labels = depTargetSpec.Labels
+		targetStatus.DeployedSecret.Annotations = depTargetSpec.Annotations
+		targetStatus.ExpectedSecret = nil
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
-		targetStatus.SecretName = ""
+		targetStatus.DeployedSecret = nil
 		targetStatus.ExpectedSecret = secretKey
 		targetStatus.ServiceAccountNames = []string{}
 		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
@@ -592,6 +603,13 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
 			inconsistent = true
 		}
+	}
+
+	// keep the backwards-compatibility for users that use this field
+	if targetStatus.DeployedSecret != nil {
+		targetStatus.SecretName = targetStatus.DeployedSecret.Name //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	} else {
+		targetStatus.SecretName = "" //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 	}
 
 	updateErr = r.Client.Status().Update(ctx, remoteSecret)
@@ -751,6 +769,11 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 	retErr := rerror.NewAggregatedError()
 
+	secretName := ""
+	// should always be non-nil in this method, but let's be paranoid to avoid panics..
+	if target.DeployedSecret != nil {
+		secretName = target.DeployedSecret.Name
+	}
 	secretEv := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: rs.Name + "-",
@@ -762,7 +785,7 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		Related: &corev1.ObjectReference{
 			Kind:       "Secret",
 			Namespace:  target.Namespace,
-			Name:       target.SecretName,
+			Name:       secretName,
 			APIVersion: "v1",
 		},
 		Type:          "Warning",

@@ -116,16 +116,18 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 		return nil, errorReason, fmt.Errorf("failed to obtain the secret data: %w", err)
 	}
 
-	spec := h.Target.GetSpec()
-
+	// we're going to be modifying the spec, so let's make sure we do that on a copy (including the copies of labels and annos, for which we do need the DeepCopy instead of
+	// the mere shallow copy produced by an assignment).
+	tmp := h.Target.GetSpec()
+	desiredSpec := (&tmp).DeepCopy()
 	secretName := h.Target.GetActualSecretName()
 	if recreate || secretName == "" {
-		secretName = spec.Name
+		secretName = desiredSpec.Name
 	}
 
 	diffOpts := secretDiffOpts
 
-	if spec.Type == corev1.SecretTypeServiceAccountToken {
+	if desiredSpec.Type == corev1.SecretTypeServiceAccountToken {
 		diffOpts = serviceAccountSecretDiffOpts
 	}
 
@@ -136,14 +138,24 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         secretName,
-			GenerateName: spec.GenerateName,
+			GenerateName: desiredSpec.GenerateName,
 			Namespace:    h.Target.GetTargetNamespace(),
-			Labels:       spec.Labels,
-			Annotations:  spec.Annotations,
+			Labels:       desiredSpec.Labels,
+			Annotations:  desiredSpec.Annotations,
 		},
 		Data: data,
-		Type: spec.Type,
+		Type: desiredSpec.Type,
 	}
+
+	// we need to construct the list of labels that we want managed on the target secret
+	// (i.e the list of keys that we want to delete from the maps if they are no longer desired
+	// in our spec).
+	// Maybe a little bit non-intuitively, that actually is the set of labels/annos already present
+	// on the secret. We need those that are in the desiredSpec to stay and those that are not
+	// there to disappear. So by declaring the already present labels as managed we can make that
+	// happen.
+	managedLabels := h.Target.GetActualManagedLabels()
+	managedAnnos := h.Target.GetActualManagedAnnotations()
 
 	if secret.GenerateName == "" {
 		secret.GenerateName = h.Target.GetTargetObjectKey().Name + "-secret-"
@@ -159,7 +171,10 @@ func (h *secretHandler[K]) Sync(ctx context.Context, key K, recreate bool) (*cor
 	lg := log.FromContext(ctx).V(logs.DebugLevel)
 	lg.Info("syncing binding secret", "secret", secret, "secretMetadata", &secret.ObjectMeta)
 
-	_, obj, err := syncer.Sync(ctx, nil, secret, diffOpts)
+	_, obj, err := syncer.Sync(ctx, nil, secret, diffOpts, sync.LabelsAndAnnotationsSyncOptions{
+		ManagedLabelKeys:      managedLabels,
+		ManagedAnnotationKeys: managedAnnos,
+	})
 	if err != nil {
 		return nil, string(ErrorReasonSecretUpdate), fmt.Errorf("failed to sync the secret with the token data: %w", err)
 	}
