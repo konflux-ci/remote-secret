@@ -280,6 +280,7 @@ var _ = Describe("RemoteSecret", func() {
 				test.SettleWithCluster(ITest.Context, func(g Gomega) {
 					rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs.Status.Targets).To(BeEmpty())
+					// check that rs.Status.Conditions Deployed is False
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))).To(BeFalse())
 					// check that all secrets are removed
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).Error()
