@@ -30,9 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	infrastructure.InitializeForTesting(infrastructure.Kubernetes)
@@ -40,7 +38,6 @@ func init() {
 }
 
 func TestSyncCreates(t *testing.T) {
-
 	preexisting := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -67,7 +64,7 @@ func TestSyncCreates(t *testing.T) {
 
 	syncer := Syncer{client: cl}
 
-	_, _, err := syncer.Sync(context.TODO(), preexisting, new, cmp.Options{})
+	_, _, err := syncer.Sync(context.TODO(), preexisting, new, cmp.Options{}, LabelsAndAnnotationsSyncOptions{})
 	assert.NoError(t, err)
 
 	synced := &corev1.Pod{}
@@ -127,7 +124,7 @@ func TestSyncUpdates(t *testing.T) {
 
 	syncer := Syncer{client: cl}
 
-	_, _, err := syncer.Sync(context.TODO(), newOwner, update, cmp.Options{})
+	_, _, err := syncer.Sync(context.TODO(), newOwner, update, cmp.Options{}, LabelsAndAnnotationsSyncOptions{})
 	assert.NoError(t, err)
 
 	synced := &corev1.Pod{}
@@ -143,75 +140,156 @@ func TestSyncUpdates(t *testing.T) {
 }
 
 func TestSyncKeepsAdditionalAnnosAndLabels(t *testing.T) {
-	preexisting := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "preexisting",
-			Namespace: "default",
-			Labels: map[string]string{
-				"a": "x",
-				"k": "v",
+	t.Run("no managed labels and annos", func(t *testing.T) {
+		preexisting := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
 			},
-			Annotations: map[string]string{
-				"a": "x",
-				"k": "v",
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "preexisting",
+				Namespace: "default",
+				Labels: map[string]string{
+					"a": "x",
+					"k": "v",
+				},
+				Annotations: map[string]string{
+					"a": "x",
+					"k": "v",
+				},
 			},
-		},
-	}
+		}
 
-	owner := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "owner",
-			Namespace: "default",
-		},
-	}
-
-	update := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "preexisting",
-			Namespace: "default",
-			Labels: map[string]string{
-				"a": "b",
-				"c": "d",
+		owner := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
 			},
-			Annotations: map[string]string{
-				"a": "b",
-				"c": "d",
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "owner",
+				Namespace: "default",
 			},
-		},
-	}
+		}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
+		update := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "preexisting",
+				Namespace: "default",
+				Labels: map[string]string{
+					"a": "b",
+					"c": "d",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+					"c": "d",
+				},
+			},
+		}
 
-	syncer := Syncer{client: cl}
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
 
-	_, _, err := syncer.Sync(context.TODO(), owner, update, cmp.Options{})
-	assert.NoError(t, err)
+		syncer := Syncer{client: cl}
 
-	synced := &corev1.Pod{}
-	key := client.ObjectKey{Name: "preexisting", Namespace: "default"}
+		_, _, err := syncer.Sync(context.TODO(), owner, update, cmp.Options{}, LabelsAndAnnotationsSyncOptions{})
+		assert.NoError(t, err)
 
-	assert.NoError(t, cl.Get(context.TODO(), key, synced))
+		synced := &corev1.Pod{}
+		key := client.ObjectKey{Name: "preexisting", Namespace: "default"}
 
-	assert.Equal(t, "preexisting", synced.Name, "The synced object should have the expected name")
+		assert.NoError(t, cl.Get(context.TODO(), key, synced))
 
-	expectedValues := map[string]string{
-		"a": "b",
-		"k": "v",
-		"c": "d",
-	}
+		assert.Equal(t, "preexisting", synced.Name, "The synced object should have the expected name")
 
-	assert.Equal(t, expectedValues, synced.Labels, "Unexpected labels on the synced object")
-	assert.Equal(t, expectedValues, synced.Annotations, "Unexpected annotations on the synced object")
+		expectedValues := map[string]string{
+			"a": "b",
+			"k": "v",
+			"c": "d",
+		}
+
+		assert.Equal(t, expectedValues, synced.Labels, "Unexpected labels on the synced object")
+		assert.Equal(t, expectedValues, synced.Annotations, "Unexpected annotations on the synced object")
+	})
+
+	t.Run("with managed labels and annos", func(t *testing.T) {
+		preexisting := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "preexisting",
+				Namespace: "default",
+				Labels: map[string]string{
+					"a": "x",
+					"k": "v",
+					"l": "v",
+				},
+				Annotations: map[string]string{
+					"a": "x",
+					"k": "v",
+					"l": "v",
+				},
+			},
+		}
+
+		owner := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "owner",
+				Namespace: "default",
+			},
+		}
+
+		update := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "preexisting",
+				Namespace: "default",
+				Labels: map[string]string{
+					"a": "b",
+					"c": "d",
+				},
+				Annotations: map[string]string{
+					"a": "b",
+					"c": "d",
+				},
+			},
+		}
+
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(preexisting).Build()
+
+		syncer := Syncer{client: cl}
+
+		_, _, err := syncer.Sync(context.TODO(), owner, update, cmp.Options{}, LabelsAndAnnotationsSyncOptions{
+			ManagedLabelKeys:      []string{"k"},
+			ManagedAnnotationKeys: []string{"k"},
+		})
+		assert.NoError(t, err)
+
+		synced := &corev1.Pod{}
+		key := client.ObjectKey{Name: "preexisting", Namespace: "default"}
+
+		assert.NoError(t, cl.Get(context.TODO(), key, synced))
+
+		assert.Equal(t, "preexisting", synced.Name, "The synced object should have the expected name")
+
+		expectedValues := map[string]string{
+			"a": "b",
+			"c": "d",
+			"l": "v",
+		}
+
+		assert.Equal(t, expectedValues, synced.Labels, "Unexpected labels on the synced object")
+		assert.Equal(t, expectedValues, synced.Annotations, "Unexpected annotations on the synced object")
+	})
 }

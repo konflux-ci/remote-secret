@@ -35,6 +35,8 @@ type SecretDeploymentTarget interface {
 	// should be deployed to.
 	GetTargetNamespace() string
 	// GetSpec gives the spec from which the secrets and service accounts should be created.
+	// Make sure to do a DeepCopy of this object before you make modifications to it to avoid
+	// modifying the shared state stored in maps and slices therein.
 	GetSpec() api.LinkableSecretSpec
 	// GetActualSecretName returns the actual name of the secret, if any (as opposed to the
 	// configured name from the spec, which may not fully represent what's in the cluster
@@ -43,6 +45,12 @@ type SecretDeploymentTarget interface {
 	// GetActualServiceAccountNames returns the names of the service accounts that the spec
 	// configures.
 	GetActualServiceAccountNames() []string
+	// GetActualManagedLabels returns the list of labels that are actually present on the target
+	// and that should be managed (i.e. deleted when no longer required).
+	GetActualManagedLabels() []string
+	// GetActualManagedAnnotations returns the list of annotations that are actually present
+	// on the target and that should be managed (i.e. deleted when no longer required).
+	GetActualManagedAnnotations() []string
 }
 
 // SecretDataGetter is an abstraction that, given the provided key, is able to obtain the secret data from some kind of backing
