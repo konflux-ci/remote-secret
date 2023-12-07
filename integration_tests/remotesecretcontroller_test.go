@@ -271,7 +271,7 @@ var _ = Describe("RemoteSecret", func() {
 			})
 
 			It("should remove all targets secrets", func() {
-				// remove remove all targets secrets from the spec
+				// remove all targets secrets from the spec
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 				Expect(rs).NotTo(BeNil())
 				rs.Spec.Targets = []api.RemoteSecretTarget{}
