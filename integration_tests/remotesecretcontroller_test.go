@@ -23,9 +23,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var remoteSecretReconciliationTrigger = map[schema.GroupKind]func(client.Object){
+	{Group: api.GroupVersion.Group, Kind: "RemoteSecret"}: func(o client.Object) {
+		rs := o.(*api.RemoteSecret)
+		if rs.Spec.Secret.Annotations == nil {
+			rs.Spec.Secret.Annotations = map[string]string{}
+		}
+		rs.Spec.Secret.Annotations["reconcile-trigger"] = string(uuid.NewUUID())
+	},
+}
 
 var _ = Describe("RemoteSecret", func() {
 	Describe("Create", func() {
@@ -149,6 +160,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -218,6 +230,7 @@ var _ = Describe("RemoteSecret", func() {
 							},
 						},
 					},
+					ReconciliationTrigger: remoteSecretReconciliationTrigger,
 				}
 
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -370,7 +383,43 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the labels", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain labels
+				rs.Spec.Secret.Labels = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the label
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Labels).NotTo(BeNil())
+						g.Expect(secrets[0].Labels).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to contain no labels
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Labels: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the labels are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						// the secret will have a label marking it as linked to the remote secret
+						// but it should not contain the labels defined by the secret spec of the RS.
+						g.Expect(secrets[0].Labels).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("updates the annotations", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
@@ -395,7 +444,41 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the annotations", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain annotations
+				rs.Spec.Secret.Annotations = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the annotation
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(BeNil())
+						g.Expect(secrets[0].Annotations).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to not contain annotations
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Annotations: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the annotations are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("override the name", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
@@ -596,6 +679,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -660,6 +744,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -703,6 +788,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -743,6 +829,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -786,6 +873,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -826,6 +914,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -861,17 +950,19 @@ var _ = Describe("RemoteSecret", func() {
 								Name:         "not-used-name",
 								GenerateName: "not-used-generate-",
 							},
-							Targets: []api.RemoteSecretTarget{{
-								Namespace: "non-existing",
-								Secret: &api.SecretOverride{
-									Name:         "expected-override",
-									GenerateName: "expected-generate-",
+							Targets: []api.RemoteSecretTarget{
+								{
+									Namespace: "non-existing",
+									Secret: &api.SecretOverride{
+										Name:         "expected-override",
+										GenerateName: "expected-generate-",
+									},
 								},
-							},
 							},
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -894,7 +985,6 @@ var _ = Describe("RemoteSecret", func() {
 			})
 		})
 	})
-
 })
 
 func uploadArbitraryDataToRS(test *crenv.TestSetup) {
