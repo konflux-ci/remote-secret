@@ -15,7 +15,7 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/google/go-cmp v0.6.0
-	github.com/hashicorp/go-hclog v1.5.0
+	github.com/hashicorp/go-hclog v1.6.1
 	github.com/hashicorp/vault v1.13.2
 	github.com/hashicorp/vault-plugin-secrets-kv v0.14.3
 	github.com/hashicorp/vault/api v1.9.2
