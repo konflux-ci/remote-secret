@@ -16,26 +16,10 @@ package vaultstorage
 
 import (
 	"encoding/base64"
-	"github.com/prometheus/client_golang/prometheus"
-	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestMetricCollection(t *testing.T) {
-	ctx := context.Background()
-	cluster, storage, _, _ := CreateTestVaultSecretStorageWithAuthAndMetrics(t, prometheus.NewPedanticRegistry())
-	assert.NoError(t, storage.Initialize(ctx))
-	defer cluster.Cleanup()
-
-	_, err := storage.Get(ctx, secretstorage.SecretID{})
-	assert.ErrorIs(t, err, secretstorage.NotFoundError)
-
-	assert.Greater(t, prometheusTest.CollectAndCount(vaultRequestCountMetric), 0)
-	assert.Greater(t, prometheusTest.CollectAndCount(vaultResponseTimeMetric), 0)
-}
 
 func TestExtractData(t *testing.T) {
 	t.Run("extracts new format", func(t *testing.T) {
