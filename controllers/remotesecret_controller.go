@@ -22,7 +22,10 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -91,21 +94,73 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
-		For(&api.RemoteSecret{}).
+		// for logging purposes, this Named + Watches replaces the For(&api.RemoteSecret) call.
+		Named("remotesecret").
+		Watches(&api.RemoteSecret{}, handler.Funcs{
+			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				if e.Object == nil {
+					return
+				}
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+			},
+			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				diff := cmp.Diff(e.ObjectOld, e.ObjectNew, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "update", "remoteSecret", client.ObjectKeyFromObject(e.ObjectOld), "diff", diff)
+				}
+				// logic copied from handler.EnqueueRequestForObject
+				if e.ObjectNew != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
+				} else if e.ObjectOld != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
+				}
+			},
+			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "delete", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				if e.Object != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+				}
+			},
+			GenericFunc: func(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "generic", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				if e.Object != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+				}
+			},
+		}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
+			reqs := linksToReconcileRequests(ctx, mgr.GetScheme(), o)
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "link")
+			}
+			return reqs
 		})).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-				return r.findRemoteSecretForUploadSecret(o)
+				reqs := r.findRemoteSecretForUploadSecret(o)
+				if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "dataUpload")
+				}
+				return reqs
 			}),
 			builder.WithPredicates(pred, predicate.Funcs{
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
+			reqs := r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKing", "serviceAccount", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "authSA")
+			}
+			return reqs
 		})).
 		Complete(r)
 	if err != nil {
@@ -184,8 +239,17 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile RemoteSecret")
 
 	remoteSecret := &api.RemoteSecret{}
+	var err error
 
-	if err := r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
+	var origRemoteSecret *api.RemoteSecret
+	defer func() {
+		diff := cmp.Diff(origRemoteSecret, remoteSecret, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
+		if r.Configuration.ReconcileLogging {
+			reconcileLogger(lg).Info("reconcile complete", "error", err, "diff", diff)
+		}
+	}()
+
+	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
@@ -193,8 +257,10 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
+	origRemoteSecret = remoteSecret.DeepCopy()
 
-	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
+	var finalizationResult finalizer.Result
+	finalizationResult, err = r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
 		// we get another reconciliation due to cluster state change
@@ -219,12 +285,14 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	var dataResult stageResult[*map[string][]byte]
+	dataResult, err = handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
 	}
 
-	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
+	var deployResult stageResult[any]
+	deployResult, err = handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
 	if err != nil || deployResult.Cancellation.Cancel {
 		return deployResult.Cancellation.Result, err
 	}
@@ -340,10 +408,27 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 	var deploymentReason api.RemoteSecretReason
 	var deploymentMessage string
 
+	// To decide if the RemoteSecretReason should be Error, NoTargets, PartiallyInjected, or Injected, we need to know
+	// if there are any failed deployments and if there are any successful deployments.
+	hasAnyError := false
+	hasAnySuccess := false
+	for _, ts := range remoteSecret.Status.Targets {
+		if ts.Error != "" {
+			hasAnyError = true
+		} else {
+			hasAnySuccess = true
+		}
+	}
+
 	if aerr.HasErrors() {
 		log.FromContext(ctx).Error(aerr, "failed to deploy the secret to some targets")
-
-		deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		// The aggregate has errors, thus we cannot set RemoteSecretReason to 'Injected' or 'NoTargets'
+		// even if there are no targets because that would signal that everything is ok.
+		if hasAnySuccess {
+			deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		} else {
+			deploymentReason = api.RemoteSecretReasonError
+		}
 		deploymentStatus = metav1.ConditionFalse
 		deploymentMessage = aerr.Error()
 		// we want to retry the reconciliation because we failed to deploy to some targets in a retryable way
@@ -352,17 +437,20 @@ func (r *RemoteSecretReconciler) deploy(ctx context.Context, remoteSecret *api.R
 	} else {
 		// we might have no hard errors bubbling up but the individual targets might still have failed
 		// in a way that is not retryable. let's check for that...
-		hasErrors := false
-		for _, ts := range remoteSecret.Status.Targets {
-			if ts.Error != "" {
-				hasErrors = true
-			}
-		}
 
-		if hasErrors {
-			deploymentReason = api.RemoteSecretReasonPartiallyInjected
+		if len(remoteSecret.Status.Targets) == 0 { // same as: !hasAnyError && !hasAnySuccess
+			deploymentReason = api.RemoteSecretReasonNoTargets
 			deploymentStatus = metav1.ConditionFalse
-			deploymentMessage = "some targets were not successfully deployed"
+			deploymentMessage = "there are no targets to deploy to"
+		} else if hasAnyError {
+			deploymentStatus = metav1.ConditionFalse
+			if hasAnySuccess {
+				deploymentReason = api.RemoteSecretReasonPartiallyInjected
+				deploymentMessage = "some targets were not successfully deployed"
+			} else {
+				deploymentReason = api.RemoteSecretReasonError
+				deploymentMessage = "all targets were not successfully deployed"
+			}
 		} else {
 			deploymentReason = api.RemoteSecretReasonInjected
 			deploymentStatus = metav1.ConditionTrue
@@ -442,15 +530,15 @@ func (r *RemoteSecretReconciler) processTargets(ctx context.Context, remoteSecre
 	}
 }
 
-// deployToNamespace deploys the secret to the provided tartet and fills in the provided status with the result of the deployment. The status will also contain the error
+// deployToNamespace deploys the secret to the provided target and fills in the provided status with the result of the deployment. The status will also contain the error
 // if the deployment failed. This returns an error if the deployment fails (this is recorded in the target status) OR if the update of the status in k8s fails (this is,
 // obviously, not recorded in the target status).
 func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus, data *remotesecretstorage.SecretData) error {
 	ndsp := NamespaceDeploymentSyncProgress{Reconciler: r}
 
-	deps, reportError := ndsp.Start(ctx, remoteSecret, targetSpec, targetStatus)
+	deps, secretSpec, reportError := ndsp.Start(ctx, remoteSecret, targetSpec, targetStatus)
 
-	updateErr := r.updateStatusWithNamespaceDeploymentResults(ctx, deps, reportError, remoteSecret, targetSpec, targetStatus)
+	updateErr := r.updateStatusWithNamespaceDeploymentResults(ctx, deps, reportError, remoteSecret, &secretSpec, targetSpec, targetStatus)
 
 	err := ndsp.FinishAndGetErrorToReport(ctx, remoteSecret, updateErr, deps)
 	if err != nil {
@@ -468,24 +556,25 @@ type NamespaceDeploymentSyncProgress struct {
 }
 
 // Start begins the sync progress. The returned error, if any, is to be set in the error field of the targetStatus
-func (ndsp *NamespaceDeploymentSyncProgress) Start(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (*bindings.Dependents, error) {
+func (ndsp *NamespaceDeploymentSyncProgress) Start(ctx context.Context, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) (*bindings.Dependents, api.LinkableSecretSpec, error) {
 	debugLog := log.FromContext(ctx).V(logs.DebugLevel)
-	depHandler, depErr := newDependentsHandler(ctx, ndsp.Reconciler.TargetClientFactory, ndsp.Reconciler.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
-	if depErr != nil {
+	var depErr error
+	ndsp.depHandler, depErr = newDependentsHandler(ctx, ndsp.Reconciler.TargetClientFactory, ndsp.Reconciler.RemoteSecretStorage, remoteSecret, targetSpec, targetStatus)
+	if depErr != nil && !stdErrors.Is(depErr, bindings.ErrorInvalidClientConfig) {
 		debugLog.Error(depErr, "failed to construct the dependents handler")
 	}
 
 	var checkPointErr error
-	if depHandler != nil {
-		ndsp.checkPoint, checkPointErr = depHandler.CheckPoint(ctx)
+	if ndsp.depHandler != nil {
+		ndsp.checkPoint, checkPointErr = ndsp.depHandler.CheckPoint(ctx)
 		if checkPointErr != nil {
 			debugLog.Error(checkPointErr, "failed to construct a checkpoint to rollback to in case of target deployment error")
 		}
 	}
 
 	var deps *bindings.Dependents
-	if depHandler != nil && checkPointErr == nil {
-		deps, _, ndsp.syncError = depHandler.Sync(ctx, remoteSecret)
+	if ndsp.depHandler != nil && checkPointErr == nil {
+		deps, _, ndsp.syncError = ndsp.depHandler.Sync(ctx, remoteSecret)
 	}
 
 	err := rerror.AggregateNonNilErrors(depErr, checkPointErr, ndsp.syncError)
@@ -500,7 +589,11 @@ func (ndsp *NamespaceDeploymentSyncProgress) Start(ctx context.Context, remoteSe
 		}
 	}
 
-	return deps, err //nolint: wrapcheck //wrapped at a higher level
+	var spec api.LinkableSecretSpec
+	if ndsp.depHandler != nil {
+		spec = ndsp.depHandler.Target.GetSpec()
+	}
+	return deps, spec, err //nolint: wrapcheck //wrapped at a higher level
 }
 
 // FinishAndGetErrorToReport finishes the deployment to the namespace and returns an error, if any, to be returned from the reconcile. I.e. if this
@@ -538,21 +631,34 @@ func (ndsp *NamespaceDeploymentSyncProgress) FinishAndGetErrorToReport(ctx conte
 	return rerror.AggregateNonNilErrors(syncError, updateError) //nolint: wrapcheck // wrapped at a higher level
 }
 
-func (r *RemoteSecretReconciler) updateStatusWithNamespaceDeploymentResults(ctx context.Context, deps *bindings.Dependents, syncProgressError error, remoteSecret *api.RemoteSecret, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) error {
+func (r *RemoteSecretReconciler) updateStatusWithNamespaceDeploymentResults(ctx context.Context, deps *bindings.Dependents, syncProgressError error, remoteSecret *api.RemoteSecret, secretSpec *api.LinkableSecretSpec, targetSpec *api.RemoteSecretTarget, targetStatus *api.TargetStatus) error {
 	targetStatus.ApiUrl = targetSpec.ApiUrl
 	targetStatus.ClusterCredentialsSecret = targetSpec.ClusterCredentialsSecret
 
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
-		targetStatus.SecretName = deps.Secret.Name
+		targetStatus.DeployedSecret = &api.DeployedSecretStatus{}
+		targetStatus.DeployedSecret.Name = deps.Secret.Name
+		// if we got here, the secret will have had the labels/annos from the spec applied.
+		// We don't want to report the full set of the labels/annos though because those will contain
+		// more than just the requested in the spec.
+		targetStatus.DeployedSecret.Labels = secretSpec.Labels
+		targetStatus.DeployedSecret.Annotations = secretSpec.Annotations
 
 		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
+		targetStatus.Error = ""
+
+		targetStatus.ExpectedSecret = nil
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
-		targetStatus.SecretName = ""
+		targetStatus.DeployedSecret = nil
+		targetStatus.ExpectedSecret = &api.TargetSecretKey{
+			Name:         secretSpec.Name,
+			GenerateName: secretSpec.GenerateName,
+		}
 		targetStatus.ServiceAccountNames = []string{}
 	}
 
@@ -560,6 +666,13 @@ func (r *RemoteSecretReconciler) updateStatusWithNamespaceDeploymentResults(ctx 
 		targetStatus.Error = syncProgressError.Error()
 	} else {
 		targetStatus.Error = ""
+	}
+
+	// keep the backwards-compatibility for users that use this field
+	if targetStatus.DeployedSecret != nil {
+		targetStatus.SecretName = targetStatus.DeployedSecret.Name //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	} else {
+		targetStatus.SecretName = "" //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 	}
 
 	return r.Client.Status().Update(ctx, remoteSecret) //nolint: wrapcheck //wrapped at a higher level
@@ -681,6 +794,11 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 	retErr := rerror.NewAggregatedError()
 
+	secretName := ""
+	// should always be non-nil in this method, but let's be paranoid to avoid panics..
+	if target.DeployedSecret != nil {
+		secretName = target.DeployedSecret.Name
+	}
 	secretEv := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: rs.Name + "-",
@@ -692,7 +810,7 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		Related: &corev1.ObjectReference{
 			Kind:       "Secret",
 			Namespace:  target.Namespace,
-			Name:       target.SecretName,
+			Name:       secretName,
 			APIVersion: "v1",
 		},
 		Type:          "Warning",
@@ -743,4 +861,8 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		return fmt.Errorf("failed to create the cleanup failure event(s): %w", retErr)
 	}
 	return nil
+}
+
+func reconcileLogger(lg logr.Logger) logr.Logger {
+	return lg.WithValues("diagnostics", "reconcile")
 }

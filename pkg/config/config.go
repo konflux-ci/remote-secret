@@ -18,6 +18,7 @@ type instanceIdContextKeyType struct{}
 var InstanceIdContextKey = instanceIdContextKeyType{}
 
 type OperatorConfiguration struct {
+	ReconcileLogging bool
 }
 
 const (

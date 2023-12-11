@@ -22,6 +22,7 @@ import (
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
 type LoggingCliArgs struct {
 	ZapDevel           bool   `arg:"--zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
+	ReconcileLogging   bool   `arg:"--reconcile-logging, env" default:"false" help:"When true, logs the reconciliation triggers and diffs on info level with 'diagnostics: reconcile' key/value pair."`
 	ZapEncoder         string `arg:"--zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
 	ZapLogLevel        string `arg:"--zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
 	ZapStackTraceLevel string `arg:"--zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`
@@ -38,7 +39,7 @@ type CommonCliArgs struct {
 	AllowInsecureURLs bool             `arg:"--allow-insecure-urls, env" default:"false" help:"Whether is allowed or not to use insecure http URLs in service provider or vault configurations."`
 	TokenStorage      TokenStorageType `arg:"--tokenstorage, env" default:"vault" help:"The type of the token storage. Supported types: 'vault', 'aws' (experimental)."`
 	ExposeProfiling   bool             `arg:"--expose-profiling, env" default:"false" help:"whether to expose the /debug/pprof/ endpoint on the metrics bind address with the pprof profiling data."`
-	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with storage configuration. Example: '{\"fake\":{}}'"`
+	StorageConfigJSON string           `arg:"--storage-config-json, env" help:"JSON with ESO ClusterSecretStore provider's configuration. Example: '{\"fake\":{}}'"`
 	DisableHTTP2      bool             `arg:"--disable-http2, env" default:"true" help:"whether to support the HTTP/2 protocol in the webhook."`
 	vaultcli.VaultCliArgs
 	awscli.AWSCliArgs

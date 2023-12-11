@@ -29,7 +29,6 @@ import (
 
 var _ = Describe("TokenUploadController", func() {
 	Describe("Upload token", func() {
-
 		When("RemoteSecret exists", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
@@ -59,8 +58,10 @@ var _ = Describe("TokenUploadController", func() {
 						Name:      "test-remote-secret-upload",
 						Namespace: "default",
 						Labels:    map[string]string{api.UploadSecretLabel: "remotesecret"},
-						Annotations: map[string]string{api.RemoteSecretNameAnnotation: "new-remote-secret",
-							api.TargetNamespaceAnnotation: "ns"},
+						Annotations: map[string]string{
+							api.RemoteSecretNameAnnotation: "new-remote-secret",
+							api.TargetNamespaceAnnotation:  "ns",
+						},
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{"a": []byte("b")},
@@ -82,8 +83,10 @@ var _ = Describe("TokenUploadController", func() {
 							Name:      "test-remote-secret-upload",
 							Namespace: "default",
 							Labels:    map[string]string{api.UploadSecretLabel: "remotesecret"},
-							Annotations: map[string]string{api.RemoteSecretNameAnnotation: "new-remote-secret",
-								api.TargetNamespaceAnnotation: "ns"},
+							Annotations: map[string]string{
+								api.RemoteSecretNameAnnotation: "new-remote-secret",
+								api.TargetNamespaceAnnotation:  "ns",
+							},
 						},
 						Type: "Opaque",
 						Data: map[string][]byte{"a": []byte("b")},
@@ -108,7 +111,6 @@ var _ = Describe("TokenUploadController", func() {
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
 					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Spec.Targets[0].Namespace).To(Equal("ns"))
 				})
-
 			})
 		})
 		When("secret data are already present", func() {
@@ -157,6 +159,7 @@ var _ = Describe("TokenUploadController", func() {
 					MonitoredObjectTypes: []client.Object{
 						&corev1.Secret{},
 					},
+					ReconciliationTrigger: remoteSecretReconciliationTrigger,
 				}
 
 				test.BeforeEach(ITest.Context, ITest.Client, nil)

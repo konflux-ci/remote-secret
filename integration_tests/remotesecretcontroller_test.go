@@ -23,9 +23,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var remoteSecretReconciliationTrigger = map[schema.GroupKind]func(client.Object){
+	{Group: api.GroupVersion.Group, Kind: "RemoteSecret"}: func(o client.Object) {
+		rs := o.(*api.RemoteSecret)
+		if rs.Spec.Secret.Annotations == nil {
+			rs.Spec.Secret.Annotations = map[string]string{}
+		}
+		rs.Spec.Secret.Annotations["reconcile-trigger"] = string(uuid.NewUUID())
+	},
+}
 
 var _ = Describe("RemoteSecret", func() {
 	Describe("Create", func() {
@@ -149,6 +160,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -218,6 +230,7 @@ var _ = Describe("RemoteSecret", func() {
 							},
 						},
 					},
+					ReconciliationTrigger: remoteSecretReconciliationTrigger,
 				}
 
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -370,7 +383,43 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the labels", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain labels
+				rs.Spec.Secret.Labels = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the label
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Labels).NotTo(BeNil())
+						g.Expect(secrets[0].Labels).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to contain no labels
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Labels: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the labels are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						// the secret will have a label marking it as linked to the remote secret
+						// but it should not contain the labels defined by the secret spec of the RS.
+						g.Expect(secrets[0].Labels).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("updates the annotations", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
@@ -395,7 +444,41 @@ var _ = Describe("RemoteSecret", func() {
 				})
 			})
 			It("can remove the annotations", func() {
-				Skip("not supported atm")
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+
+				// first change the spec to contain annotations
+				rs.Spec.Secret.Annotations = map[string]string{
+					"k1": "v1",
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and test that the secret got updated with the annotation
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(BeNil())
+						g.Expect(secrets[0].Annotations).To(HaveKeyWithValue("k1", "v1"))
+					}
+				})
+
+				// now override the labels in the target to not contain annotations
+				rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+				rs.Spec.Targets[0].Secret = &api.SecretOverride{
+					Annotations: &map[string]string{},
+				}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				// and check that the annotations are no longer present on the secret
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					secrets := crenv.GetAll[*corev1.Secret](&test.InCluster)
+					g.Expect(secrets).To(HaveLen(1))
+					if len(secrets) > 0 {
+						g.Expect(secrets[0].Name).To(HavePrefix("spec-secret-"))
+						g.Expect(secrets[0].Annotations).NotTo(HaveKey("k1"))
+					}
+				})
 			})
 			It("override the name", func() {
 				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
@@ -596,6 +679,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -648,4 +732,265 @@ var _ = Describe("RemoteSecret", func() {
 		When("targets present", func() {
 		})
 	})
+
+	Describe("Conditions", func() {
+		When("data obtained but no targets present", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report true Deployed type condition with NoTargets reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					print(cond)
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
+				})
+			})
+		})
+
+		When("one of the targets fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								GenerateName: "secret-from-rs-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "default",
+							}, {
+								Namespace: "other", // namespace does not exist, will fail to deploy
+							}},
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report false Deployed type condition with PartiallyInjected reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonPartiallyInjected)))
+				})
+			})
+		})
+
+		When("only present target fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								GenerateName: "secret-from-rs-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "other", // namespace does not exist, will fail to deploy
+							}},
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should report false Deployed type condition with Error reason", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
+					g.Expect(cond).NotTo(BeNil())
+					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonError)))
+				})
+			})
+		})
+	})
+
+	Describe("ExpectedSecret in target Status", func() {
+		When("secret is successfully deployed to target", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "exact-secret-name",
+								GenerateName: "not-used-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "default",
+							}},
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("shows just the actual SecretName, without ExpectedSecret", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret).To(BeNil())
+				})
+			})
+		})
+
+		When("target with secret override fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "expected-name",
+								GenerateName: "expected-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{{
+								Namespace: "non-existing",
+							}},
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should should show ExpectedSecret name for the failed target", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-name"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
+				})
+			})
+		})
+
+		When("target with secret override fails to deploy", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+						Spec: api.RemoteSecretSpec{
+							Secret: api.LinkableSecretSpec{
+								Name:         "not-used-name",
+								GenerateName: "not-used-generate-",
+							},
+							Targets: []api.RemoteSecretTarget{
+								{
+									Namespace: "non-existing",
+									Secret: &api.SecretOverride{
+										Name:         "expected-override",
+										GenerateName: "expected-generate-",
+									},
+								},
+							},
+						},
+					},
+				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				uploadArbitraryDataToRS(&test)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("should should show ExpectedSecret name for the failed target", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).NotTo(BeNil())
+					g.Expect(rs.Status.Targets).To(HaveLen(1))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-override"))
+					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
+				})
+			})
+		})
+	})
 })
+
+func uploadArbitraryDataToRS(test *crenv.TestSetup) {
+	rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+	Expect(rs).NotTo(BeNil())
+	Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
+		"a": []byte("b"),
+	})).To(Succeed())
+}
