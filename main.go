@@ -20,8 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net/http"
-	"net/http/pprof"
 	"os"
 
 	"github.com/alexflint/go-arg"
@@ -38,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -133,30 +132,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args.ExposeProfiling {
-		// This can be replaced by mgr.PprofBindAddress when we finally upgrade to controller-runtime 0.15.x
-		if err := mgr.AddMetricsExtraHandler("/debug/pprof/", http.HandlerFunc(pprof.Index)); err != nil {
-			setupLog.Error(err, "failed to set up the profiling endpoint")
-			os.Exit(1)
-		}
-		if err := mgr.AddMetricsExtraHandler("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline)); err != nil {
-			setupLog.Error(err, "failed to set up the profiling endpoint")
-			os.Exit(1)
-		}
-		if err := mgr.AddMetricsExtraHandler("/debug/pprof/profile", http.HandlerFunc(pprof.Profile)); err != nil {
-			setupLog.Error(err, "failed to set up the profiling endpoint")
-			os.Exit(1)
-		}
-		if err := mgr.AddMetricsExtraHandler("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol)); err != nil {
-			setupLog.Error(err, "failed to set up the profiling endpoint")
-			os.Exit(1)
-		}
-		if err := mgr.AddMetricsExtraHandler("/debug/pprof/trace", http.HandlerFunc(pprof.Trace)); err != nil {
-			setupLog.Error(err, "failed to set up the profiling endpoint")
-			os.Exit(1)
-		}
-	}
-
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
@@ -188,12 +163,13 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	webhookServer := crebhook.NewServer(webhookServerOptions)
 	options := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     args.MetricsAddr,
+		Metrics:                metricsserver.Options{BindAddress: args.MetricsAddr},
 		HealthProbeBindAddress: args.ProbeAddr,
 		LeaderElection:         args.EnableLeaderElection,
 		LeaderElectionID:       "4279163b.appstudio.redhat.org",
 		Logger:                 ctrl.Log,
 		WebhookServer:          webhookServer,
+		PprofBindAddress:       args.PprofBindAddress,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
