@@ -22,6 +22,7 @@ import (
 // LoggingCliArgs define the command line arguments for configuring the logging using Zap.
 type LoggingCliArgs struct {
 	ZapDevel           bool   `arg:"--zap-devel, env" default:"false" help:"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn) Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)"`
+	ReconcileLogging   bool   `arg:"--reconcile-logging, env" default:"false" help:"When true, logs the reconciliation triggers and diffs on info level with 'diagnostics: reconcile' key/value pair."`
 	ZapEncoder         string `arg:"--zap-encoder, env" default:"" help:"Zap log encoding (‘json’ or ‘console’)"`
 	ZapLogLevel        string `arg:"--zap-log-level, env" default:"" help:"Zap Level to configure the verbosity of logging"`
 	ZapStackTraceLevel string `arg:"--zap-stacktrace-level, env" default:"" help:"Zap Level at and above which stacktraces are captured"`

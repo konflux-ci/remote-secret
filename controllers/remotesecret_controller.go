@@ -22,7 +22,10 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/redhat-appstudio/remote-secret/pkg/rerror"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -91,21 +94,73 @@ func (r *RemoteSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	err = ctrl.NewControllerManagedBy(mgr).
-		For(&api.RemoteSecret{}).
+		// for logging purposes, this Named + Watches replaces the For(&api.RemoteSecret) call.
+		Named("remotesecret").
+		Watches(&api.RemoteSecret{}, handler.Funcs{
+			CreateFunc: func(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
+				if e.Object == nil {
+					return
+				}
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "create", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+			},
+			UpdateFunc: func(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+				diff := cmp.Diff(e.ObjectOld, e.ObjectNew, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "update", "remoteSecret", client.ObjectKeyFromObject(e.ObjectOld), "diff", diff)
+				}
+				// logic copied from handler.EnqueueRequestForObject
+				if e.ObjectNew != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
+				} else if e.ObjectOld != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.ObjectNew)})
+				}
+			},
+			DeleteFunc: func(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "delete", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				if e.Object != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+				}
+			},
+			GenericFunc: func(ctx context.Context, e event.GenericEvent, q workqueue.RateLimitingInterface) {
+				if r.Configuration.ReconcileLogging {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "generic", "remoteSecret", client.ObjectKeyFromObject(e.Object))
+				}
+				if e.Object != nil {
+					q.Add(reconcile.Request{NamespacedName: client.ObjectKeyFromObject(e.Object)})
+				}
+			},
+		}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return linksToReconcileRequests(ctx, mgr.GetScheme(), o)
+			reqs := linksToReconcileRequests(ctx, mgr.GetScheme(), o)
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "link")
+			}
+			return reqs
 		})).
 		Watches(
 			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-				return r.findRemoteSecretForUploadSecret(o)
+				reqs := r.findRemoteSecretForUploadSecret(o)
+				if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+					reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKind", "secret", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "dataUpload")
+				}
+				return reqs
 			}),
 			builder.WithPredicates(pred, predicate.Funcs{
 				DeleteFunc: func(de event.DeleteEvent) bool { return true },
 			}),
 		).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			return r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
+			reqs := r.findRemoteSecretsInNamespaceForAuthSA(ctx, o)
+			if r.Configuration.ReconcileLogging && len(reqs) > 0 {
+				reconcileLogger(log.FromContext(ctx)).Info("enqueing reconcile", "action", "reactOnSource", "sourceKing", "serviceAccount", "source", client.ObjectKeyFromObject(o), "remoteSecrets", reqs, "reactReason", "authSA")
+			}
+			return reqs
 		})).
 		Complete(r)
 	if err != nil {
@@ -156,7 +211,6 @@ func linksToReconcileRequests(ctx context.Context, scheme *runtime.Scheme, o cli
 }
 
 func (r *RemoteSecretReconciler) findRemoteSecretsInNamespaceForAuthSA(ctx context.Context, o client.Object) []reconcile.Request {
-
 	if _, ok := o.GetLabels()[api.RemoteSecretAuthServiceAccountLabel]; !ok {
 		return nil
 	}
@@ -185,8 +239,17 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	defer logs.TimeTrackWithLazyLogger(func() logr.Logger { return lg }, time.Now(), "Reconcile RemoteSecret")
 
 	remoteSecret := &api.RemoteSecret{}
+	var err error
 
-	if err := r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
+	var origRemoteSecret *api.RemoteSecret
+	defer func() {
+		diff := cmp.Diff(origRemoteSecret, remoteSecret, cmpopts.IgnoreFields(api.RemoteSecret{}, "TypeMeta"))
+		if r.Configuration.ReconcileLogging {
+			reconcileLogger(lg).Info("reconcile complete", "error", err, "diff", diff)
+		}
+	}()
+
+	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
 			return ctrl.Result{}, nil
@@ -194,8 +257,10 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 		return ctrl.Result{}, fmt.Errorf("failed to get the RemoteSecret: %w", err)
 	}
+	origRemoteSecret = remoteSecret.DeepCopy()
 
-	finalizationResult, err := r.finalizers.Finalize(ctx, remoteSecret)
+	var finalizationResult finalizer.Result
+	finalizationResult, err = r.finalizers.Finalize(ctx, remoteSecret)
 	if err != nil {
 		// if the finalization fails, the finalizer stays in place, and so we don't want any repeated attempts until
 		// we get another reconciliation due to cluster state change
@@ -220,12 +285,14 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	// the reconciliation happens in stages, results of which are described in the status conditions.
-	dataResult, err := handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
+	var dataResult stageResult[*map[string][]byte]
+	dataResult, err = handleStage(ctx, r.Client, remoteSecret, r.obtainData(ctx, remoteSecret))
 	if err != nil || dataResult.Cancellation.Cancel {
 		return dataResult.Cancellation.Result, err
 	}
 
-	deployResult, err := handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
+	var deployResult stageResult[any]
+	deployResult, err = handleStage(ctx, r.Client, remoteSecret, r.deploy(ctx, remoteSecret, dataResult.ReturnValue))
 	if err != nil || deployResult.Cancellation.Cancel {
 		return deployResult.Cancellation.Result, err
 	}
@@ -507,16 +574,27 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 
 	if deps != nil {
 		targetStatus.Namespace = deps.Secret.Namespace
-		targetStatus.SecretName = deps.Secret.Name
+		targetStatus.DeployedSecret = &api.DeployedSecretStatus{}
+		targetStatus.DeployedSecret.Name = deps.Secret.Name
 
 		targetStatus.ServiceAccountNames = make([]string, len(deps.ServiceAccounts))
 		for i, sa := range deps.ServiceAccounts {
 			targetStatus.ServiceAccountNames[i] = sa.Name
 		}
 		targetStatus.Error = ""
+
+		// so let's use it to remember the labels and annotations that we are explicitly setting on the secret so that we can properly
+		// depTargetSpec contains the labels and annotations derived from the spec of the remote secret (taking into account the overrides)
+		// manage them in case of changes.
+		// The `deps` contains the actual secret as it exists in the target, which will contain more labels and annos (either set by someone
+		// else for the pre-existing secrets or the tracking labels and annos set by the dep handler).
+		depTargetSpec := depHandler.Target.GetSpec()
+		targetStatus.DeployedSecret.Labels = depTargetSpec.Labels
+		targetStatus.DeployedSecret.Annotations = depTargetSpec.Annotations
+		targetStatus.ExpectedSecret = nil
 	} else {
 		targetStatus.Namespace = targetSpec.Namespace
-		targetStatus.SecretName = ""
+		targetStatus.DeployedSecret = nil
 		targetStatus.ExpectedSecret = secretKey
 		targetStatus.ServiceAccountNames = []string{}
 		// finalizer depends on this being non-empty only in situations where we never deployed anything to the
@@ -525,6 +603,13 @@ func (r *RemoteSecretReconciler) deployToNamespace(ctx context.Context, remoteSe
 		if stdErrors.Is(syncErr, bindings.DependentsInconsistencyError) {
 			inconsistent = true
 		}
+	}
+
+	// keep the backwards-compatibility for users that use this field
+	if targetStatus.DeployedSecret != nil {
+		targetStatus.SecretName = targetStatus.DeployedSecret.Name //nolint:staticcheck // SA1019 - this deprecated field needs to be set
+	} else {
+		targetStatus.SecretName = "" //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 	}
 
 	updateErr = r.Client.Status().Update(ctx, remoteSecret)
@@ -684,6 +769,11 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 	retErr := rerror.NewAggregatedError()
 
+	secretName := ""
+	// should always be non-nil in this method, but let's be paranoid to avoid panics..
+	if target.DeployedSecret != nil {
+		secretName = target.DeployedSecret.Name
+	}
 	secretEv := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: rs.Name + "-",
@@ -695,7 +785,7 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		Related: &corev1.ObjectReference{
 			Kind:       "Secret",
 			Namespace:  target.Namespace,
-			Name:       target.SecretName,
+			Name:       secretName,
 			APIVersion: "v1",
 		},
 		Type:          "Warning",
@@ -746,4 +836,8 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 		return fmt.Errorf("failed to create the cleanup failure event(s): %w", retErr)
 	}
 	return nil
+}
+
+func reconcileLogger(lg logr.Logger) logr.Logger {
+	return lg.WithValues("diagnostics", "reconcile")
 }

@@ -16,7 +16,7 @@ package bindings
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 
 	"github.com/cenkalti/backoff/v4"
@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var DependentsInconsistencyError = errors.New("inconsistency detected when deploying dependent objects")
+var DependentsInconsistencyError = stderrors.New("inconsistency detected when deploying dependent objects")
 
 // DependentsHandler is taking care of the dependent objects of the provided target.
 type DependentsHandler[K any] struct {
