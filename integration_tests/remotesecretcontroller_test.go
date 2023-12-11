@@ -23,9 +23,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var remoteSecretReconciliationTrigger = map[schema.GroupKind]func(client.Object){
+	{Group: api.GroupVersion.Group, Kind: "RemoteSecret"}: func(o client.Object) {
+		rs := o.(*api.RemoteSecret)
+		if rs.Spec.Secret.Annotations == nil {
+			rs.Spec.Secret.Annotations = map[string]string{}
+		}
+		rs.Spec.Secret.Annotations["reconcile-trigger"] = string(uuid.NewUUID())
+	},
+}
 
 var _ = Describe("RemoteSecret", func() {
 	Describe("Create", func() {
@@ -149,6 +160,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -218,6 +230,7 @@ var _ = Describe("RemoteSecret", func() {
 							},
 						},
 					},
+					ReconciliationTrigger: remoteSecretReconciliationTrigger,
 				}
 
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -684,6 +697,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -748,6 +762,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -791,6 +806,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -831,6 +847,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -874,6 +891,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -914,6 +932,7 @@ var _ = Describe("RemoteSecret", func() {
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -949,17 +968,19 @@ var _ = Describe("RemoteSecret", func() {
 								Name:         "not-used-name",
 								GenerateName: "not-used-generate-",
 							},
-							Targets: []api.RemoteSecretTarget{{
-								Namespace: "non-existing",
-								Secret: &api.SecretOverride{
-									Name:         "expected-override",
-									GenerateName: "expected-generate-",
+							Targets: []api.RemoteSecretTarget{
+								{
+									Namespace: "non-existing",
+									Secret: &api.SecretOverride{
+										Name:         "expected-override",
+										GenerateName: "expected-generate-",
+									},
 								},
-							},
 							},
 						},
 					},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 			BeforeEach(func() {
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
@@ -982,7 +1003,6 @@ var _ = Describe("RemoteSecret", func() {
 			})
 		})
 	})
-
 })
 
 func uploadArbitraryDataToRS(test *crenv.TestSetup) {
