@@ -15,13 +15,12 @@
 package vaultstorage
 
 import (
-	"context"
 	"encoding/base64"
-	"testing"
-
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
