@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SecretDeploymentTarget, together with SecretBuilder and ObjectMarker, represents a method of obtaining enough
+// SecretDeploymentTarget together with SecretBuilder and ObjectMarker, represents a method of obtaining enough
 // information for the DependentsHandler to be able to deliver the secrets and service accounts to some "target"
 // place in (some) K8s cluster.
 type SecretDeploymentTarget interface {
@@ -68,6 +68,7 @@ type ObjectMarker interface {
 	MarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	UnmarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	IsManagedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	IsManagedByOther(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	IsReferencedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	ListManagedOptions(ctx context.Context, taget client.ObjectKey) ([]client.ListOption, error)
 	ListReferencedOptions(ctx context.Context, target client.ObjectKey) ([]client.ListOption, error)

@@ -732,6 +732,38 @@ var _ = Describe("RemoteSecret", func() {
 		When("targets present", func() {
 		})
 	})
+	Describe("Interactions", func() {
+		When("two RemoteSecrets have the same target", func() {
+			originalRS := defaultRemoteSecretWithTarget("original-rs", "secret-abc", "default")
+			test := crenv.TestSetup{
+				ToCreate:              []client.Object{originalRS},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("second RemoteSecret should have error in target", func() {
+				duplicateRS := defaultRemoteSecretWithTarget("duplicate-target-rs", "secret-abc", "default")
+				Expect(ITest.Client.Create(ITest.Context, duplicateRS)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					remoteSecrets := crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(originalRS))
+					g.Expect(remoteSecrets).To(HaveLen(1))
+					Expect(remoteSecrets[0].Status.Targets[0].Error).To(BeEmpty())
+					Expect(remoteSecrets[0].Status.Targets[0].DeployedSecret.Name).To(Equal(originalRS.Spec.Secret.Name))
+
+					remoteSecrets = crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(duplicateRS))
+					g.Expect(remoteSecrets).To(HaveLen(1))
+					Expect(remoteSecrets[0].Status.Targets[0].Error).NotTo(BeEmpty())
+				})
+			})
+		})
+	})
 
 	Describe("Conditions", func() {
 		When("data obtained but no targets present", func() {
@@ -761,7 +793,6 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs).NotTo(BeNil())
 					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
 					g.Expect(cond).NotTo(BeNil())
-					print(cond)
 					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
 				})
@@ -993,4 +1024,26 @@ func uploadArbitraryDataToRS(test *crenv.TestSetup) {
 	Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
 		"a": []byte("b"),
 	})).To(Succeed())
+}
+
+func defaultRemoteSecretWithTarget(rsName, secretName, targetNs string) *api.RemoteSecret {
+	return &api.RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rsName,
+			Namespace: "default",
+		},
+		Spec: api.RemoteSecretSpec{
+			Secret: api.LinkableSecretSpec{
+				Name: secretName,
+			},
+			Targets: []api.RemoteSecretTarget{
+				{
+					Namespace: targetNs,
+				},
+			},
+		},
+		UploadData: map[string][]byte{
+			"k1": []byte("v1"),
+		},
+	}
 }

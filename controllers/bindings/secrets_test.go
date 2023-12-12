@@ -292,3 +292,55 @@ func TestList(t *testing.T) {
 	assert.Len(t, scs, 1)
 	assert.Equal(t, scs[0].Name, "shes-the-one")
 }
+
+func TestCheckColliding(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NoError(t, corev1.AddToScheme(scheme))
+
+	t.Run("Secret does not exist", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+		h := secretHandler[*api.RemoteSecret]{
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+			},
+			ObjectMarker:     &TestObjectMarker{},
+			SecretDataGetter: &TestSecretDataGetter[*api.RemoteSecret]{},
+		}
+
+		err := h.CheckColliding(context.TODO())
+		assert.NoError(t, err)
+	})
+
+	t.Run("Secret is managed by other RemoteSecret", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "managed-by-other",
+					Namespace: "default",
+				},
+			}).Build()
+		h := secretHandler[*api.RemoteSecret]{
+			Target: &TestDeploymentTarget{
+				GetClientImpl: func() client.Client { return cl },
+				GetTargetNamespaceImpl: func() string {
+					return "default"
+				},
+				GetSpecImpl: func() api.LinkableSecretSpec {
+					return api.LinkableSecretSpec{
+						Name: "managed-by-other",
+					}
+				},
+			},
+			ObjectMarker: &TestObjectMarker{
+				IsManagedByOtherImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
+					return true, nil
+				},
+			},
+			SecretDataGetter: &TestSecretDataGetter[*api.RemoteSecret]{},
+		}
+
+		err := h.CheckColliding(context.TODO())
+		assert.Error(t, err)
+		assert.ErrorContains(t, err, "other")
+	})
+}

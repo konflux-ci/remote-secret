@@ -16,9 +16,8 @@ package bindings
 
 import (
 	"context"
+	stderr "errors"
 	"fmt"
-
-	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -32,6 +31,7 @@ import (
 )
 
 var (
+	managedByOtherError = stderr.New("there already exists target Secret managed by other RemoteSecret")
 	// pre-allocated empty map so that we don't have to allocate new empty instances in the serviceAccountSecretDiffOpts
 	emptySecretData = map[string][]byte{}
 
@@ -89,28 +89,30 @@ type secretHandler[K any] struct {
 	SecretDataGetter SecretDataGetter[K]
 }
 
-// CheckColliding detects whether the secret...
-func (h *secretHandler[K]) CheckColliding(ctx context.Context) (bool, error) {
-	// if target name is not specified, then we can be sure it will not collide with other targets
+// CheckColliding detects whether the target Secret exists and is managed by other RemoteSecret, returns error if it is.
+func (h *secretHandler[K]) CheckColliding(ctx context.Context) error {
+	// if SecretDeploymentTarget name is not specified, then we can be sure it will not collide with other targets
 	if h.Target.GetSpec().Name == "" {
-		return false, nil
+		return nil
 	}
 
 	secret := &corev1.Secret{}
 	err := h.Target.GetClient().Get(ctx, client.ObjectKey{Name: h.Target.GetSpec().Name, Namespace: h.Target.GetTargetNamespace()}, secret)
 	if errors.IsNotFound(err) {
-		return false, nil
+		return nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to detect whether the Secret is managed by other RemoteSecret: %w", err)
+		return fmt.Errorf("failed to get Secret: %w", err)
 	}
 
-	isManaged, err := h.ObjectMarker.IsManagedBy(ctx, h.Target.GetTargetObjectKey(), secret)
+	managedByOther, err := h.ObjectMarker.IsManagedByOther(ctx, h.Target.GetTargetObjectKey(), secret)
 	if err != nil {
-		return false, fmt.Errorf("failed to determine if the Secret is managed by RemoteSecret: %w", err)
+		return fmt.Errorf("failed to determine if the target Secret is managed by other RemoteSecret: %w", err)
 	}
-
-	return !isManaged && secret.Annotations[api.ManagingRemoteSecretNameAnnotation] != "", nil
+	if managedByOther {
+		return managedByOtherError
+	}
+	return nil
 }
 
 // GetStale detects whether the secret referenced by the target is stale and needs to be replaced by a new one.

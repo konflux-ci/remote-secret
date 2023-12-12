@@ -105,19 +105,17 @@ func (d *DependentsHandler[K]) detectLinks(ctx context.Context, secretName strin
 }
 
 func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents, string, error) {
-	// syncing the service accounts and secrets is a 3 step process.
+	// We first check if the Secret we are supposed to sync is not already managed by other RemoteSecret.
+	// If it is not, we continue syncing the service accounts and secrets in a 3-step process.
 	// First, an empty service account needs to be created.
 	// Second, a secret linking to the service account needs to be created.
 	// Third, the service account needs to be updated with the link to the secret.
 
 	secretsHandler, saHandler := d.childHandlers()
 
-	colliding, err := secretsHandler.CheckColliding(ctx)
+	err := secretsHandler.CheckColliding(ctx)
 	if err != nil {
-		return nil, "", err
-	}
-	if colliding {
-		return nil, "", fmt.Errorf("the Secret to be created is already managed by other RemoteSecret")
+		return nil, "", fmt.Errorf("could not ensure that that the target secret is not colliding with other RemoteSecret target: %w", err)
 	}
 
 	serviceAccounts, errorReason, err := saHandler.Sync(ctx)

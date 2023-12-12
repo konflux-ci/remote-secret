@@ -37,6 +37,12 @@ func (m *NamespaceObjectMarker) IsManagedBy(ctx context.Context, rs client.Objec
 	return refed && annos[api.ManagingRemoteSecretNameAnnotation] == rs.String(), nil
 }
 
+// IsManagedByOther checks whether obj is marked by something other than rs. Note that !IsManagedBy does not imply IsManagedByOther.
+func (m *NamespaceObjectMarker) IsManagedByOther(ctx context.Context, rs client.ObjectKey, obj client.Object) (bool, error) {
+	managingValue, managingPresent := obj.GetAnnotations()[api.ManagingRemoteSecretNameAnnotation]
+	return managingPresent && managingValue != rs.String(), nil
+}
+
 // IsReferenced implements bindings.ObjectMarker
 func (m *NamespaceObjectMarker) IsReferencedBy(ctx context.Context, rs client.ObjectKey, obj client.Object) (bool, error) {
 	annos := obj.GetAnnotations()
