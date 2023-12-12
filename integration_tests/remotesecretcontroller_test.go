@@ -282,6 +282,24 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).Error()
 				})
 			})
+
+			It("should remove all targets secrets", func() {
+				// remove all targets secrets from the spec
+				rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
+				Expect(rs).NotTo(BeNil())
+				rs.Spec.Targets = []api.RemoteSecretTarget{}
+				Expect(ITest.Client.Update(ITest.Context, rs)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs.Status.Targets).To(BeEmpty())
+					// check that rs.Status.Conditions Deployed is False
+					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))).To(BeFalse())
+					// check that all secrets are removed
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).Error()
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).Error()
+				})
+			})
 		})
 
 		When("target added", func() {
@@ -699,7 +717,7 @@ var _ = Describe("RemoteSecret", func() {
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
-					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(rs.Status.Conditions).To(HaveLen(2))
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeTrue())
 				})
 			})
@@ -709,7 +727,7 @@ var _ = Describe("RemoteSecret", func() {
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
-					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(rs.Status.Conditions).To(HaveLen(2))
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeTrue())
 				})
 
@@ -719,7 +737,7 @@ var _ = Describe("RemoteSecret", func() {
 				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
-					g.Expect(len(rs.Status.Conditions)).To(Equal(2))
+					g.Expect(rs.Status.Conditions).To(HaveLen(2))
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDataObtained))).To(BeFalse())
 				})
 			})
