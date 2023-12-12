@@ -45,9 +45,6 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/cmd"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-
-	// transitive dependency used to force specific version in go.mod
-	_ "google.golang.org/grpc"
 )
 
 var (
