@@ -112,6 +112,14 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 
 	secretsHandler, saHandler := d.childHandlers()
 
+	colliding, err := secretsHandler.CheckColliding(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if colliding {
+		return nil, "", fmt.Errorf("the Secret to be created is already managed by other RemoteSecret")
+	}
+
 	serviceAccounts, errorReason, err := saHandler.Sync(ctx)
 	if err != nil {
 		return nil, errorReason, err
