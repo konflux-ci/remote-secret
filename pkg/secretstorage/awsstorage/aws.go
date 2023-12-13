@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -36,6 +38,12 @@ var (
 	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
+	awsStoreTimeMetric         = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "aws_store_time_seconds",
+		Help:      "the time it take to store secret data in AWS",
+	}, []string{})
 )
 
 const (
@@ -57,8 +65,9 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	InstanceId string
-	Config     *aws.Config
+	InstanceId        string
+	Config            *aws.Config
+	MetricsRegisterer prometheus.Registerer
 
 	secretNameFormat string
 	client           awsClient
@@ -69,6 +78,9 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
 	s.secretNameFormat = s.initSecretNameFormat()
+	if err := s.initMetrics(ctx); err != nil {
+		return fmt.Errorf("failed to initialize AWS metrics: %w", err)
+	}
 
 	if errCheck := s.checkCredentials(ctx); errCheck != nil {
 		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
@@ -264,6 +276,19 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 	} else {
 		return s.InstanceId + "/%s/%s"
 	}
+}
+
+func (s *AwsSecretStorage) initMetrics(ctx context.Context) error {
+	if s.MetricsRegisterer == nil {
+		log.FromContext(ctx).Info("no metrics registry configured - metrics collection for AWS is disabled")
+		return nil
+	}
+	if err := s.MetricsRegisterer.Register(awsStoreTimeMetric); err != nil {
+		if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
+			return fmt.Errorf("failed to register AWS store time metric: %w", err)
+		}
+	}
+	return nil
 }
 
 func lg(ctx context.Context) logr.Logger {
