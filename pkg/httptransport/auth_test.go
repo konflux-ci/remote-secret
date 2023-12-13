@@ -23,6 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// response is nil, so there is no way to close the body
+//
+//nolint:bodyclose
 func TestAuthenticatingRoundTripper_RoundTrip(t *testing.T) {
 	ctx := WithBearerToken(context.TODO(), "token")
 

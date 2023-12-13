@@ -16,8 +16,9 @@ package integrationtests
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"math/rand"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
@@ -151,15 +152,18 @@ var (
 )
 
 func refreshTestData(t *testing.T) {
-
 	random, _, _ := strings.Cut(string(uuid.NewUUID()), "-")
 	secretId = secretstorage.SecretID{Name: "secret" + random, Namespace: "ns" + random}
+
+	expiry, err := rand.Int(rand.Reader, big.NewInt(1000))
+	assert.NoError(t, err)
+
 	testData := map[string]any{
 		"username":     "testUsername-" + random,
 		"accessToken":  "testAccessToken-" + random,
 		"tokenType":    "testTokenType-" + random,
 		"refreshToken": "testRefreshToken-" + random,
-		"expiry":       rand.Uint64() % 1000,
+		"expiry":       expiry.Int64(),
 	}
 	bytes, err := secretstorage.SerializeJSON(&testData)
 	assert.NoError(t, err)

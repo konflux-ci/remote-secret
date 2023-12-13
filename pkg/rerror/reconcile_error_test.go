@@ -21,8 +21,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var Error1 = errors.New("1")
+var Error2 = errors.New("2")
+var ErrorA = errors.New("a")
+var ErrorB = errors.New("b")
+var ErrorC = errors.New("c")
+var RandomError = errors.New("asdf")
+
 func TestAggregatedError(t *testing.T) {
-	e := NewAggregatedError(errors.New("a"), errors.New("b"), errors.New("c"))
+	e := NewAggregatedError(ErrorA, ErrorB, ErrorC)
 	assert.Equal(t, "a, b, c", e.Error())
 }
 
@@ -31,13 +38,13 @@ func TestAggregatedError_Add(t *testing.T) {
 
 	assert.Equal(t, "", e.Error())
 
-	e.Add(errors.New("a"))
+	e.Add(ErrorA)
 	assert.Equal(t, "a", e.Error())
 
-	e.Add(errors.New("b"))
+	e.Add(ErrorB)
 	assert.Equal(t, "a, b", e.Error())
 
-	e.Add(errors.New("c"))
+	e.Add(ErrorC)
 	assert.Equal(t, "a, b, c", e.Error())
 }
 
@@ -51,18 +58,18 @@ func TestAggregateNonNilErrors(t *testing.T) {
 	})
 
 	t.Run("single error returned as is", func(t *testing.T) {
-		err := errors.New("asdf")
+		err := RandomError
 		assert.Same(t, err, AggregateNonNilErrors(err))
 	})
 
 	t.Run("single error among nils returned as is", func(t *testing.T) {
-		err := errors.New("asdf")
+		err := RandomError
 		assert.Same(t, err, AggregateNonNilErrors(nil, err, nil, nil))
 	})
 
 	t.Run("multiple errors aggregated", func(t *testing.T) {
-		err1 := errors.New("1")
-		err2 := errors.New("2")
+		err1 := Error1
+		err2 := Error2
 		agg := AggregateNonNilErrors(err1, err2)
 		assert.IsType(t, &AggregatedError{}, agg)
 		assert.Equal(t, "1, 2", agg.Error())
