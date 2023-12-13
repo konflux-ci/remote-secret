@@ -404,7 +404,7 @@ var _ = Describe("TokenUploadController", func() {
 				data, err := ITest.Storage.Get(ITest.Context, rs)
 				g.Expect(err).NotTo(HaveOccurred())
 
-				g.Expect(*data).To(HaveLen(0))
+				g.Expect(*data).To(BeEmpty())
 			})
 		})
 
