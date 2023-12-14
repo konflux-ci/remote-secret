@@ -413,8 +413,8 @@ func TestServiceAccountSync(t *testing.T) {
 		assert.Equal(t, "yay", storedSA.Labels["gelinkt_managed"])
 
 		// now, change the behavior to say that our SA is managed by some other target.
-		objectMarker.IsManagedByOtherImpl = func(ctx context.Context, target client.ObjectKey, o client.Object) (bool, error) {
-			return true, nil
+		objectMarker.IsManagedByOtherImpl = func(ctx context.Context, target client.ObjectKey, o client.Object) (bool, client.ObjectKey, error) {
+			return true, client.ObjectKey{}, nil
 		}
 		_, _, err = h.Sync(context.TODO())
 

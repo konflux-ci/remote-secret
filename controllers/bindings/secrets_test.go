@@ -332,8 +332,8 @@ func TestCheckColliding(t *testing.T) {
 				},
 			},
 			ObjectMarker: &TestObjectMarker{
-				IsManagedByOtherImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, error) {
-					return true, nil
+				IsManagedByOtherImpl: func(ctx context.Context, _ client.ObjectKey, o client.Object) (bool, client.ObjectKey, error) {
+					return true, client.ObjectKey{}, nil
 				},
 			},
 			SecretDataGetter: &TestSecretDataGetter[*api.RemoteSecret]{},

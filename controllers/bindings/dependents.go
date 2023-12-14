@@ -115,7 +115,7 @@ func (d *DependentsHandler[K]) Sync(ctx context.Context, dataKey K) (*Dependents
 
 	err := secretsHandler.CheckColliding(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("could not ensure that that the target secret is not colliding with other RemoteSecret target: %w", err)
+		return nil, "", fmt.Errorf("possible collision between two targets of different RemoteSecrets: %w", err)
 	}
 
 	serviceAccounts, errorReason, err := saHandler.Sync(ctx)

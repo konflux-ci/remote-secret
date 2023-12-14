@@ -46,7 +46,7 @@ var _ SecretDataGetter[bool] = (*TestSecretDataGetter[bool])(nil)
 
 type TestObjectMarker struct {
 	IsManagedByImpl           func(context.Context, client.ObjectKey, client.Object) (bool, error)
-	IsManagedByOtherImpl      func(context.Context, client.ObjectKey, client.Object) (bool, error)
+	IsManagedByOtherImpl      func(context.Context, client.ObjectKey, client.Object) (bool, client.ObjectKey, error)
 	IsReferencedByImpl        func(context.Context, client.ObjectKey, client.Object) (bool, error)
 	ListManagedOptionsImpl    func(context.Context, client.ObjectKey) ([]client.ListOption, error)
 	ListReferencedOptionsImpl func(context.Context, client.ObjectKey) ([]client.ListOption, error)
@@ -156,11 +156,11 @@ func (m *TestObjectMarker) IsManagedBy(ctx context.Context, target client.Object
 }
 
 // IsManagedByOther implements ObjectMarker
-func (m *TestObjectMarker) IsManagedByOther(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error) {
+func (m *TestObjectMarker) IsManagedByOther(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error) {
 	if m.IsManagedByOtherImpl != nil {
 		return m.IsManagedByOtherImpl(ctx, target, obj)
 	}
-	return false, nil
+	return false, client.ObjectKey{}, nil
 }
 
 // IsReferenced implements ObjectMarker

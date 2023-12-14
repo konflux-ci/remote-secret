@@ -68,7 +68,10 @@ type ObjectMarker interface {
 	MarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	UnmarkReferenced(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	IsManagedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
-	IsManagedByOther(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
+	// IsManagedByOther checks whether obj is marked as managed by something other than target or not marked as managed at all.
+	// Note that ! IsManagedBy does not imply IsManagedByOther. If obj is marked as managed by ObjectKey different target,
+	// such ObjectKey should be returned by the function.
+	IsManagedByOther(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error)
 	IsReferencedBy(ctx context.Context, target client.ObjectKey, obj client.Object) (bool, error)
 	ListManagedOptions(ctx context.Context, taget client.ObjectKey) ([]client.ListOption, error)
 	ListReferencedOptions(ctx context.Context, target client.ObjectKey) ([]client.ListOption, error)
