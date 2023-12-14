@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -38,12 +39,12 @@ var (
 	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
-	awsStoreTimeMetric         = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	awsStoreTimeMetric         = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
 		Name:      "aws_store_time_seconds",
-		Help:      "the time it take to store secret data in AWS",
-	}, []string{})
+		Help:      "the time it takes to store secret data in AWS",
+	})
 )
 
 const (
@@ -95,7 +96,10 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	ctx = log.IntoContext(ctx, lg)
 
+	start := time.Now()
 	errCreate := s.createOrUpdateAwsSecret(ctx, &id, data)
+	awsStoreTimeMetric.Observe(time.Since(start).Seconds())
+
 	if errCreate != nil {
 		lg.Error(errCreate, "secret creation failed")
 		return errASWSecretCreationFailed
