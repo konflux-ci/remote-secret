@@ -23,6 +23,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/stretchr/testify/assert"
 )
@@ -125,6 +126,39 @@ func TestStore(t *testing.T) {
 		assert.True(t, cl.createCalled)
 		assert.False(t, cl.updateCalled)
 	})
+}
+
+func TestTimeMetric(t *testing.T) {
+	cl := &mockAwsClient{
+		createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+			return nil, nil
+		},
+		getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+			return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
+		},
+		deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
+			return nil, nil
+		},
+	}
+	strg := newStorage(cl)
+	err := strg.initMetrics(context.TODO())
+	assert.NoError(t, err)
+
+	errStore := strg.Store(context.TODO(), testSecretID, testData)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.createCalled)
+
+	assert.Equal(t, 1, prometheusTest.CollectAndCount(awsStoreTimeMetric))
+
+	_, errStore = strg.Get(context.TODO(), testSecretID)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.getCalled)
+	assert.Equal(t, 2, prometheusTest.CollectAndCount(awsStoreTimeMetric))
+
+	errStore = strg.Delete(context.TODO(), testSecretID)
+	assert.NoError(t, errStore)
+	assert.True(t, cl.deleteCalled)
+	assert.Equal(t, 3, prometheusTest.CollectAndCount(awsStoreTimeMetric))
 }
 
 func TestUpdate(t *testing.T) {

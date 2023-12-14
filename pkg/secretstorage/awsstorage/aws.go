@@ -18,9 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -39,12 +40,13 @@ var (
 	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
-	awsStoreTimeMetric         = prometheus.NewHistogram(prometheus.HistogramOpts{
+
+	awsStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
-		Name:      "aws_store_time_seconds",
-		Help:      "the time it takes to store secret data in AWS",
-	})
+		Name:      "aws_operation_time_seconds",
+		Help:      "the time it takes to complete operation with secret data in AWS",
+	}, []string{"operation"})
 )
 
 const (
@@ -98,7 +100,7 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	start := time.Now()
 	errCreate := s.createOrUpdateAwsSecret(ctx, &id, data)
-	awsStoreTimeMetric.Observe(time.Since(start).Seconds())
+	awsStoreTimeMetric.WithLabelValues("store").Observe(time.Since(start).Seconds())
 
 	if errCreate != nil {
 		lg.Error(errCreate, "secret creation failed")
@@ -112,7 +114,10 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 	secretName := s.generateAwsSecretName(&id)
 	lg.V(logs.DebugLevel).Info("getting the token", "secretname", secretName)
+
+	start := time.Now()
 	getResult, err := s.getAwsSecret(ctx, secretName)
+	awsStoreTimeMetric.WithLabelValues("get").Observe(time.Since(start).Seconds())
 
 	if err != nil {
 		if isAwsNotFoundError(err) {
@@ -137,7 +142,11 @@ func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID
 	lg.V(logs.DebugLevel).Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
+
+	start := time.Now()
 	errDelete := s.deleteAwsSecret(ctx, secretName)
+	awsStoreTimeMetric.WithLabelValues("delete").Observe(time.Since(start).Seconds())
+
 	if errDelete != nil {
 		lg.Error(errDelete, "secret deletion failed")
 		return errASWSecretDeletionFailed

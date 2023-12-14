@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
