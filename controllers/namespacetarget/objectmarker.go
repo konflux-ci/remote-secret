@@ -30,7 +30,7 @@ import (
 type NamespaceObjectMarker struct {
 }
 
-var malformedManagingAnnotation = errors.New("the ManagingRemoteSecret Annotation is malformed, this should not happen")
+var malformedManagingAnnotation = errors.New("the ManagingRemoteSecret Annotation value is malformed, this should not happen")
 
 var _ bindings.ObjectMarker = (*NamespaceObjectMarker)(nil)
 
