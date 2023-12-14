@@ -31,60 +31,6 @@ import (
 
 var _ = Describe("TokenUploadController", func() {
 	Describe("Upload token", func() {
-		// This functionality is not implemented yet
-		// Nothing happens when creating upload secret for a existing remotesecret
-		// When("RemoteSecret exists", func() {
-		// 	test := crenv.TestSetup{
-		// 		ToCreate: []client.Object{
-		// 			&api.RemoteSecret{
-		// 				ObjectMeta: metav1.ObjectMeta{
-		// 					Name:      "new-remote-secret",
-		// 					Namespace: "default",
-		// 				},
-		// 			},
-		// 		},
-		// 		MonitoredObjectTypes: []client.Object{
-		// 			&corev1.Secret{},
-		// 		},
-		// 	}
-
-		// 	BeforeEach(func() {
-		// 		test.BeforeEach(ITest.Context, ITest.Client, nil)
-		// 	})
-
-		// 	AfterEach(func() {
-		// 		test.AfterEach(ITest.Context)
-		// 	})
-
-		// 	It("adds new target from uploadSecret annotation", func() {
-		// 		o := &corev1.Secret{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name:      "test-remote-secret-upload",
-		// 				Namespace: "default",
-		// 				Labels:    map[string]string{api.UploadSecretLabel: "remotesecret"},
-		// 				Annotations: map[string]string{
-		// 					api.RemoteSecretNameAnnotation: "new-remote-secret",
-		// 					api.TargetNamespaceAnnotation:  "ns",
-		// 				},
-		// 			},
-		// 			Type: "Opaque",
-		// 			Data: map[string][]byte{"a": []byte("b")},
-		// 		}
-
-		// 		Expect(ITest.Client.Create(ITest.Context, o)).To(Succeed())
-
-		// 		var rsList []*api.RemoteSecret
-		// 		Eventually(func() bool {
-		// 			rsList = crenv.GetAll[*api.RemoteSecret](&test.InCluster)
-
-		// 			return len(rsList) == 1
-		// 		}, 1*time.Minute, 1*time.Second).Should(BeTrue(), "RemoteSecret was not created")
-
-		// 		Expect(rsList[0].Name).To(Equal("new-remote-secret"))
-		// 		Expect(rsList[0].Spec.Targets[0].Namespace).To(Equal("ns"))
-		// 	})
-		// })
-
 		When("no RemoteSecret exists", func() {
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
