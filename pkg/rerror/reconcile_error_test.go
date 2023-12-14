@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//nolint:goerr113 the errors are 'fake'
+//nolint:goerr113 // the errors are 'fake'
 package rerror
 
 import (
