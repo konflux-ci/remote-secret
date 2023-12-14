@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:goerr113 the errors are 'fake'
 package rerror
 
 import (
@@ -21,15 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var Error1 = errors.New("1")
-var Error2 = errors.New("2")
-var ErrorA = errors.New("a")
-var ErrorB = errors.New("b")
-var ErrorC = errors.New("c")
-var RandomError = errors.New("asdf")
-
 func TestAggregatedError(t *testing.T) {
-	e := NewAggregatedError(ErrorA, ErrorB, ErrorC)
+	e := NewAggregatedError(errors.New("a"), errors.New("b"), errors.New("c"))
 	assert.Equal(t, "a, b, c", e.Error())
 }
 
@@ -38,13 +32,13 @@ func TestAggregatedError_Add(t *testing.T) {
 
 	assert.Equal(t, "", e.Error())
 
-	e.Add(ErrorA)
+	e.Add(errors.New("a"))
 	assert.Equal(t, "a", e.Error())
 
-	e.Add(ErrorB)
+	e.Add(errors.New("b"))
 	assert.Equal(t, "a, b", e.Error())
 
-	e.Add(ErrorC)
+	e.Add(errors.New("c"))
 	assert.Equal(t, "a, b, c", e.Error())
 }
 
@@ -58,18 +52,18 @@ func TestAggregateNonNilErrors(t *testing.T) {
 	})
 
 	t.Run("single error returned as is", func(t *testing.T) {
-		err := RandomError
+		err := errors.New("asdf")
 		assert.Same(t, err, AggregateNonNilErrors(err))
 	})
 
 	t.Run("single error among nils returned as is", func(t *testing.T) {
-		err := RandomError
+		err := errors.New("asdf")
 		assert.Same(t, err, AggregateNonNilErrors(nil, err, nil, nil))
 	})
 
 	t.Run("multiple errors aggregated", func(t *testing.T) {
-		err1 := Error1
-		err2 := Error2
+		err1 := errors.New("1")
+		err2 := errors.New("2")
 		agg := AggregateNonNilErrors(err1, err2)
 		assert.IsType(t, &AggregatedError{}, agg)
 		assert.Equal(t, "1, 2", agg.Error())
