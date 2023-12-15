@@ -24,8 +24,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// response is nil, so there is no way to close the body
+//
+//nolint:bodyclose
 func TestMetricsCollectingRoundTripper(t *testing.T) {
-	req, err := http.NewRequest("GET", "https://over.the.rainbow", strings.NewReader(""))
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "https://over.the.rainbow", strings.NewReader(""))
 	assert.NoError(t, err)
 
 	registry := prometheus.NewPedanticRegistry()

@@ -24,7 +24,9 @@ import (
 )
 
 func TestCreateTokenStorage(t *testing.T) {
-	config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	err := config.SetupCustomValidations(config.CustomValidationOptions{AllowInsecureURLs: true})
+	assert.NoError(t, err)
+
 	t.Run("unsupported type", func(t *testing.T) {
 		var blabol TokenStorageType = "eh"
 

@@ -16,18 +16,21 @@ package secretstorage
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
+
+var Error = errors.New("err")
 
 func TestDefaultTypedSecretStorage_Store(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[bool, bool]) {
-		dtss.Store(context.TODO(), pointer.Bool(true), nil)
+		err := dtss.Store(context.TODO(), ptr.To(true), nil)
+		assert.NoError(t, err)
 	}, CallsRecord[bool]{})
 
 	assert.True(t, record.ToIDCalled)
@@ -42,8 +45,9 @@ func TestDefaultTypedSecretStorage_Store(t *testing.T) {
 
 func TestFailedToId_Store(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Store(context.TODO(), pointer.Int(42), nil)
-	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+		err := dtss.Store(context.TODO(), ptr.To(42), nil)
+		assert.Error(t, err)
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, Error }})
 
 	assert.True(t, record.ToIDCalled)
 
@@ -57,7 +61,8 @@ func TestFailedToId_Store(t *testing.T) {
 
 func TestDefaultTypedSecretStorage_Get(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Get(context.TODO(), pointer.Int(42))
+		_, err := dtss.Get(context.TODO(), ptr.To(42))
+		assert.NoError(t, err)
 	}, CallsRecord[int]{})
 
 	assert.True(t, record.ToIDCalled)
@@ -72,8 +77,9 @@ func TestDefaultTypedSecretStorage_Get(t *testing.T) {
 
 func TestFailedToId_Get(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Get(context.TODO(), pointer.Int(42))
-	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+		_, err := dtss.Get(context.TODO(), ptr.To(42))
+		assert.Error(t, err)
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, Error }})
 
 	assert.True(t, record.ToIDCalled)
 
@@ -87,7 +93,8 @@ func TestFailedToId_Get(t *testing.T) {
 
 func TestDefaultTypedSecretStorage_Delete(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Delete(context.TODO(), pointer.Int(42))
+		err := dtss.Delete(context.TODO(), ptr.To(42))
+		assert.NoError(t, err)
 	}, CallsRecord[int]{})
 
 	assert.True(t, record.ToIDCalled)
@@ -102,8 +109,9 @@ func TestDefaultTypedSecretStorage_Delete(t *testing.T) {
 
 func TestFailedToId_Delete(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Delete(context.TODO(), pointer.Int(42))
-	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, fmt.Errorf("err") }})
+		err := dtss.Delete(context.TODO(), ptr.To(42))
+		assert.Error(t, err)
+	}, CallsRecord[int]{ToIDFunc: func(i *int) (*SecretID, error) { return nil, Error }})
 
 	assert.True(t, record.ToIDCalled)
 
@@ -117,7 +125,8 @@ func TestFailedToId_Delete(t *testing.T) {
 
 func TestDefaultTypedSecretStorage_Initialize(t *testing.T) {
 	record := testStorageCall(func(dtss *DefaultTypedSecretStorage[int, bool]) {
-		dtss.Initialize(context.TODO())
+		err := dtss.Initialize(context.TODO())
+		assert.NoError(t, err)
 	}, CallsRecord[int]{})
 
 	// this is explicitly a noop, so test that it doesn't meddle
@@ -133,14 +142,14 @@ func TestDefaultTypedSecretStorage_Initialize(t *testing.T) {
 }
 
 func TestSerializeJSON(t *testing.T) {
-	data, err := SerializeJSON(pointer.Bool(true))
+	data, err := SerializeJSON(ptr.To(true))
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("true"), data)
 }
 
 func TestDeserializeJSON(t *testing.T) {
 	data := []byte("42")
-	val := pointer.Int(0)
+	val := ptr.To(0)
 	assert.NoError(t, DeserializeJSON(data, val))
 	assert.Equal(t, 42, *val)
 }
