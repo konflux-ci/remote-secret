@@ -28,6 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+var RetryError = errors.New("retry, pretty pls")
+var UpdateError = errors.New("i can't construct the object to update, sorry")
+
 func TestUpdateWithRetries(t *testing.T) {
 	scheme := runtime.NewScheme()
 	assert.NoError(t, corev1.AddToScheme(scheme))
@@ -56,7 +59,7 @@ func TestUpdateWithRetries(t *testing.T) {
 			}()
 
 			if attempt == 0 {
-				return nil, errors.New("retry, pretty pls")
+				return nil, RetryError
 			} else {
 				return nil, nil
 			}
@@ -148,7 +151,7 @@ func TestUpdateWithRetries(t *testing.T) {
 				attempt += 1
 			}()
 
-			return nil, errors.New("i can't construct the object to update, sorry")
+			return nil, UpdateError
 		}, "", ""))
 
 		assert.Equal(t, 4, attempt)
@@ -167,7 +170,7 @@ func (c *FakeClient) Get(ctx context.Context, key client.ObjectKey, obj client.O
 		return c.GetError
 	}
 
-	return c.Client.Get(ctx, key, obj, opts...)
+	return c.Client.Get(ctx, key, obj, opts...) //nolint:wrapcheck // fake client
 }
 
 func (c *FakeClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
@@ -175,7 +178,7 @@ func (c *FakeClient) Update(ctx context.Context, obj client.Object, opts ...clie
 		return c.UpdateError
 	}
 
-	return c.Client.Update(ctx, obj, opts...)
+	return c.Client.Update(ctx, obj, opts...) //nolint:wrapcheck // fake client
 }
 
 var _ (client.Client) = (*FakeClient)(nil)

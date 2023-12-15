@@ -33,7 +33,8 @@ func TestHandle_Create(t *testing.T) {
 	validator := &TestValidator{}
 
 	scheme := runtime.NewScheme()
-	api.AddToScheme(scheme)
+	err := api.AddToScheme(scheme)
+	assert.NoError(t, err)
 
 	w := RemoteSecretWebhook{
 		Validator: validator,
@@ -69,7 +70,8 @@ func TestHandle_Update(t *testing.T) {
 	validator := &TestValidator{}
 
 	scheme := runtime.NewScheme()
-	api.AddToScheme(scheme)
+	err := api.AddToScheme(scheme)
+	assert.NoError(t, err)
 
 	w := RemoteSecretWebhook{
 		Validator: validator,
@@ -105,7 +107,8 @@ func TestHandle_Update(t *testing.T) {
 
 func TestHandle_Delete(t *testing.T) {
 	scheme := runtime.NewScheme()
-	api.AddToScheme(scheme)
+	err := api.AddToScheme(scheme)
+	assert.NoError(t, err)
 
 	w := RemoteSecretWebhook{Decoder: admission.NewDecoder(scheme)}
 
@@ -135,31 +138,31 @@ type TestMutator struct {
 // ValidateCreate implements WebhookValidator.
 func (v *TestValidator) ValidateCreate(ctx context.Context, rs *api.RemoteSecret) error {
 	args := v.Called(ctx, rs)
-	return args.Error(0)
+	return args.Error(0) //nolint:wrapcheck // mock
 }
 
 // ValidateDelete implements WebhookValidator.
 func (v *TestValidator) ValidateDelete(ctx context.Context, rs *api.RemoteSecret) error {
 	args := v.Called(ctx, rs)
-	return args.Error(0)
+	return args.Error(0) //nolint:wrapcheck // mock
 }
 
 // ValidateUpdate implements WebhookValidator.
 func (v *TestValidator) ValidateUpdate(ctx context.Context, old *api.RemoteSecret, new *api.RemoteSecret) error {
 	args := v.Called(ctx, old, new)
-	return args.Error(0)
+	return args.Error(0) //nolint:wrapcheck // mock
 }
 
 // CopyDataFrom implements WebhookMutator.
 func (m *TestMutator) CopyDataFrom(ctx context.Context, user authv1.UserInfo, rs *api.RemoteSecret) error {
 	args := m.Called(ctx, user, rs)
-	return args.Error(0)
+	return args.Error(0) //nolint:wrapcheck // mock
 }
 
 // StoreUploadData implements WebhookMutator.
 func (m *TestMutator) StoreUploadData(ctx context.Context, rs *api.RemoteSecret) error {
 	args := m.Called(ctx, rs)
-	return args.Error(0)
+	return args.Error(0) //nolint:wrapcheck // mock
 }
 
 var (

@@ -446,7 +446,9 @@ func TestServiceAccountSync(t *testing.T) {
 			}
 		}
 		objectMarker.MarkManagedImpl = func(ctx context.Context, k client.ObjectKey, o client.Object) (bool, error) {
-			objectMarker.MarkReferenced(ctx, k, o)
+			_, err := objectMarker.MarkReferenced(ctx, k, o)
+			assert.NoError(t, err)
+
 			if o.GetLabels() == nil {
 				o.SetLabels(map[string]string{})
 			}
@@ -563,7 +565,8 @@ func TestLinkSecretToServiceAccount(t *testing.T) {
 
 	t.Run("link as secret", func(t *testing.T) {
 		secretSpec.LinkedTo[0].ServiceAccount.As = ""
-		h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		err := h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		assert.NoError(t, err)
 
 		assert.Len(t, sa.Secrets, 1)
 		assert.Equal(t, sa.Secrets[0].Name, secret.Name)
@@ -577,7 +580,8 @@ func TestLinkSecretToServiceAccount(t *testing.T) {
 
 	t.Run("link as image pull secret", func(t *testing.T) {
 		secretSpec.LinkedTo[0].ServiceAccount.As = api.ServiceAccountLinkTypeImagePullSecret
-		h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		err := h.LinkToSecret(context.TODO(), []*corev1.ServiceAccount{sa}, secret)
+		assert.NoError(t, err)
 
 		assert.Len(t, sa.ImagePullSecrets, 1)
 		assert.Equal(t, sa.ImagePullSecrets[0].Name, secret.Name)
