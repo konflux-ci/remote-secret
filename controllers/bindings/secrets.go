@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	managedByOtherError = stderr.New("target Secret is managed by other RemoteSecret")
+	managedByOtherError = stderr.New("target Secret is managed by other Object")
 	// pre-allocated empty map so that we don't have to allocate new empty instances in the serviceAccountSecretDiffOpts
 	emptySecretData = map[string][]byte{}
 
@@ -107,7 +107,7 @@ func (h *secretHandler[K]) CheckColliding(ctx context.Context) error {
 
 	managedByOther, colliding, err := h.ObjectMarker.IsManagedByOther(ctx, h.Target.GetTargetObjectKey(), secret)
 	if err != nil {
-		return fmt.Errorf("could not determine if target Secret is managed by other RemoteSecret: %w", err)
+		return fmt.Errorf("could not determine if target Secret is managed by other Object: %w", err)
 	}
 	if managedByOther {
 		return fmt.Errorf("%w: %s", managedByOtherError, colliding.String())
