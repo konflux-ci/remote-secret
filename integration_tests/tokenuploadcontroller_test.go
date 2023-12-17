@@ -39,7 +39,6 @@ var _ = Describe("TokenUploadController", func() {
 							Labels:    map[string]string{api.UploadSecretLabel: "remotesecret"},
 							Annotations: map[string]string{
 								api.RemoteSecretNameAnnotation: "new-remote-secret",
-								//	api.TargetNamespaceAnnotation:  "ns",
 							},
 						},
 						Type: "Opaque",
@@ -48,9 +47,7 @@ var _ = Describe("TokenUploadController", func() {
 				},
 				MonitoredObjectTypes: []client.Object{
 					&api.RemoteSecret{},
-					&corev1.Secret{},
 				},
-				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
