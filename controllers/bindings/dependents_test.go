@@ -31,7 +31,8 @@ import (
 func TestDependentsSync(t *testing.T) {
 	t.Run("removes stale secret", func(t *testing.T) {
 		scheme := runtime.NewScheme()
-		corev1.AddToScheme(scheme)
+		err := corev1.AddToScheme(scheme)
+		assert.NoError(t, err)
 
 		cl := fake.NewClientBuilder().
 			WithScheme(scheme).
@@ -119,7 +120,8 @@ func TestDependentsSync(t *testing.T) {
 
 func TestDependentsCleanup(t *testing.T) {
 	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
+	err := corev1.AddToScheme(scheme)
+	assert.NoError(t, err)
 
 	cl := fake.NewClientBuilder().
 		WithScheme(scheme).

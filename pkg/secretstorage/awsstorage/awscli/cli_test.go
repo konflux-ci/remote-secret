@@ -17,7 +17,6 @@ package awscli
 import (
 	"context"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -88,7 +87,7 @@ func createFile(t *testing.T, path string, content string) string {
 	file, err := os.CreateTemp(os.TempDir(), path)
 	assert.NoError(t, err)
 
-	assert.NoError(t, ioutil.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
+	assert.NoError(t, os.WriteFile(file.Name(), []byte(content), fs.ModeExclusive))
 
 	filePath, err := filepath.Abs(file.Name())
 	assert.NoError(t, err)
