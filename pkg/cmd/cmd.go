@@ -18,13 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/es"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
+	stmetrics "github.com/redhat-appstudio/remote-secret/pkg/secretstorage/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/awsstorage/awscli"
@@ -61,7 +61,11 @@ func CreateInitializedSecretStorage(ctx context.Context, client client.Client, a
 	if storage == nil {
 		return nil, fmt.Errorf("%w: '%s'", errNilSecretStorage, args.TokenStorage)
 	}
-
+	storage = &stmetrics.MeteredSecretStorage{
+		SecretStorage:     storage,
+		StorageType:       string(args.TokenStorage),
+		MetricsRegisterer: metrics.Registry,
+	}
 	if err = storage.Initialize(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize the secret storage '%s': %w", args.TokenStorage, err)
 	}
