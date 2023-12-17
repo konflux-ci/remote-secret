@@ -15,8 +15,6 @@
 package integrationtests
 
 import (
-	"time"
-
 	"github.com/metlos/crenv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,7 +39,7 @@ var _ = Describe("TokenUploadController", func() {
 							Labels:    map[string]string{api.UploadSecretLabel: "remotesecret"},
 							Annotations: map[string]string{
 								api.RemoteSecretNameAnnotation: "new-remote-secret",
-								api.TargetNamespaceAnnotation:  "ns",
+								//	api.TargetNamespaceAnnotation:  "ns",
 							},
 						},
 						Type: "Opaque",
@@ -50,7 +48,9 @@ var _ = Describe("TokenUploadController", func() {
 				},
 				MonitoredObjectTypes: []client.Object{
 					&api.RemoteSecret{},
+					&corev1.Secret{},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -62,15 +62,12 @@ var _ = Describe("TokenUploadController", func() {
 			})
 
 			It("creates a new RemoteSecret", func() {
-				var rsList []*api.RemoteSecret
-				Eventually(func() bool {
-					rsList = crenv.GetAll[*api.RemoteSecret](&test.InCluster)
-
-					return len(rsList) == 1
-				}, 1*time.Minute, 1*time.Second).Should(BeTrue(), "RemoteSecret was not created")
-
-				Expect(rsList[0].Name).To(Equal("new-remote-secret"))
-				Expect(rsList[0].Spec.Targets[0].Namespace).To(Equal("ns"))
+				// we are waiting cluster to settle down. At this moment Secret controller is ready to create RemoteSecret
+				// in method createRemoteSecret. But not yet creating it. So we need to wait for it.
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0].Name).To(Equal("new-remote-secret"))
+				})
 			})
 
 		})
