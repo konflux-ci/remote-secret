@@ -2,10 +2,10 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var secretStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -31,25 +31,37 @@ func (m *MeteredSecretStorage) Initialize(ctx context.Context) error {
 	m.deleteMetric = secretStoreTimeMetric.WithLabelValues(m.StorageType, "delete")
 	m.getMetric = secretStoreTimeMetric.WithLabelValues(m.StorageType, "get")
 	m.MetricsRegisterer.MustRegister(secretStoreTimeMetric)
-	return m.SecretStorage.Initialize(ctx)
+
+	if err := m.SecretStorage.Initialize(ctx); err != nil {
+		return fmt.Errorf("failed to initialize secret storage: %w", err)
+	}
+	return nil
 }
 
 func (m *MeteredSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
-	lg := log.FromContext(ctx)
 	timer := prometheus.NewTimer(m.storeMetric)
 	defer timer.ObserveDuration()
-	lg.Info("Store->>>> to time")
-	return m.SecretStorage.Store(ctx, id, data)
+	if err := m.SecretStorage.Store(ctx, id, data); err != nil {
+		return fmt.Errorf("failed to store secret data: %w", err)
+	}
+	return nil
 }
 
 func (m *MeteredSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
 	timer := prometheus.NewTimer(m.getMetric)
 	defer timer.ObserveDuration()
-	return m.SecretStorage.Get(ctx, id)
+	result, err := m.SecretStorage.Get(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret data: %w", err)
+	}
+	return result, nil
 }
 
 func (m *MeteredSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
 	timer := prometheus.NewTimer(m.deleteMetric)
 	defer timer.ObserveDuration()
-	return m.SecretStorage.Delete(ctx, id)
+	if err := m.SecretStorage.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete secret data: %w", err)
+	}
+	return nil
 }
