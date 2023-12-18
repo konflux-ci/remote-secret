@@ -18,10 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/redhat-appstudio/remote-secret/pkg/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -40,13 +36,6 @@ var (
 	errASWSecretCreationFailed = errors.New("failed to create the secret in AWS storage ")
 	errASWSecretDeletionFailed = errors.New("failed to delete the secret from AWS storage ")
 	errAWSUnknownError         = errors.New("not able to get secret from the aws storage for some unknown reason")
-
-	awsStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: config.MetricsNamespace,
-		Subsystem: config.MetricsSubsystem,
-		Name:      "aws_operation_time_seconds",
-		Help:      "the time it takes to complete operation with secret data in AWS",
-	}, []string{"operation"})
 )
 
 const (
@@ -68,9 +57,8 @@ type awsClient interface {
 }
 
 type AwsSecretStorage struct {
-	InstanceId        string
-	Config            *aws.Config
-	MetricsRegisterer prometheus.Registerer
+	InstanceId string
+	Config     *aws.Config
 
 	secretNameFormat string
 	client           awsClient
@@ -81,9 +69,6 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 
 	s.client = secretsmanager.NewFromConfig(*s.Config)
 	s.secretNameFormat = s.initSecretNameFormat()
-	if err := s.initMetrics(ctx); err != nil {
-		return fmt.Errorf("failed to initialize AWS metrics: %w", err)
-	}
 
 	if errCheck := s.checkCredentials(ctx); errCheck != nil {
 		return fmt.Errorf("failed to initialize AWS tokenstorage: %w", errCheck)
@@ -98,10 +83,7 @@ func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID,
 
 	ctx = log.IntoContext(ctx, lg)
 
-	start := time.Now()
 	errCreate := s.createOrUpdateAwsSecret(ctx, &id, data)
-	awsStoreTimeMetric.WithLabelValues("store").Observe(time.Since(start).Seconds())
-
 	if errCreate != nil {
 		lg.Error(errCreate, "secret creation failed")
 		return errASWSecretCreationFailed
@@ -114,10 +96,7 @@ func (s *AwsSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) (
 
 	secretName := s.generateAwsSecretName(&id)
 	lg.V(logs.DebugLevel).Info("getting the token", "secretname", secretName)
-
-	start := time.Now()
 	getResult, err := s.getAwsSecret(ctx, secretName)
-	awsStoreTimeMetric.WithLabelValues("get").Observe(time.Since(start).Seconds())
 
 	if err != nil {
 		if isAwsNotFoundError(err) {
@@ -142,11 +121,7 @@ func (s *AwsSecretStorage) Delete(ctx context.Context, id secretstorage.SecretID
 	lg.V(logs.DebugLevel).Info("deleting the token")
 
 	secretName := s.generateAwsSecretName(&id)
-
-	start := time.Now()
 	errDelete := s.deleteAwsSecret(ctx, secretName)
-	awsStoreTimeMetric.WithLabelValues("delete").Observe(time.Since(start).Seconds())
-
 	if errDelete != nil {
 		lg.Error(errDelete, "secret deletion failed")
 		return errASWSecretDeletionFailed
@@ -289,19 +264,6 @@ func (s *AwsSecretStorage) initSecretNameFormat() string {
 	} else {
 		return s.InstanceId + "/%s/%s"
 	}
-}
-
-func (s *AwsSecretStorage) initMetrics(ctx context.Context) error {
-	if s.MetricsRegisterer == nil {
-		log.FromContext(ctx).Info("no metrics registry configured - metrics collection for AWS is disabled")
-		return nil
-	}
-	if err := s.MetricsRegisterer.Register(awsStoreTimeMetric); err != nil {
-		if !errors.As(err, &prometheus.AlreadyRegisteredError{}) {
-			return fmt.Errorf("failed to register AWS store time metric: %w", err)
-		}
-	}
-	return nil
 }
 
 func lg(ctx context.Context) logr.Logger {
