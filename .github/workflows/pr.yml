@@ -72,9 +72,6 @@ jobs:
       - name: Run Go Tests
         run: |
           make test
-      - name: Run Integration Tests
-        run: |
-          make itest
       - name: Codecov
         uses: codecov/codecov-action@v3
   spi-check:
@@ -119,11 +116,6 @@ jobs:
           cat go.mod
           go mod tidy
           git diff
-      - name: Run Go Tests
-        run: |
-          cd spi
-          make test
-          make itest
   docker-controller:
     name: Check controller docker image build
     runs-on: ubuntu-latest

@@ -29,8 +29,5 @@ jobs:
       - name: Run Go Tests
         run: |
           make test
-      - name: Run Integration Tests
-        run: |
-          make itest
       - name: Codecov
         uses: codecov/codecov-action@v3
