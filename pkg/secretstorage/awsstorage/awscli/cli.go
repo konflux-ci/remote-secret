@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/smithy-go/logging"
@@ -48,9 +46,8 @@ func NewAwsSecretStorage(ctx context.Context, InstanceId string, args *AWSCliArg
 	}
 
 	return &awsstorage.AwsSecretStorage{
-		Config:            cfg,
-		InstanceId:        InstanceId,
-		MetricsRegisterer: metrics.Registry,
+		Config:     cfg,
+		InstanceId: InstanceId,
 	}, nil
 }
 
