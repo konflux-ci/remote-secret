@@ -16,6 +16,7 @@ package bindings
 
 import (
 	"context"
+	stderr "errors"
 	"fmt"
 
 	"github.com/google/go-cmp/cmp"
@@ -30,6 +31,7 @@ import (
 )
 
 var (
+	managedByOtherError = stderr.New("target Secret is managed by other Object")
 	// pre-allocated empty map so that we don't have to allocate new empty instances in the serviceAccountSecretDiffOpts
 	emptySecretData = map[string][]byte{}
 
@@ -85,6 +87,32 @@ type secretHandler[K any] struct {
 	Target           SecretDeploymentTarget
 	ObjectMarker     ObjectMarker
 	SecretDataGetter SecretDataGetter[K]
+}
+
+// CheckColliding detects whether the target Secret exists and is managed by other RemoteSecret, returns error if it is.
+func (h *secretHandler[K]) CheckColliding(ctx context.Context) error {
+	// if SecretDeploymentTarget name is not specified, then we can be sure it will not collide with other targets
+	if h.Target.GetSpec().Name == "" {
+		return nil
+	}
+
+	secret := &corev1.Secret{}
+	err := h.Target.GetClient().Get(ctx, client.ObjectKey{Name: h.Target.GetSpec().Name, Namespace: h.Target.GetTargetNamespace()}, secret)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get target Secret: %w", err)
+	}
+
+	managedByOther, colliding, err := h.ObjectMarker.IsManagedByOther(ctx, h.Target.GetTargetObjectKey(), secret)
+	if err != nil {
+		return fmt.Errorf("could not determine if target Secret is managed by other Object: %w", err)
+	}
+	if managedByOther {
+		return fmt.Errorf("%w: %s", managedByOtherError, colliding.String())
+	}
+	return nil
 }
 
 // GetStale detects whether the secret referenced by the target is stale and needs to be replaced by a new one.

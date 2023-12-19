@@ -16,6 +16,8 @@ package namespacetarget
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -28,6 +30,8 @@ import (
 type NamespaceObjectMarker struct {
 }
 
+var malformedManagingAnnotation = errors.New("the ManagingRemoteSecret Annotation value is malformed, this should not happen")
+
 var _ bindings.ObjectMarker = (*NamespaceObjectMarker)(nil)
 
 // IsManaged implements bindings.ObjectMarker
@@ -35,6 +39,22 @@ func (m *NamespaceObjectMarker) IsManagedBy(ctx context.Context, rs client.Objec
 	annos := obj.GetAnnotations()
 	refed, _ := m.IsReferencedBy(ctx, rs, obj)
 	return refed && annos[api.ManagingRemoteSecretNameAnnotation] == rs.String(), nil
+}
+
+func (m *NamespaceObjectMarker) IsManagedByOther(ctx context.Context, rs client.ObjectKey, obj client.Object) (bool, client.ObjectKey, error) {
+	managingValue, managingPresent := obj.GetAnnotations()[api.ManagingRemoteSecretNameAnnotation]
+	if !managingPresent {
+		return false, client.ObjectKey{}, nil
+	}
+	if managingValue == rs.String() {
+		return false, client.ObjectKey{}, nil
+	}
+
+	namespacedName := strings.Split(managingValue, "/")
+	if len(namespacedName) != 2 {
+		return false, client.ObjectKey{}, fmt.Errorf("%w: %s", malformedManagingAnnotation, managingValue)
+	}
+	return true, client.ObjectKey{Namespace: namespacedName[0], Name: namespacedName[1]}, nil
 }
 
 // IsReferenced implements bindings.ObjectMarker
