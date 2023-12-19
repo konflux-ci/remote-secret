@@ -1,11 +1,27 @@
+//
+// Copyright (c) 2023 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package metrics
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"testing"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var testData = []byte("test_data")
@@ -87,6 +103,30 @@ func TestCallParentStorage(t *testing.T) {
 		assert.False(t, dummyStorage.DeleteCalled)
 		assert.True(t, dummyStorage.GetCalled)
 	})
+}
+
+func TestMetricsCollection(t *testing.T) {
+	t.Run("Store method", func(t *testing.T) {
+
+		//given
+		registry := prometheus.NewPedanticRegistry()
+		dummyStorage := NewDummySecretStorage()
+		secretStoreTimeMetric.Reset()
+		strg := &MeteredSecretStorage{
+			SecretStorage:     dummyStorage,
+			StorageType:       "dummy",
+			MetricsRegisterer: registry,
+		}
+		ctx := context.TODO()
+		_ = strg.Initialize(ctx)
+		//when
+		_ = strg.Store(ctx, testSecretID, testData)
+
+		//then
+		assert.True(t, (testutil.ToFloat64(secretStoreTimeMetric)) > 0.0)
+
+	})
+
 }
 
 // DummySecretStorage is a mock implementation of SecretStorage
