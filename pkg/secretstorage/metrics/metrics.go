@@ -23,7 +23,7 @@ import (
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
 
-var secretStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+var SecretStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Namespace: config.MetricsNamespace,
 	Subsystem: config.MetricsSubsystem,
 	Name:      "secret_store_operation_time_seconds",
@@ -42,10 +42,10 @@ type MeteredSecretStorage struct {
 }
 
 func (m *MeteredSecretStorage) Initialize(ctx context.Context) error {
-	m.storeMetric = secretStoreTimeMetric.WithLabelValues(m.StorageType, "store")
-	m.deleteMetric = secretStoreTimeMetric.WithLabelValues(m.StorageType, "delete")
-	m.getMetric = secretStoreTimeMetric.WithLabelValues(m.StorageType, "get")
-	m.MetricsRegisterer.MustRegister(secretStoreTimeMetric)
+	m.storeMetric = SecretStoreTimeMetric.WithLabelValues(m.StorageType, "store")
+	m.deleteMetric = SecretStoreTimeMetric.WithLabelValues(m.StorageType, "delete")
+	m.getMetric = SecretStoreTimeMetric.WithLabelValues(m.StorageType, "get")
+	m.MetricsRegisterer.MustRegister(SecretStoreTimeMetric)
 
 	if err := m.SecretStorage.Initialize(ctx); err != nil {
 		return fmt.Errorf("failed to initialize secret storage: %w", err)

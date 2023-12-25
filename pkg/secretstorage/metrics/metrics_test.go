@@ -137,7 +137,7 @@ func TestMetricsCollection(t *testing.T) {
 				_, err := storage.Get(ctx, testSecretID)
 				return err
 			},
-			wantLabels:           map[string]string{"type": "dummy", "operation": "store"},
+			wantLabels:           map[string]string{"type": "dummy", "operation": "get"},
 			expectedRequestValue: 1,
 		},
 		{
@@ -148,7 +148,7 @@ func TestMetricsCollection(t *testing.T) {
 			action: func(ctx context.Context, storage *MeteredSecretStorage) error {
 				return storage.Delete(ctx, testSecretID)
 			},
-			wantLabels:           map[string]string{"type": "dummy", "operation": "store"},
+			wantLabels:           map[string]string{"type": "dummy", "operation": "delete"},
 			expectedRequestValue: 1,
 		},
 	}
@@ -159,6 +159,7 @@ func TestMetricsCollection(t *testing.T) {
 				MetricsRegisterer: tt.Registry,
 				StorageType:       tt.StorageType,
 			}
+			SecretStoreTimeMetric.Reset()
 			ctx := context.Background()
 			err := storage.Initialize(ctx)
 			assert.NoError(t, err)
