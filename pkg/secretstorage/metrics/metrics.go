@@ -32,6 +32,7 @@ var SecretStoreTimeMetric = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 
 var _ secretstorage.SecretStorage = (*MeteredSecretStorage)(nil)
 
+// MeteredSecretStorage is a wrapper around SecretStorage that measures the time of each operation
 type MeteredSecretStorage struct {
 	SecretStorage     secretstorage.SecretStorage
 	StorageType       string
