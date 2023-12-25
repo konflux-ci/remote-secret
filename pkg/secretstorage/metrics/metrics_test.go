@@ -16,8 +16,9 @@ package metrics
 
 import (
 	"context"
-	dto "github.com/prometheus/client_model/go"
 	"testing"
+
+	dto "github.com/prometheus/client_model/go"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
