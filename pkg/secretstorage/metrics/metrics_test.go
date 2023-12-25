@@ -159,8 +159,10 @@ func TestMetricsCollection(t *testing.T) {
 				StorageType:       tt.StorageType,
 			}
 			ctx := context.Background()
-			storage.Initialize(ctx)
-			tt.action(ctx, storage)
+			err := storage.Initialize(ctx)
+			assert.NoError(t, err)
+			err = tt.action(ctx, storage)
+			assert.NoError(t, err)
 
 			AssertHistogramTotalCount(t, tt.Registry, "redhat_appstudio_remotesecret_secret_store_operation_time_seconds", tt.wantLabels, tt.expectedRequestValue)
 		})
