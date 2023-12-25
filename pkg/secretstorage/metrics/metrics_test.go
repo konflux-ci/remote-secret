@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+	dto "github.com/prometheus/client_model/go"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -105,27 +106,65 @@ func TestCallParentStorage(t *testing.T) {
 }
 
 func TestMetricsCollection(t *testing.T) {
-	t.Run("Store method", func(t *testing.T) {
 
-		//given
-		registry := prometheus.NewPedanticRegistry()
-		dummyStorage := NewDummySecretStorage()
-		secretStoreTimeMetric.Reset()
-		strg := &MeteredSecretStorage{
-			SecretStorage:     dummyStorage,
-			StorageType:       "dummy",
-			MetricsRegisterer: registry,
-		}
-		ctx := context.TODO()
-		_ = strg.Initialize(ctx)
-		//when
-		_ = strg.Store(ctx, testSecretID, testData)
+	tests := []struct {
+		name                 string
+		SecretStorage        secretstorage.SecretStorage
+		StorageType          string
+		Registry             *prometheus.Registry
+		action               func(ctx context.Context, storage *MeteredSecretStorage) error
+		wantLabels           map[string]string
+		expectedRequestValue int
+	}{
+		{
+			name:          "store_operation",
+			Registry:      prometheus.NewPedanticRegistry(),
+			SecretStorage: NewDummySecretStorage(),
+			StorageType:   "dummy",
+			action: func(ctx context.Context, storage *MeteredSecretStorage) error {
+				return storage.Store(ctx, testSecretID, testData)
+			},
+			wantLabels:           map[string]string{"type": "dummy", "operation": "store"},
+			expectedRequestValue: 1,
+		},
+		{
+			name:          "get_operation",
+			Registry:      prometheus.NewPedanticRegistry(),
+			SecretStorage: NewDummySecretStorage(),
+			StorageType:   "dummy",
+			action: func(ctx context.Context, storage *MeteredSecretStorage) error {
+				_, err := storage.Get(ctx, testSecretID)
+				return err
+			},
+			wantLabels:           map[string]string{"type": "dummy", "operation": "store"},
+			expectedRequestValue: 1,
+		},
+		{
+			name:          "delete_operation",
+			Registry:      prometheus.NewPedanticRegistry(),
+			SecretStorage: NewDummySecretStorage(),
+			StorageType:   "dummy",
+			action: func(ctx context.Context, storage *MeteredSecretStorage) error {
+				return storage.Delete(ctx, testSecretID)
+			},
+			wantLabels:           map[string]string{"type": "dummy", "operation": "store"},
+			expectedRequestValue: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MeteredSecretStorage{
+				SecretStorage:     tt.SecretStorage,
+				MetricsRegisterer: tt.Registry,
+				StorageType:       tt.StorageType,
+			}
+			ctx := context.Background()
+			storage.Initialize(ctx)
+			tt.action(ctx, storage)
 
-		//then
-		//TODO
-		//assert.True(t, (testutil.ToFloat64(secretStoreTimeMetric)) > 0.0)
-
-	})
+			AssertHistogramTotalCount(t, tt.Registry, "redhat_appstudio_remotesecret_secret_store_operation_time_seconds", tt.wantLabels, tt.expectedRequestValue)
+		})
+	}
 
 }
 
@@ -164,4 +203,54 @@ func (m *DummySecretStorage) Get(ctx context.Context, id secretstorage.SecretID)
 func (m *DummySecretStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
 	m.DeleteCalled = true
 	return nil
+}
+
+func AssertHistogramTotalCount(t *testing.T, g prometheus.Gatherer, name string, labelFilter map[string]string, wantCount int) {
+	metrics, err := g.Gather()
+	if err != nil {
+		t.Fatalf("Failed to gather metrics: %s", err)
+	}
+	counterSum := 0
+	for _, mf := range metrics {
+		if mf.GetName() != name {
+			continue // Ignore other metrics.
+		}
+		for _, metric := range mf.GetMetric() {
+			if !LabelsMatch(metric, labelFilter) {
+				continue
+			}
+			counterSum += int(metric.GetHistogram().GetSampleCount())
+		}
+	}
+	if wantCount != counterSum {
+		t.Errorf("Wanted count %d, got %d for metric %s with labels %#+v", wantCount, counterSum, name, labelFilter)
+		for _, mf := range metrics {
+			if mf.GetName() == name {
+				for _, metric := range mf.GetMetric() {
+					t.Logf("\tnear match: %s\n", metric.String())
+				}
+			}
+		}
+	}
+}
+
+func LabelsMatch(metric *dto.Metric, labelFilter map[string]string) bool {
+	metricLabels := map[string]string{}
+
+	for _, labelPair := range metric.Label {
+		metricLabels[labelPair.GetName()] = labelPair.GetValue()
+	}
+
+	// length comparison then match key to values in the maps
+	if len(labelFilter) > len(metricLabels) {
+		return false
+	}
+
+	for labelName, labelValue := range labelFilter {
+		if value, ok := metricLabels[labelName]; !ok || value != labelValue {
+			return false
+		}
+	}
+
+	return true
 }
