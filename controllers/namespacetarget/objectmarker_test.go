@@ -71,6 +71,11 @@ func TestNamespaceObjectMarker_IsManagedBy(t *testing.T) {
 		res, err := m.IsManagedBy(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
 		assert.NoError(t, err)
 		assert.False(t, res)
+
+		res, otherRS, err := m.IsManagedByOther(context.TODO(), client.ObjectKey{Name: "k", Namespace: "ns"}, &obj)
+		assert.NoError(t, err)
+		assert.True(t, res)
+		assert.Equal(t, "ns/l", otherRS.String())
 	})
 
 	t.Run("managed", func(t *testing.T) {

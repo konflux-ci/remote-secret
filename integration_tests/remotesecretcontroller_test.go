@@ -263,7 +263,7 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					// check that the secret in targetA is still there but not in targetB
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).Error()
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).NotTo(Succeed())
 				})
 			})
 
@@ -279,7 +279,7 @@ var _ = Describe("RemoteSecret", func() {
 					rs = *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetA}, &corev1.ServiceAccount{})).To(Succeed())
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).Error()
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-sa", Namespace: targetB}, &corev1.ServiceAccount{})).NotTo(Succeed())
 				})
 			})
 
@@ -296,8 +296,8 @@ var _ = Describe("RemoteSecret", func() {
 					// check that rs.Status.Conditions Deployed is False
 					g.Expect(meta.IsStatusConditionTrue(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))).To(BeFalse())
 					// check that all secrets are removed
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).Error()
-					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).Error()
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetA}, &corev1.Secret{})).NotTo(Succeed())
+					g.Expect(ITest.Client.Get(ITest.Context, client.ObjectKey{Name: "injected-secret", Namespace: targetB}, &corev1.Secret{})).NotTo(Succeed())
 				})
 			})
 		})
@@ -750,6 +750,38 @@ var _ = Describe("RemoteSecret", func() {
 		When("targets present", func() {
 		})
 	})
+	Describe("Interactions", func() {
+		When("two RemoteSecrets have the same target", func() {
+			originalRS := defaultRemoteSecretWithTarget("original-rs", "secret-abc", "default")
+			test := crenv.TestSetup{
+				ToCreate:              []client.Object{originalRS},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
+			}
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+
+			It("second RemoteSecret should have error in target", func() {
+				duplicateRS := defaultRemoteSecretWithTarget("duplicate-target-rs", "secret-abc", "default")
+				Expect(ITest.Client.Create(ITest.Context, duplicateRS)).To(Succeed())
+
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					remoteSecrets := crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(originalRS))
+					g.Expect(remoteSecrets).To(HaveLen(1))
+					Expect(remoteSecrets[0].Status.Targets[0].Error).To(BeEmpty())
+					Expect(remoteSecrets[0].Status.Targets[0].DeployedSecret.Name).To(Equal(originalRS.Spec.Secret.Name))
+
+					remoteSecrets = crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(duplicateRS))
+					g.Expect(remoteSecrets).To(HaveLen(1))
+					Expect(remoteSecrets[0].Status.Targets[0].Error).NotTo(BeEmpty())
+				})
+			})
+		})
+	})
 
 	Describe("Conditions", func() {
 		When("data obtained but no targets present", func() {
@@ -779,7 +811,6 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs).NotTo(BeNil())
 					cond := meta.FindStatusCondition(rs.Status.Conditions, string(api.RemoteSecretConditionTypeDeployed))
 					g.Expect(cond).NotTo(BeNil())
-					print(cond)
 					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
 				})
@@ -907,7 +938,7 @@ var _ = Describe("RemoteSecret", func() {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
-					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name"))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name")) //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 					g.Expect(rs.Status.Targets[0].ExpectedSecret).To(BeNil())
 				})
 			})
@@ -948,7 +979,7 @@ var _ = Describe("RemoteSecret", func() {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
-					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("")) //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-name"))
 					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
 				})
@@ -996,7 +1027,7 @@ var _ = Describe("RemoteSecret", func() {
 					rs := *crenv.First[*api.RemoteSecret](&test.InCluster)
 					g.Expect(rs).NotTo(BeNil())
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
-					g.Expect(rs.Status.Targets[0].SecretName).To(Equal(""))
+					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("")) //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 					g.Expect(rs.Status.Targets[0].ExpectedSecret.Name).To(Equal("expected-override"))
 					g.Expect(rs.Status.Targets[0].ExpectedSecret.GenerateName).To(Equal("expected-generate-"))
 				})
@@ -1011,4 +1042,26 @@ func uploadArbitraryDataToRS(test *crenv.TestSetup) {
 	Expect(ITest.Storage.Store(ITest.Context, rs, &remotesecretstorage.SecretData{
 		"a": []byte("b"),
 	})).To(Succeed())
+}
+
+func defaultRemoteSecretWithTarget(rsName, secretName, targetNs string) *api.RemoteSecret {
+	return &api.RemoteSecret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rsName,
+			Namespace: "default",
+		},
+		Spec: api.RemoteSecretSpec{
+			Secret: api.LinkableSecretSpec{
+				Name: secretName,
+			},
+			Targets: []api.RemoteSecretTarget{
+				{
+					Namespace: targetNs,
+				},
+			},
+		},
+		UploadData: map[string][]byte{
+			"k1": []byte("v1"),
+		},
+	}
 }

@@ -251,6 +251,7 @@ metadata:
   name: controller-runtime
   labels:
     app: grafana
+spec:
   json:
     ""
   configMapRef:
@@ -274,6 +275,8 @@ spec:
     key: go-processes_rev1.json
 EOF
 
+
+kubectl delete GrafanaDashboard  remotesecret-metrics --ignore-not-found=true -n grafana-operator-system
 echo 'Creating Grafana dashboard: RemoteSecret Metrics'
 cat <<EOF | kubectl apply -n grafana-operator-system -f -
 apiVersion: integreatly.org/v1alpha1

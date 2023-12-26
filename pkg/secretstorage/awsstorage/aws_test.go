@@ -16,7 +16,7 @@ package awsstorage
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -33,6 +33,12 @@ var testSecretID = secretstorage.SecretID{
 	Name:      "testRemoteSecret",
 	Namespace: "testNamespace",
 }
+
+var FailedToDeleteError = errors.New("failed to delete")
+var FailedToGetError = errors.New("failed to get")
+var FailedToCreateError = errors.New("failed to create")
+var FailedToUpdateError = errors.New("failed to update")
+var FailError = errors.New("fail")
 
 func TestInitialize(t *testing.T) {
 	ctx := context.TODO()
@@ -84,7 +90,7 @@ func TestCheckCredentials(t *testing.T) {
 		ctx := context.TODO()
 		cl := &mockAwsClient{
 			listFn: func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
-				return nil, fmt.Errorf("fail")
+				return nil, FailError
 			},
 		}
 		strg := newStorage(cl)
@@ -114,7 +120,7 @@ func TestStore(t *testing.T) {
 		ctx := context.TODO()
 		cl := &mockAwsClient{
 			createFn: func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
-				return nil, fmt.Errorf("failed to create")
+				return nil, FailedToCreateError
 			},
 		}
 
@@ -160,7 +166,7 @@ func TestUpdate(t *testing.T) {
 				return nil, &types.ResourceExistsException{}
 			},
 			updateFn: func(ctx context.Context, params *secretsmanager.UpdateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.UpdateSecretOutput, error) {
-				return nil, fmt.Errorf("update failed")
+				return nil, FailedToUpdateError
 			},
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
 				return &secretsmanager.GetSecretValueOutput{ARN: aws.String("awssecretid")}, nil
@@ -184,7 +190,7 @@ func TestUpdate(t *testing.T) {
 				return nil, &types.ResourceExistsException{}
 			},
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return nil, fmt.Errorf("fail to get")
+				return nil, FailedToGetError
 			},
 		}
 
@@ -238,7 +244,7 @@ func TestGet(t *testing.T) {
 
 		cl := &mockAwsClient{
 			getFn: func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-				return nil, fmt.Errorf("fail to get")
+				return nil, FailedToGetError
 			},
 		}
 
@@ -330,7 +336,7 @@ func TestDelete(t *testing.T) {
 
 		cl := &mockAwsClient{
 			deleteFn: func(ctx context.Context, params *secretsmanager.DeleteSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DeleteSecretOutput, error) {
-				return nil, fmt.Errorf("failed to delete")
+				return nil, FailedToDeleteError
 			},
 		}
 

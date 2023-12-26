@@ -27,6 +27,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var Error = errors.New("teh error")
+
 func TestSecretDataGetter_GetData(t *testing.T) {
 	new := func() (*secretstorage.TestSecretStorage, remotesecretstorage.RemoteSecretStorage) {
 		ss := &secretstorage.TestSecretStorage{}
@@ -55,11 +57,11 @@ func TestSecretDataGetter_GetData(t *testing.T) {
 		assert.ErrorIs(t, err, bindings.SecretDataNotFoundError)
 	})
 
-	t.Run("unkown error", func(t *testing.T) {
+	t.Run("unknown error", func(t *testing.T) {
 		ss, st := new()
 
 		ss.GetImpl = func(ctx context.Context, key secretstorage.SecretID) ([]byte, error) {
-			return nil, errors.New("teh error")
+			return nil, Error
 		}
 
 		sdg := SecretDataGetter{
