@@ -15,8 +15,6 @@
 package metrics
 
 import (
-	"fmt"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 )
@@ -31,10 +29,17 @@ var UploadRejectionsCounter = prometheus.NewCounterVec(
 	[]string{"operation", "reason"},
 )
 
-func RegisterCommonMetrics(registerer prometheus.Registerer) error {
-	if err := registerer.Register(UploadRejectionsCounter); err != nil {
-		return fmt.Errorf("failed to register rejected uploads count metric: %w", err)
-	}
+var RemoteSecretCondition = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "status_condition",
+		Help:      "The status condition of a specific RemoteSecret",
+	},
+	[]string{"name", "namespace", "condition", "status"},
+)
 
+func RegisterCommonMetrics(registerer prometheus.Registerer) error {
+	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretCondition)
 	return nil
 }

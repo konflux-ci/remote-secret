@@ -21,6 +21,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
@@ -251,7 +253,8 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
-			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
+			lg.Info("RemoteSecret already gone from the cluster. skipping reconciliation")
+			metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 			return ctrl.Result{}, nil
 		}
 
@@ -280,7 +283,8 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	if remoteSecret.DeletionTimestamp != nil {
-		lg.V(logs.DebugLevel).Info("RemoteSecret is being deleted. skipping reconciliation")
+		lg.Info("RemoteSecret is being deleted. skipping reconciliation")
+		metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 		return ctrl.Result{}, nil
 	}
 
@@ -323,7 +327,8 @@ type cancellation struct {
 
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
-	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
+	metrics.SetRemoteSecretCondition(ctx, remoteSecret, result.Condition)
+
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
