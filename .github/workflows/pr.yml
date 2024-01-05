@@ -120,8 +120,10 @@ jobs:
           git diff
           cd pact
           go mod tidy
+          pwd
       - name: Run Go Tests
         run: |
+          pwd
           cd spi
           make test
   docker-controller:
