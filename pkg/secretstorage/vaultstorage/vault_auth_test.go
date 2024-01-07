@@ -43,17 +43,12 @@ func TestPrepareKubernetesAuth(t *testing.T) {
 }
 
 func TestPrepareApproleAuth(t *testing.T) {
-	roleIdFile := createFile(t, "role_id", "anything")
-	defer os.Remove(roleIdFile)
-
-	secretIdFile := createFile(t, "secret_id", "anything")
-	defer os.Remove(secretIdFile)
 
 	authMethod, err := prepareAuth(
 		&VaultStorageConfig{
-			AuthType:         VaultAuthMethodApprole,
-			RoleIdFilePath:   roleIdFile,
-			SecretIdFilePath: secretIdFile,
+			AuthType: VaultAuthMethodApprole,
+			RoleId:   "roleId",
+			SecretId: "secretId",
 		})
 
 	assert.NoError(t, err)
@@ -74,22 +69,10 @@ func TestFail(t *testing.T) {
 		checkFailed(t, authMethod, err)
 	})
 
-	t.Run("approle no roleid file", func(t *testing.T) {
+	t.Run("approle no id's", func(t *testing.T) {
 		authMethod, err := prepareAuth(
 			&VaultStorageConfig{
 				AuthType: VaultAuthMethodApprole,
-			})
-		checkFailed(t, authMethod, err)
-	})
-
-	t.Run("approle empty roleid file", func(t *testing.T) {
-		roleIdFile := createFile(t, "role_id", "")
-		defer os.Remove(roleIdFile)
-
-		authMethod, err := prepareAuth(
-			&VaultStorageConfig{
-				AuthType:       VaultAuthMethodApprole,
-				RoleIdFilePath: roleIdFile,
 			})
 		checkFailed(t, authMethod, err)
 	})

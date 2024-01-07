@@ -17,7 +17,6 @@ package vaultstorage
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/api/auth/approle"
@@ -68,15 +67,13 @@ func (a *kubernetesAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, er
 }
 
 func (a *approleAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, error) {
-	roleId, err := os.ReadFile(config.RoleIdFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read vault role id: %w", err)
-	}
-	secretId := &approle.SecretID{FromFile: config.SecretIdFilePath}
 
-	auth, err := approle.NewAppRoleAuth(string(roleId), secretId)
+	secretId := &approle.SecretID{FromString: config.SecretId}
+
+	auth, err := approle.NewAppRoleAuth(config.RoleId, secretId)
 	if err != nil {
 		return nil, fmt.Errorf("error creating approle authenticator: %w", err)
 	}
+
 	return auth, nil
 }

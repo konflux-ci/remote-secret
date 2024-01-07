@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	vault "github.com/hashicorp/vault/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
@@ -95,8 +95,8 @@ type VaultStorageConfig struct {
 	Role                        string
 	ServiceAccountTokenFilePath string
 
-	RoleIdFilePath   string
-	SecretIdFilePath string
+	RoleId   string
+	SecretId string
 
 	MetricsRegisterer prometheus.Registerer
 
