@@ -115,7 +115,11 @@ jobs:
           cd spi
           cat go.mod
           go mod tidy
+          sed -i  '4 i replace github.com/redhat-appstudio/remote-secret => ../../' ./pact/go.mod
+          cat ./pact/go.mod
           git diff
+          cd pact
+          go mod tidy
       - name: Run Go Tests
         run: |
           cd spi
