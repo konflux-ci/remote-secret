@@ -16,9 +16,9 @@ package vaultcli
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +38,7 @@ type VaultCliArgs struct {
 }
 
 // TODO update comment
+
 // VaultStorageConfigFromCliArgs returns an instance of the VaultStorageConfig with some fields initialized from
 // the corresponding CLI arguments. Notably, the VaultStorageConfig.MetricsRegisterer is NOT configured, because this
 // cannot be done using just the CLI arguments.
@@ -56,12 +57,12 @@ func VaultStorageConfigFromCliArgs(ctx context.Context, args *VaultCliArgs, read
 		secret := &corev1.Secret{}
 		key := client.ObjectKey{Namespace: args.VaultAppRoleSecretNamespace, Name: args.VaultAppRoleSecretName}
 		err := reader.Get(ctx, key, secret)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read secret")
+		if err != nil {git stats
+			return nil, fmt.Errorf("failed to read secret '%w'", err)
 		}
-		// TODO check if secret contains role_id and secret_id keys
 		vaultConfig.SecretId = string(secret.Data["secret_id"])
 		vaultConfig.RoleId = string(secret.Data["role_id"])
+		fmt.Printf("\n\n\nFound secret! name: %s, namespace %s\n\n\n", secret.Name, secret.Namespace)
 	}
 	return vaultConfig, nil
 }
@@ -69,7 +70,7 @@ func VaultStorageConfigFromCliArgs(ctx context.Context, args *VaultCliArgs, read
 func CreateVaultStorage(ctx context.Context, args *VaultCliArgs, reader client.Reader) (secretstorage.SecretStorage, error) {
 	vaultConfig, err := VaultStorageConfigFromCliArgs(ctx, args, reader)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create vault storage config")
+		return nil, fmt.Errorf("failed to read secret '%w'", err)
 	}
 	// use the same metrics registry as the controller-runtime
 	vaultConfig.MetricsRegisterer = metrics.Registry
