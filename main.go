@@ -32,6 +32,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -158,6 +159,13 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	}
 
 	webhookServer := crebhook.NewServer(webhookServerOptions)
+	clientOptions := ctrlclient.Options{
+		Cache: &ctrlclient.CacheOptions{
+			DisableFor:   []ctrlclient.Object{&corev1.Secret{}},
+			Unstructured: false,
+		},
+	}
+
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: args.MetricsAddr},
@@ -167,6 +175,7 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 		Logger:                 ctrl.Log,
 		WebhookServer:          webhookServer,
 		PprofBindAddress:       args.PprofBindAddress,
+		Client:                 clientOptions,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
