@@ -15,8 +15,12 @@
 package metrics
 
 import (
+	"context"
 	"github.com/prometheus/client_golang/prometheus"
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var UploadRejectionsCounter = prometheus.NewCounterVec(
@@ -29,7 +33,7 @@ var UploadRejectionsCounter = prometheus.NewCounterVec(
 	[]string{"operation", "reason"},
 )
 
-var RemoteSecretCondition = prometheus.NewGaugeVec(
+var RemoteSecretConditionGauge = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: config.MetricsNamespace,
 		Subsystem: config.MetricsSubsystem,
@@ -40,6 +44,19 @@ var RemoteSecretCondition = prometheus.NewGaugeVec(
 )
 
 func RegisterCommonMetrics(registerer prometheus.Registerer) error {
-	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretCondition)
+	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretConditionGauge)
 	return nil
+}
+
+func DeleteRemoteSecretCondition(ctx context.Context, name, namespace string) {
+	lg := log.FromContext(ctx)
+	lg.Info("DeleteRemoteSecretCondition", "name", name, "namespace", namespace)
+	RemoteSecretConditionGauge.DeletePartialMatch(prometheus.Labels{"name": name, "namespace": namespace})
+
+}
+
+func UpdateRemoteSecretConditionMetric(ctx context.Context, rs *api.RemoteSecret, condition *metav1.Condition, value float64) {
+	lg := log.FromContext(ctx)
+	lg.Info("UpdateRemoteSecretConditionMetric", "name", rs.Name, "namespace", rs.Namespace, "condition", condition.Type, "status", string(condition.Status), "value", value)
+	RemoteSecretConditionGauge.WithLabelValues(rs.Name, rs.Namespace, condition.Type, string(condition.Status)).Set(value)
 }

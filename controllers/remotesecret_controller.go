@@ -327,7 +327,7 @@ type cancellation struct {
 
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
-	metrics.SetRemoteSecretCondition(ctx, remoteSecret, result.Condition)
+	setRemoteSecretCondition(ctx, remoteSecret, result.Condition)
 
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
@@ -870,4 +870,24 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 func reconcileLogger(lg logr.Logger) logr.Logger {
 	return lg.WithValues("diagnostics", "reconcile")
+}
+
+func setRemoteSecretCondition(ctx context.Context, rs *api.RemoteSecret, condition metav1.Condition) {
+	currentCond := meta.FindStatusCondition(rs.Status.Conditions, condition.Type)
+	meta.SetStatusCondition(&rs.Status.Conditions, condition)
+
+	lg := log.FromContext(ctx)
+	lg.Info("SetRemoteSecretCondition", "name", rs.Name, "namespace", rs.Namespace, "condition", condition, "currentCond", currentCond)
+	if currentCond != nil {
+		// Just set metrics if the status of the condition doesn't change.
+		if currentCond.Status == condition.Status &&
+			currentCond.Reason == condition.Reason && currentCond.Message == condition.Message {
+			metrics.UpdateRemoteSecretConditionMetric(ctx, rs, &condition, 1.0)
+			return
+		}
+		// Set previous condition to 0.0 if Status is changed.
+		metrics.UpdateRemoteSecretConditionMetric(ctx, rs, currentCond, 0.0)
+	}
+	// Set current condition metric to 1.0 if Status is changed.
+	metrics.UpdateRemoteSecretConditionMetric(ctx, rs, &condition, 1.0)
 }

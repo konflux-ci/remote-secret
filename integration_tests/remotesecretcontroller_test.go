@@ -18,8 +18,11 @@ import (
 	"github.com/metlos/crenv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +44,8 @@ var remoteSecretReconciliationTrigger = map[schema.GroupKind]func(client.Object)
 var _ = Describe("RemoteSecret", func() {
 	Describe("Create", func() {
 		When("no targets", func() {
+			registry := prometheus.NewPedanticRegistry()
+
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
 					&api.RemoteSecret{
@@ -53,7 +58,9 @@ var _ = Describe("RemoteSecret", func() {
 			}
 
 			BeforeEach(func() {
+				metrics.RegisterCommonMetrics(registry)
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
+				metrics.RemoteSecretConditionGauge.Reset()
 			})
 
 			AfterEach(func() {
@@ -62,6 +69,12 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("succeeds", func() {
 				Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+				count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_remotesecret_data_upload_rejected_total")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(count).To(Equal(1))
+				//	g.Expect(rs).NotTo(BeNil())
+				//	assert.Equal(t, 2, count)
+				//	assert.NoError(t, err)
 			})
 		})
 
