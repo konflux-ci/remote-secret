@@ -57,7 +57,7 @@ func VaultStorageConfigFromCliArgs(ctx context.Context, args *VaultCliArgs, read
 		secret := &corev1.Secret{}
 		key := client.ObjectKey{Namespace: args.VaultAppRoleSecretNamespace, Name: args.VaultAppRoleSecretName}
 		err := reader.Get(ctx, key, secret)
-		if err != nil {git stats
+		if err != nil {
 			return nil, fmt.Errorf("failed to read secret '%w'", err)
 		}
 		vaultConfig.SecretId = string(secret.Data["secret_id"])
