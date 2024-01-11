@@ -184,10 +184,10 @@ build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 .PHONY: run
-run: manifests deploy_minikube fmt vet build ## Run a controller from your host using Vault running in the cluster (assumes the deploy_minikube target has been applied)
+run: manifests fmt vet build ## Run a controller from your host using Vault running in the cluster (assumes the deploy_minikube target has been applied)
 	hack/persist_vault_creds_in_tmp.sh
 	hack/setup-webhook-for-local-run.sh
-	ZAPDEVEL=true VAULTHOST="https://vault.$(shell minikube ip).nip.io" VAULTAPPROLESECRETNAME="vault-approle-remote-secret-operator" VAULTINSECURETLS=true bin/manager
+	ZAPDEVEL=true VAULTHOST="https://vault.$(shell minikube ip).nip.io"  VAULTINSECURETLS=true bin/manager
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.

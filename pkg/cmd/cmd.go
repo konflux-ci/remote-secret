@@ -37,14 +37,14 @@ var (
 	errNilSecretStorage         = errors.New("nil secret storage")
 )
 
-func CreateInitializedSecretStorage(ctx context.Context, client client.Client, reader client.Reader, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
+func CreateInitializedSecretStorage(ctx context.Context, client client.Client, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
 	var storage secretstorage.SecretStorage
 	var err error
 	lg := log.FromContext(ctx)
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		storage, err = vaultcli.CreateVaultStorage(ctx, reader, &args.VaultCliArgs)
+		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs, client)
 	case AWSTokenStorage:
 		storage, err = awscli.NewAwsSecretStorage(ctx, args.InstanceId, &args.AWSCliArgs)
 	case ESSecretStorage:
