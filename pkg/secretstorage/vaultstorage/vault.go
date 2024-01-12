@@ -19,10 +19,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"net/http"
 	"strconv"
 
-	"github.com/hashicorp/go-hclog"
 	vault "github.com/hashicorp/vault/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
@@ -116,6 +116,15 @@ func (v *VaultSecretStorage) Initialize(ctx context.Context) error {
 		return err
 	}
 
+	return nil
+}
+
+func (v *VaultSecretStorage) Examine(ctx context.Context) error {
+	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("examining Vault token storage")
+	if _, err := v.client.Logical().ListWithContext(ctx, v.Config.DataPathPrefix); err != nil {
+		return fmt.Errorf("error examining the Vault storage: %w", err)
+	}
 	return nil
 }
 

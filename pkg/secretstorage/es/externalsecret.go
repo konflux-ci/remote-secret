@@ -88,6 +88,24 @@ func (p *ExternalSecretStorage) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (p *ExternalSecretStorage) Examine(ctx context.Context) error {
+	cl, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
+	lg(ctx).V(logs.DebugLevel).Info("examining ExternalSecret storage")
+	if err != nil {
+		return fmt.Errorf("failed creating new client %w", err)
+	}
+	defer func() {
+		err = cl.Close(ctx)
+		if err != nil {
+			lg(ctx).Error(err, "failed closing client")
+		}
+	}()
+	if res, err := cl.Validate(); err != nil || res != 0 {
+		return fmt.Errorf("error examining ES tokenstorage %w, validation result is: %s", err, res.String())
+	}
+	return nil
+}
+
 func (p *ExternalSecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
 	client, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
 	if err != nil {

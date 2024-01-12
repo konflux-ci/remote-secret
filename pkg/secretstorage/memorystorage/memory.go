@@ -99,6 +99,10 @@ func (m *MemoryStorage) Store(ctx context.Context, id secretstorage.SecretID, da
 	return nil
 }
 
+func (m *MemoryStorage) Examine(ctx context.Context) error {
+	return nil
+}
+
 func (m *MemoryStorage) ensureTokens() {
 	if m.Data == nil {
 		m.Data = map[secretstorage.SecretID][]byte{}
