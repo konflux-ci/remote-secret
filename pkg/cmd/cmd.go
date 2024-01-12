@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/es"
@@ -37,18 +37,18 @@ var (
 	errNilSecretStorage         = errors.New("nil secret storage")
 )
 
-func CreateInitializedSecretStorage(ctx context.Context, client client.Client, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
+func CreateInitializedSecretStorage(ctx context.Context, mgr manager.Manager, args *CommonCliArgs) (secretstorage.SecretStorage, error) {
 	var storage secretstorage.SecretStorage
 	var err error
 	lg := log.FromContext(ctx)
 
 	switch args.TokenStorage {
 	case VaultTokenStorage:
-		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs, client)
+		storage, err = vaultcli.CreateVaultStorage(ctx, &args.VaultCliArgs, mgr.GetAPIReader())
 	case AWSTokenStorage:
 		storage, err = awscli.NewAwsSecretStorage(ctx, args.InstanceId, &args.AWSCliArgs)
 	case ESSecretStorage:
-		storage, err = es.NewESSecretStorage(ctx, client, args.InstanceId, args.StorageConfigJSON)
+		storage, err = es.NewESSecretStorage(ctx, mgr.GetClient(), args.InstanceId, args.StorageConfigJSON)
 	case InMemoryStorage:
 		storage = &memorystorage.MemoryStorage{}
 	default:

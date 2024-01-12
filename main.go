@@ -32,7 +32,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -90,7 +89,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), &args.CommonCliArgs)
+	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, mgr, &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
@@ -159,12 +158,6 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	}
 
 	webhookServer := crebhook.NewServer(webhookServerOptions)
-	clientOptions := ctrlclient.Options{
-		Cache: &ctrlclient.CacheOptions{
-			DisableFor:   []ctrlclient.Object{&corev1.Secret{}},
-			Unstructured: false,
-		},
-	}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -175,7 +168,6 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 		Logger:                 ctrl.Log,
 		WebhookServer:          webhookServer,
 		PprofBindAddress:       args.PprofBindAddress,
-		Client:                 clientOptions,
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)

@@ -62,7 +62,6 @@ func VaultStorageConfigFromCliArgs(ctx context.Context, args *VaultCliArgs, read
 		}
 		vaultConfig.SecretId = string(secret.Data["secret_id"])
 		vaultConfig.RoleId = string(secret.Data["role_id"])
-		fmt.Printf("\n\n\nFound secret! name: %s, namespace %s\n\n\n", secret.Name, secret.Namespace)
 	}
 	return vaultConfig, nil
 }
