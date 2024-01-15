@@ -874,7 +874,7 @@ func reconcileLogger(lg logr.Logger) logr.Logger {
 
 func setRemoteSecretCondition(ctx context.Context, rs *api.RemoteSecret, condition metav1.Condition) {
 	currentCond := meta.FindStatusCondition(rs.Status.Conditions, condition.Type)
-	meta.SetStatusCondition(&rs.Status.Conditions, condition)
+	defer meta.SetStatusCondition(&rs.Status.Conditions, condition)
 
 	lg := log.FromContext(ctx)
 	lg.Info("SetRemoteSecretCondition", "name", rs.Name, "namespace", rs.Namespace, "condition", condition, "currentCond", currentCond)

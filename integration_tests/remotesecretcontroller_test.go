@@ -870,6 +870,30 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(cond).NotTo(BeNil())
 					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "False",
+							Value:     0,
+						},
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "False",
+							Value:     1,
+						},
+					})
+
 				})
 			})
 		})
@@ -997,6 +1021,23 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name")) //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 					g.Expect(rs.Status.Targets[0].ExpectedSecret).To(BeNil())
+					//ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+					//	{
+					//		Condition: "DataObtained",
+					//		Name:      "test-remote-secret",
+					//		Namespace: "default",
+					//		Status:    "True",
+					//		Value:     1,
+					//	},
+					//	{
+					//		Condition: "Deployed",
+					//		Name:      "test-remote-secret",
+					//		Namespace: "default",
+					//		Status:    "True",
+					//		Value:     1,
+					//	},
+					//})
+
 				})
 			})
 		})
