@@ -770,9 +770,38 @@ var _ = Describe("RemoteSecret", func() {
 		})
 	})
 	Describe("Delete", func() {
-		When("no targets present", func() {
-		})
+		When("no targets", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+			}
 
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+			It("succeeds", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(ITest.Client.Delete(ITest.Context, crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0])).To(Succeed())
+				})
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					rs := crenv.GetAll[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).To(HaveLen(0))
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{})
+				})
+
+			})
+		})
 		When("targets present", func() {
 		})
 	})
