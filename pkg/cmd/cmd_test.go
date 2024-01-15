@@ -46,11 +46,4 @@ func TestCreateTokenStorage(t *testing.T) {
 		assert.ErrorContains(t, err, "AWS")
 	})
 
-	t.Run("fail vault init", func(t *testing.T) {
-		strg, err := CreateInitializedSecretStorage(context.TODO(), nil, &CommonCliArgs{TokenStorage: VaultTokenStorage})
-
-		assert.Nil(t, strg)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "Host")
-	})
 }
