@@ -16,7 +16,12 @@ package integrationtests
 
 import (
 	"context"
+	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
+	"strings"
 
+	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
@@ -38,6 +43,7 @@ var ITest = struct {
 	ClientFactory         TestClientFactory
 	Storage               *ITestStorage
 	OperatorConfiguration *config.OperatorConfiguration
+	Registry              *prometheus.Registry
 }{}
 
 type TestClientFactory struct {
@@ -109,4 +115,30 @@ func (i *ITestStorage) Reset() {
 
 func (i *ITestStorage) Len() int {
 	return i.memoryStorage.Len()
+}
+
+type StatusConditionValue struct {
+	Condition string
+	Name      string
+	Namespace string
+	Status    string
+	Value     int
+}
+
+func ExpectStatusConditionMetric(g prometheus.Gatherer, expectedMetrics []*StatusConditionValue) {
+
+	var expected strings.Builder
+
+	expected.WriteString(`
+			# HELP redhat_appstudio_remotesecret_status_condition The status condition of a specific RemoteSecret
+			# TYPE redhat_appstudio_remotesecret_status_condition gauge`)
+	//expected :=
+	for _, condition := range expectedMetrics {
+		expected.WriteString(fmt.Sprintf("\n\t\t\tredhat_appstudio_remotesecret_status_condition{condition=\"%s\",name=\"%s\",namespace=\"%s\",status=\"%s\"} %d", condition.Condition, condition.Name, condition.Namespace, condition.Status, condition.Value))
+	}
+	expected.WriteString(`
+	`)
+
+	err := prometheusTest.GatherAndCompare(g, strings.NewReader(expected.String()), "redhat_appstudio_remotesecret_status_condition")
+	Expect(err).NotTo(HaveOccurred())
 }

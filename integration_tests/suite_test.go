@@ -16,6 +16,8 @@ package integrationtests
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"path/filepath"
 	"testing"
 
@@ -76,8 +78,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	ITest.Storage = newITestStorage()
-	//ITest.MemoryStorage = &memorystorage.MemoryStorage{}
-	//ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(ITest.MemoryStorage)
+	ITest.Registry = prometheus.NewPedanticRegistry()
 
 	Expect(ITest.Storage.Initialize(ITest.Context)).To(Succeed())
 
@@ -137,6 +138,11 @@ var _ = BeforeEach(func() {
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
 	log.Log.Info(">>>>>>>")
+	ITest.Registry = prometheus.NewPedanticRegistry()
+	metrics.RemoteSecretConditionGauge.Reset()
+	metrics.UploadRejectionsCounter.Reset()
+	metrics.RegisterCommonMetrics(ITest.Registry)
+
 })
 
 var _ = AfterEach(func() {

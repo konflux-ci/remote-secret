@@ -18,10 +18,8 @@ import (
 	"github.com/metlos/crenv"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/client_golang/prometheus"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +41,6 @@ var remoteSecretReconciliationTrigger = map[schema.GroupKind]func(client.Object)
 var _ = Describe("RemoteSecret", func() {
 	Describe("Create", func() {
 		When("no targets", func() {
-			registry := prometheus.NewPedanticRegistry()
-
 			test := crenv.TestSetup{
 				ToCreate: []client.Object{
 					&api.RemoteSecret{
@@ -57,9 +53,7 @@ var _ = Describe("RemoteSecret", func() {
 			}
 
 			BeforeEach(func() {
-				metrics.RegisterCommonMetrics(registry)
 				test.BeforeEach(ITest.Context, ITest.Client, nil)
-				metrics.RemoteSecretConditionGauge.Reset()
 			})
 
 			AfterEach(func() {
@@ -68,6 +62,16 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("succeeds", func() {
 				Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+				ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+					{
+						Condition: "DataObtained",
+						Name:      "test-remote-secret",
+						Namespace: "default",
+						Status:    "False",
+						Value:     1,
+					},
+				})
+
 			})
 		})
 
@@ -152,6 +156,22 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(sec.Data).To(HaveLen(2))
 					g.Expect(sec.Data["k1"]).To(Equal([]byte("v1")))
 					g.Expect(sec.Data["k2"]).To(Equal([]byte("v2")))
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+					})
 				})
 			})
 		})
@@ -784,6 +804,37 @@ var _ = Describe("RemoteSecret", func() {
 					remoteSecrets = crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(duplicateRS))
 					g.Expect(remoteSecrets).To(HaveLen(1))
 					Expect(remoteSecrets[0].Status.Targets[0].Error).NotTo(BeEmpty())
+
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "original-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "DataObtained",
+							Name:      "duplicate-target-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "duplicate-target-rs",
+							Namespace: "default",
+							Status:    "False",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "original-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+					})
 				})
 			})
 		})
