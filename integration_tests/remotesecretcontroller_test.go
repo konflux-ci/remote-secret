@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
-	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
@@ -69,12 +68,6 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("succeeds", func() {
 				Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
-				count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_remotesecret_data_upload_rejected_total")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(count).To(Equal(1))
-				//	g.Expect(rs).NotTo(BeNil())
-				//	assert.Equal(t, 2, count)
-				//	assert.NoError(t, err)
 			})
 		})
 

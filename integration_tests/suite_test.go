@@ -27,9 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/controllers"
-	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
-	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -77,8 +75,9 @@ var _ = BeforeSuite(func() {
 	ITest.Client, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 
-	storage := &memorystorage.MemoryStorage{}
-	ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(storage)
+	ITest.Storage = newITestStorage()
+	//ITest.MemoryStorage = &memorystorage.MemoryStorage{}
+	//ITest.Storage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(ITest.MemoryStorage)
 
 	Expect(ITest.Storage.Initialize(ITest.Context)).To(Succeed())
 
@@ -105,8 +104,8 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, storage, &ITest.ClientFactory)).To(Succeed())
-	Expect(webhook.SetupAllWebhooks(mgr, storage)).To(Succeed())
+	Expect(controllers.SetupAllReconcilers(mgr, ITest.OperatorConfiguration, ITest.Storage.SecretStorage(), &ITest.ClientFactory)).To(Succeed())
+	Expect(webhook.SetupAllWebhooks(mgr, ITest.Storage.SecretStorage())).To(Succeed())
 
 	go func() {
 		err = mgr.Start(ITest.Context)
@@ -150,5 +149,11 @@ var _ = AfterEach(func() {
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
+	log.Log.Info("<<<<<<<", "memory storage len", ITest.Storage.Len())
 	log.Log.Info("<<<<<<<")
+	ITest.Storage.Reset()
+	Eventually(func(g Gomega) int {
+		return ITest.Storage.Len()
+	}).Should(Equal(0))
+
 })

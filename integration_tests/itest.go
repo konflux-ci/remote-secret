@@ -18,10 +18,13 @@ import (
 	"context"
 
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/controllers/bindings"
 	"github.com/redhat-appstudio/remote-secret/controllers/remotesecretstorage"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/memorystorage"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -33,7 +36,7 @@ var ITest = struct {
 	Cancel                context.CancelFunc
 	Client                client.Client
 	ClientFactory         TestClientFactory
-	Storage               remotesecretstorage.RemoteSecretStorage
+	Storage               *ITestStorage
 	OperatorConfiguration *config.OperatorConfiguration
 }{}
 
@@ -61,4 +64,49 @@ var _ bindings.ClientFactory = (*TestClientFactory)(nil)
 
 func init() {
 	logs.InitDevelLoggers()
+}
+
+var _ remotesecretstorage.RemoteSecretStorage = (*ITestStorage)(nil)
+
+type ITestStorage struct {
+	remoteSecretStorage remotesecretstorage.RemoteSecretStorage
+	memoryStorage       *memorystorage.MemoryStorage
+}
+
+func newITestStorage() *ITestStorage {
+	return &ITestStorage{}
+}
+
+func (i *ITestStorage) PartialUpdate(ctx context.Context, id *api.RemoteSecret, dataUpdates *remotesecretstorage.SecretData, deleteKeys []string) error {
+	return i.remoteSecretStorage.PartialUpdate(ctx, id, dataUpdates, deleteKeys)
+}
+
+func (i *ITestStorage) Initialize(ctx context.Context) error {
+	i.memoryStorage = &memorystorage.MemoryStorage{}
+	i.remoteSecretStorage = remotesecretstorage.NewJSONSerializingRemoteSecretStorage(i.memoryStorage)
+	return nil
+}
+
+func (i *ITestStorage) Store(ctx context.Context, id *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
+	return i.remoteSecretStorage.Store(ctx, id, data)
+}
+
+func (i *ITestStorage) Get(ctx context.Context, id *api.RemoteSecret) (*remotesecretstorage.SecretData, error) {
+	return i.remoteSecretStorage.Get(ctx, id)
+}
+
+func (i *ITestStorage) Delete(ctx context.Context, id *api.RemoteSecret) error {
+	return i.remoteSecretStorage.Delete(ctx, id)
+}
+
+func (i *ITestStorage) SecretStorage() secretstorage.SecretStorage {
+	return i.memoryStorage
+}
+
+func (i *ITestStorage) Reset() {
+	i.memoryStorage.Reset()
+}
+
+func (i *ITestStorage) Len() int {
+	return i.memoryStorage.Len()
 }

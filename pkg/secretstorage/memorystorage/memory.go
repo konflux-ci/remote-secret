@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 )
 
@@ -39,6 +42,8 @@ type MemoryStorage struct {
 
 // Delete implements secretstorage.SecretStorage
 func (m *MemoryStorage) Delete(ctx context.Context, id secretstorage.SecretID) error {
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("delete", "id", id)
 	if m.ErrorOnDelete != nil {
 		return m.ErrorOnDelete
 	}
@@ -54,6 +59,9 @@ func (m *MemoryStorage) Delete(ctx context.Context, id secretstorage.SecretID) e
 
 // Get implements secretstorage.SecretStorage
 func (m *MemoryStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("get", "id", id)
+
 	if m.ErrorOnGet != nil {
 		return nil, m.ErrorOnGet
 	}
@@ -86,6 +94,8 @@ func (m *MemoryStorage) Initialize(ctx context.Context) error {
 
 // Store implements secretstorage.SecretStorage
 func (m *MemoryStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("store", "id", id)
 	if m.ErrorOnStore != nil {
 		return m.ErrorOnStore
 	}
@@ -97,6 +107,13 @@ func (m *MemoryStorage) Store(ctx context.Context, id secretstorage.SecretID, da
 
 	m.Data[id] = data
 	return nil
+}
+func (m *MemoryStorage) Len() int {
+	m.ensureTokens()
+	return len(m.Data)
+}
+func (m *MemoryStorage) Reset() {
+	m.Data = map[secretstorage.SecretID][]byte{}
 }
 
 func (m *MemoryStorage) ensureTokens() {
