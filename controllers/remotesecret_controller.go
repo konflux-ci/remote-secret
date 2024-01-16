@@ -872,6 +872,7 @@ func reconcileLogger(lg logr.Logger) logr.Logger {
 	return lg.WithValues("diagnostics", "reconcile")
 }
 
+// setRemoteSecretCondition apply `condition` changes and record metrics
 func setRemoteSecretCondition(ctx context.Context, rs *api.RemoteSecret, condition metav1.Condition) {
 	currentCond := meta.FindStatusCondition(rs.Status.Conditions, condition.Type)
 	defer meta.SetStatusCondition(&rs.Status.Conditions, condition)

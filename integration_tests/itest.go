@@ -75,6 +75,8 @@ func init() {
 
 var _ remotesecretstorage.RemoteSecretStorage = (*ITestStorage)(nil)
 
+// ITestStorage implements RemoteSecretStorage and uses MemoryStorage as a backend.
+// Provides additional methods to reset backed storage after each test.
 type ITestStorage struct {
 	remoteSecretStorage remotesecretstorage.RemoteSecretStorage
 	memoryStorage       *memorystorage.MemoryStorage
@@ -125,14 +127,17 @@ func (i *ITestStorage) Delete(ctx context.Context, id *api.RemoteSecret) error {
 
 }
 
+// SecretStorage returns backend storage
 func (i *ITestStorage) SecretStorage() secretstorage.SecretStorage {
 	return i.memoryStorage
 }
 
+// Reset backend storage to the initial state
 func (i *ITestStorage) Reset() {
 	i.memoryStorage.Reset()
 }
 
+// Len return the number of records in the backend storage
 func (i *ITestStorage) Len() int {
 	return i.memoryStorage.Len()
 }
@@ -145,6 +150,7 @@ type StatusConditionValue struct {
 	Value     int
 }
 
+// ExpectStatusConditionMetric ensure provided Gatherer has a necessary metrics in redhat_appstudio_remotesecret_status_condition
 func ExpectStatusConditionMetric(g prometheus.Gatherer, expectedMetrics []*StatusConditionValue) {
 
 	var expected strings.Builder
