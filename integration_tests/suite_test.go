@@ -155,7 +155,7 @@ var _ = AfterEach(func() {
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
 	log.Log.Info("<<<<<<<")
-	log.Log.Info("<<<<<<<", "memory storage len", ITest.Storage.Len())
+	log.Log.Info("<<<<<<<", "Storage size", ITest.Storage.Len())
 	log.Log.Info("<<<<<<<")
 	ITest.Storage.Reset()
 	Eventually(func(g Gomega) int {
