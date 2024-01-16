@@ -253,7 +253,7 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
-			lg.Info("RemoteSecret already gone from the cluster. skipping reconciliation")
+			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
 			metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 			return ctrl.Result{}, nil
 		}
@@ -283,7 +283,7 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	}
 
 	if remoteSecret.DeletionTimestamp != nil {
-		lg.Info("RemoteSecret is being deleted. skipping reconciliation")
+		lg.V(logs.DebugLevel).Info("RemoteSecret is being deleted. skipping reconciliation")
 		metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 		return ctrl.Result{}, nil
 	}
