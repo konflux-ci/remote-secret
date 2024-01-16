@@ -796,7 +796,7 @@ var _ = Describe("RemoteSecret", func() {
 				})
 				test.SettleWithCluster(ITest.Context, func(g Gomega) {
 					rs := crenv.GetAll[*api.RemoteSecret](&test.InCluster)
-					g.Expect(rs).To(HaveLen(0))
+					g.Expect(rs).To(BeEmpty())
 					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{})
 				})
 

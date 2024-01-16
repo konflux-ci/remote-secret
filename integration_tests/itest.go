@@ -17,9 +17,10 @@ package integrationtests
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	prometheusTest "github.com/prometheus/client_golang/prometheus/testutil"
-	"strings"
 
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -84,7 +85,12 @@ func newITestStorage() *ITestStorage {
 }
 
 func (i *ITestStorage) PartialUpdate(ctx context.Context, id *api.RemoteSecret, dataUpdates *remotesecretstorage.SecretData, deleteKeys []string) error {
-	return i.remoteSecretStorage.PartialUpdate(ctx, id, dataUpdates, deleteKeys)
+	err := i.remoteSecretStorage.PartialUpdate(ctx, id, dataUpdates, deleteKeys)
+	if err != nil {
+		return fmt.Errorf("partial update error: %w", err)
+	}
+	return nil
+
 }
 
 func (i *ITestStorage) Initialize(ctx context.Context) error {
@@ -94,15 +100,29 @@ func (i *ITestStorage) Initialize(ctx context.Context) error {
 }
 
 func (i *ITestStorage) Store(ctx context.Context, id *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
-	return i.remoteSecretStorage.Store(ctx, id, data)
+	err := i.remoteSecretStorage.Store(ctx, id, data)
+	if err != nil {
+		return fmt.Errorf("store error: %w", err)
+	}
+	return nil
+
 }
 
 func (i *ITestStorage) Get(ctx context.Context, id *api.RemoteSecret) (*remotesecretstorage.SecretData, error) {
-	return i.remoteSecretStorage.Get(ctx, id)
+	data, err := i.remoteSecretStorage.Get(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get error: %w", err)
+	}
+	return data, nil
 }
 
 func (i *ITestStorage) Delete(ctx context.Context, id *api.RemoteSecret) error {
-	return i.remoteSecretStorage.Delete(ctx, id)
+	err := i.remoteSecretStorage.Delete(ctx, id)
+	if err != nil {
+		return fmt.Errorf("delete error: %w", err)
+	}
+	return nil
+
 }
 
 func (i *ITestStorage) SecretStorage() secretstorage.SecretStorage {
@@ -132,7 +152,6 @@ func ExpectStatusConditionMetric(g prometheus.Gatherer, expectedMetrics []*Statu
 	expected.WriteString(`
 			# HELP redhat_appstudio_remotesecret_status_condition The status condition of a specific RemoteSecret
 			# TYPE redhat_appstudio_remotesecret_status_condition gauge`)
-	//expected :=
 	for _, condition := range expectedMetrics {
 		expected.WriteString(fmt.Sprintf("\n\t\t\tredhat_appstudio_remotesecret_status_condition{condition=\"%s\",name=\"%s\",namespace=\"%s\",status=\"%s\"} %d", condition.Condition, condition.Name, condition.Namespace, condition.Status, condition.Value))
 	}

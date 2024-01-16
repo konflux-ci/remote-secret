@@ -16,10 +16,11 @@ package integrationtests
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"path/filepath"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
 
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -141,8 +142,7 @@ var _ = BeforeEach(func() {
 	ITest.Registry = prometheus.NewPedanticRegistry()
 	metrics.RemoteSecretConditionGauge.Reset()
 	metrics.UploadRejectionsCounter.Reset()
-	metrics.RegisterCommonMetrics(ITest.Registry)
-
+	Expect(metrics.RegisterCommonMetrics(ITest.Registry)).NotTo(HaveOccurred())
 })
 
 var _ = AfterEach(func() {
