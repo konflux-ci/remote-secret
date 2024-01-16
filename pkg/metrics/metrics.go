@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+
 	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
