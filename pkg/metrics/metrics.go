@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"context"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
 	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
@@ -51,13 +52,13 @@ func RegisterCommonMetrics(registerer prometheus.Registerer) error {
 
 func DeleteRemoteSecretCondition(ctx context.Context, name, namespace string) {
 	lg := log.FromContext(ctx)
-	lg.Info("DeleteRemoteSecretCondition", "name", name, "namespace", namespace)
+	lg.V(logs.DebugLevel).Info("DeleteRemoteSecretCondition", "name", name, "namespace", namespace)
 	RemoteSecretConditionGauge.DeletePartialMatch(prometheus.Labels{"name": name, "namespace": namespace})
 
 }
 
 func UpdateRemoteSecretConditionMetric(ctx context.Context, rs *api.RemoteSecret, condition *metav1.Condition, value float64) {
 	lg := log.FromContext(ctx)
-	lg.Info("UpdateRemoteSecretConditionMetric", "name", rs.Name, "namespace", rs.Namespace, "condition", condition.Type, "status", string(condition.Status), "value", value)
+	lg.V(logs.DebugLevel).Info("UpdateRemoteSecretConditionMetric", "name", rs.Name, "namespace", rs.Namespace, "condition", condition.Type, "status", string(condition.Status), "value", value)
 	RemoteSecretConditionGauge.WithLabelValues(rs.Name, rs.Namespace, condition.Type, string(condition.Status)).Set(value)
 }

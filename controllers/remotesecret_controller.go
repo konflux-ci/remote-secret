@@ -878,7 +878,7 @@ func setRemoteSecretCondition(ctx context.Context, rs *api.RemoteSecret, conditi
 	defer meta.SetStatusCondition(&rs.Status.Conditions, condition)
 
 	lg := log.FromContext(ctx)
-	lg.Info("SetRemoteSecretCondition", "name", rs.Name, "namespace", rs.Namespace, "condition", condition, "currentCond", currentCond)
+	lg.V(logs.DebugLevel).Info("SetRemoteSecretCondition", "name", rs.Name, "namespace", rs.Namespace, "condition", condition, "currentCond", currentCond)
 	if currentCond != nil {
 		// Just set metrics if the status of the condition doesn't change.
 		if currentCond.Status == condition.Status &&
