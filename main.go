@@ -133,7 +133,7 @@ func main() {
 
 	checker := &AvailabilityChecker{secretStorage}
 	if err := mgr.Add(checker); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
+		setupLog.Error(err, "unable to set up availability checks")
 		os.Exit(1)
 	}
 
