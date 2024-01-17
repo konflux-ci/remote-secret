@@ -23,7 +23,6 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
-
 	vault "github.com/hashicorp/vault/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
