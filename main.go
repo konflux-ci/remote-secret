@@ -20,7 +20,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"os"
+	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"
@@ -129,6 +131,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	checker := &AvailabilityChecker{secretStorage}
+	if err := mgr.Add(checker); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
@@ -175,4 +183,36 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	}
 
 	return mgr, nil
+}
+
+// TODO: improve && move to a separate package
+
+type AvailabilityChecker struct {
+	secretStorage secretstorage.SecretStorage
+}
+
+func (r *AvailabilityChecker) Start(ctx context.Context) error {
+	ticker := time.NewTicker(60 * time.Second) //TODO: configurable?
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				r.CheckStorage(ctx)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+	return nil
+}
+
+func (r *AvailabilityChecker) CheckStorage(ctx context.Context) {
+	if err := r.secretStorage.Examine(ctx); err != nil {
+		ctrl.Log.Error(err, "secret storage is not available")
+		rsmetrics.HealthCheckCounter.Inc()
+	} else {
+		ctrl.Log.Info("secret storage is available")
+		rsmetrics.HealthCheckCounter.Set(0)
+	}
 }

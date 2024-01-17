@@ -89,7 +89,7 @@ func (p *ExternalSecretStorage) Initialize(ctx context.Context) error {
 }
 
 func (p *ExternalSecretStorage) Examine(ctx context.Context) error {
-	cl, err := p.provider.NewClient(ctx, &p.storage, p.Client, id.Namespace)
+	cl, err := p.provider.NewClient(ctx, &p.storage, p.Client, "default")
 	lg(ctx).V(logs.DebugLevel).Info("examining ExternalSecret storage")
 	if err != nil {
 		return fmt.Errorf("failed creating new client %w", err)

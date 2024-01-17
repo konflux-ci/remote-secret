@@ -31,9 +31,20 @@ var UploadRejectionsCounter = prometheus.NewCounterVec(
 	[]string{"operation", "reason"},
 )
 
+var HealthCheckCounter = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "systems_available",
+		Help:      "The availability of the remote secret system",
+	})
+
 func RegisterCommonMetrics(registerer prometheus.Registerer) error {
 	if err := registerer.Register(UploadRejectionsCounter); err != nil {
 		return fmt.Errorf("failed to register rejected uploads count metric: %w", err)
+	}
+	if err := registerer.Register(HealthCheckCounter); err != nil {
+		return fmt.Errorf("failed to register health check metric: %w", err)
 	}
 
 	return nil
