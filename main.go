@@ -20,9 +20,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 	"os"
 	"time"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
 
 	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"

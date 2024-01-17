@@ -19,9 +19,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/go-hclog"
 	"net/http"
 	"strconv"
+
+	"github.com/hashicorp/go-hclog"
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/prometheus/client_golang/prometheus"
