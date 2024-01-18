@@ -46,9 +46,9 @@ func (r *SystemsWatchdog) Start(ctx context.Context) error {
 func (r *SystemsWatchdog) checkStorage(ctx context.Context) {
 	if err := r.SecretStorage.Examine(ctx); err != nil {
 		ctrl.Log.Error(err, "secret storage is not available")
-		rsmetrics.HealthCheckCounter.Inc()
+		rsmetrics.AvailabilityGauge.Inc()
 	} else {
 		ctrl.Log.Info("secret storage is available")
-		rsmetrics.HealthCheckCounter.Set(0)
+		rsmetrics.AvailabilityGauge.Set(0)
 	}
 }
