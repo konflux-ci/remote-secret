@@ -23,11 +23,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type SystemsWatchdog struct {
+type StorageWatchdog struct {
 	SecretStorage secretstorage.SecretStorage
 }
 
-func (r *SystemsWatchdog) Start(ctx context.Context) error {
+func (r *StorageWatchdog) Start(ctx context.Context) error {
 	ticker := time.NewTicker(60 * time.Second) //TODO: configurable?
 	go func() {
 		for {
@@ -43,12 +43,12 @@ func (r *SystemsWatchdog) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *SystemsWatchdog) checkStorage(ctx context.Context) {
+func (r *StorageWatchdog) checkStorage(ctx context.Context) {
 	if err := r.SecretStorage.Examine(ctx); err != nil {
 		ctrl.Log.Error(err, "secret storage is not available")
-		rsmetrics.AvailabilityGauge.Inc()
+		rsmetrics.StorageAvailabilityGauge.Set(0)
 	} else {
 		ctrl.Log.Info("secret storage is available")
-		rsmetrics.AvailabilityGauge.Set(0)
+		rsmetrics.StorageAvailabilityGauge.Set(1)
 	}
 }

@@ -130,7 +130,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	checker := &availability.SystemsWatchdog{SecretStorage: secretStorage}
+	checker := &availability.StorageWatchdog{SecretStorage: secretStorage}
 	if err := mgr.Add(checker); err != nil {
 		setupLog.Error(err, "unable to set up availability checks")
 		os.Exit(1)
