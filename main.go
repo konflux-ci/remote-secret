@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"os"
 
-	arg "github.com/alexflint/go-arg"
+	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"
 	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"github.com/redhat-appstudio/remote-secret/pkg/webhook"

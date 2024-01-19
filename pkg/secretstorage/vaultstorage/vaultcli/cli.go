@@ -37,8 +37,6 @@ type VaultCliArgs struct {
 	VaultDataPathPrefix            string                       `arg:"--vault-data-path-prefix, env" default:"spi" help:"Path prefix in Vault token storage under which all SPI data will be stored. No leading or trailing '/' should be used, it will be trimmed."`
 }
 
-// TODO update comment
-
 // VaultStorageConfigFromCliArgs returns an instance of the VaultStorageConfig with some fields initialized from
 // the corresponding CLI arguments. Notably, the VaultStorageConfig.MetricsRegisterer is NOT configured, because this
 // cannot be done using just the CLI arguments.

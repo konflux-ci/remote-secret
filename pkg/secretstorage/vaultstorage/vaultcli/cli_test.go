@@ -51,5 +51,3 @@ func TestVaultStorageConfigFromCliArgs(t *testing.T) {
 	assert.Equal(t, string(secret.Data["secret_id"]), config.SecretId)
 	assert.Equal(t, string(secret.Data["role_id"]), config.RoleId)
 }
-
-//TODO more tests for corner cases
