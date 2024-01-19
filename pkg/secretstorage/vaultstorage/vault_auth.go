@@ -69,11 +69,9 @@ func (a *kubernetesAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, er
 func (a *approleAuth) prepare(config *VaultStorageConfig) (api.AuthMethod, error) {
 
 	secretId := &approle.SecretID{FromString: config.SecretId}
-
 	auth, err := approle.NewAppRoleAuth(config.RoleId, secretId)
 	if err != nil {
 		return nil, fmt.Errorf("error creating approle authenticator: %w", err)
 	}
-
 	return auth, nil
 }

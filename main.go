@@ -158,7 +158,6 @@ func createManager(lg logr.Logger, args cmd.OperatorCliArgs) (manager.Manager, e
 	}
 
 	webhookServer := crebhook.NewServer(webhookServerOptions)
-
 	options := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: args.MetricsAddr},
