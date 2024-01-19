@@ -33,6 +33,7 @@ var _ = Describe("MutatorTest", func() {
 				MonitoredObjectTypes: []client.Object{
 					&api.RemoteSecret{},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -55,9 +56,11 @@ var _ = Describe("MutatorTest", func() {
 					},
 				}
 				Expect(ITest.Client.Create(ITest.Context, rs)).To(Succeed())
-				data, err := ITest.Storage.Get(ITest.Context, rs)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(*data).To(HaveLen(2))
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					data, err := ITest.Storage.Get(ITest.Context, rs)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(*data).To(HaveLen(2))
+				})
 			})
 		})
 	})
@@ -71,6 +74,7 @@ var _ = Describe("ValidatorTest", func() {
 				MonitoredObjectTypes: []client.Object{
 					&api.RemoteSecret{},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -97,8 +101,10 @@ var _ = Describe("ValidatorTest", func() {
 						"test": []byte("test1"),
 					},
 				}
-				err := ITest.Client.Create(ITest.Context, rs)
-				Expect(err).ToNot(HaveOccurred())
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					err := ITest.Client.Create(ITest.Context, rs)
+					g.Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 	})
@@ -110,6 +116,7 @@ var _ = Describe("ValidatorTest", func() {
 				MonitoredObjectTypes: []client.Object{
 					&api.RemoteSecret{},
 				},
+				ReconciliationTrigger: remoteSecretReconciliationTrigger,
 			}
 
 			BeforeEach(func() {
@@ -136,9 +143,12 @@ var _ = Describe("ValidatorTest", func() {
 						"test": []byte("test1"),
 					},
 				}
-				err := ITest.Client.Create(ITest.Context, rs)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("targets are not unique in the remote secret"))
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					err := ITest.Client.Create(ITest.Context, rs)
+					g.Expect(err).To(HaveOccurred())
+					g.Expect(err.Error()).To(ContainSubstring("targets are not unique in the remote secret"))
+				})
+
 			})
 		})
 	})
