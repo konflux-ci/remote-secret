@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controller-manager-environment-config
+data:
+  TOKENSTORAGE: vault
+  VAULTAPPROLESECRETNAME: vault-approle-remote-secret-operator
