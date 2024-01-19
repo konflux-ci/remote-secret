@@ -62,6 +62,16 @@ var _ = Describe("RemoteSecret", func() {
 
 			It("succeeds", func() {
 				Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+				ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+					{
+						Condition: "DataObtained",
+						Name:      "test-remote-secret",
+						Namespace: "default",
+						Status:    "False",
+						Value:     1,
+					},
+				})
+
 			})
 		})
 
@@ -146,6 +156,22 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(sec.Data).To(HaveLen(2))
 					g.Expect(sec.Data["k1"]).To(Equal([]byte("v1")))
 					g.Expect(sec.Data["k2"]).To(Equal([]byte("v2")))
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+					})
 				})
 			})
 		})
@@ -744,9 +770,38 @@ var _ = Describe("RemoteSecret", func() {
 		})
 	})
 	Describe("Delete", func() {
-		When("no targets present", func() {
-		})
+		When("no targets", func() {
+			test := crenv.TestSetup{
+				ToCreate: []client.Object{
+					&api.RemoteSecret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-remote-secret",
+							Namespace: "default",
+						},
+					},
+				},
+			}
 
+			BeforeEach(func() {
+				test.BeforeEach(ITest.Context, ITest.Client, nil)
+			})
+
+			AfterEach(func() {
+				test.AfterEach(ITest.Context)
+			})
+			It("succeeds", func() {
+				test.ReconcileWithCluster(ITest.Context, func(g Gomega) {
+					g.Expect(crenv.GetAll[*api.RemoteSecret](&test.InCluster)).To(HaveLen(1))
+					g.Expect(ITest.Client.Delete(ITest.Context, crenv.GetAll[*api.RemoteSecret](&test.InCluster)[0])).To(Succeed())
+				})
+				test.SettleWithCluster(ITest.Context, func(g Gomega) {
+					rs := crenv.GetAll[*api.RemoteSecret](&test.InCluster)
+					g.Expect(rs).To(BeEmpty())
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{})
+				})
+
+			})
+		})
 		When("targets present", func() {
 		})
 	})
@@ -778,6 +833,37 @@ var _ = Describe("RemoteSecret", func() {
 					remoteSecrets = crenv.FindByNamePrefix[*api.RemoteSecret](&test.InCluster, client.ObjectKeyFromObject(duplicateRS))
 					g.Expect(remoteSecrets).To(HaveLen(1))
 					Expect(remoteSecrets[0].Status.Targets[0].Error).NotTo(BeEmpty())
+
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "original-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "DataObtained",
+							Name:      "duplicate-target-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "duplicate-target-rs",
+							Namespace: "default",
+							Status:    "False",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "original-rs",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+					})
 				})
 			})
 		})
@@ -813,6 +899,30 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(cond).NotTo(BeNil())
 					g.Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 					g.Expect(cond.Reason).To(Equal(string(api.RemoteSecretReasonNoTargets)))
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "False",
+							Value:     0,
+						},
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "False",
+							Value:     1,
+						},
+					})
+
 				})
 			})
 		})
@@ -940,6 +1050,29 @@ var _ = Describe("RemoteSecret", func() {
 					g.Expect(rs.Status.Targets).To(HaveLen(1))
 					g.Expect(rs.Status.Targets[0].SecretName).To(Equal("exact-secret-name")) //nolint:staticcheck // SA1019 - this deprecated field needs to be set
 					g.Expect(rs.Status.Targets[0].ExpectedSecret).To(BeNil())
+					ExpectStatusConditionMetric(ITest.Registry, []*StatusConditionValue{
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "False",
+							Value:     0,
+						},
+						{
+							Condition: "DataObtained",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+						{
+							Condition: "Deployed",
+							Name:      "test-remote-secret",
+							Namespace: "default",
+							Status:    "True",
+							Value:     1,
+						},
+					})
 				})
 			})
 		})
