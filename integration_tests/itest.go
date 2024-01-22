@@ -102,7 +102,10 @@ func (i *ITestStorage) Initialize(ctx context.Context) error {
 }
 
 func (i *ITestStorage) Examine(ctx context.Context) error {
-	return i.remoteSecretStorage.Examine(ctx)
+	if err := i.remoteSecretStorage.Examine(ctx); err != nil {
+		return fmt.Errorf("examine error: %w", err)
+	}
+	return nil
 }
 
 func (i *ITestStorage) Store(ctx context.Context, id *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
