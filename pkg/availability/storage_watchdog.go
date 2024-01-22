@@ -33,9 +33,11 @@ func (r *StorageWatchdog) Start(ctx context.Context) error {
 	ticker := time.NewTicker(60 * time.Second)
 	go func() {
 		for {
+			// make call immediately to avoid waiting for the first tick
+			r.checkStorage(ctx)
 			select {
 			case <-ticker.C:
-				r.checkStorage(ctx)
+				continue
 			case <-ctx.Done():
 				ticker.Stop()
 				return
