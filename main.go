@@ -20,8 +20,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redhat-appstudio/remote-secret/pkg/availability"
 	"os"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/availability"
 
 	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"
