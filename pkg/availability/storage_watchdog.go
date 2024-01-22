@@ -16,6 +16,7 @@ package availability
 
 import (
 	"context"
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"time"
 
 	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
@@ -28,7 +29,7 @@ type StorageWatchdog struct {
 }
 
 func (r *StorageWatchdog) Start(ctx context.Context) error {
-	ticker := time.NewTicker(60 * time.Second) //TODO: configurable?
+	ticker := time.NewTicker(60 * time.Second)
 	go func() {
 		for {
 			select {
@@ -48,7 +49,7 @@ func (r *StorageWatchdog) checkStorage(ctx context.Context) {
 		ctrl.Log.Error(err, "secret storage is not available")
 		rsmetrics.StorageAvailabilityGauge.Set(0)
 	} else {
-		ctrl.Log.Info("secret storage is available")
+		ctrl.Log.V(logs.DebugLevel).Info("secret storage is available")
 		rsmetrics.StorageAvailabilityGauge.Set(1)
 	}
 }

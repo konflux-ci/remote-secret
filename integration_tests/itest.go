@@ -102,7 +102,7 @@ func (i *ITestStorage) Initialize(ctx context.Context) error {
 }
 
 func (i *ITestStorage) Examine(ctx context.Context) error {
-	return nil
+	return i.remoteSecretStorage.Examine(ctx)
 }
 
 func (i *ITestStorage) Store(ctx context.Context, id *api.RemoteSecret, data *remotesecretstorage.SecretData) error {
