@@ -21,6 +21,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/metrics"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
@@ -252,6 +254,7 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	if err = r.Get(ctx, req.NamespacedName, remoteSecret); err != nil {
 		if errors.IsNotFound(err) {
 			lg.V(logs.DebugLevel).Info("RemoteSecret already gone from the cluster. skipping reconciliation")
+			metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 			return ctrl.Result{}, nil
 		}
 
@@ -281,6 +284,7 @@ func (r *RemoteSecretReconciler) Reconcile(ctx context.Context, req reconcile.Re
 
 	if remoteSecret.DeletionTimestamp != nil {
 		lg.V(logs.DebugLevel).Info("RemoteSecret is being deleted. skipping reconciliation")
+		metrics.DeleteRemoteSecretCondition(ctx, req.Name, req.Namespace)
 		return ctrl.Result{}, nil
 	}
 
@@ -323,7 +327,8 @@ type cancellation struct {
 
 // handleStage tries to update the status with the condition from the provided result and returns error if the update failed or the stage itself failed before.
 func handleStage[T any](ctx context.Context, cl client.Client, remoteSecret *api.RemoteSecret, result stageResult[T]) (stageResult[T], error) {
-	meta.SetStatusCondition(&remoteSecret.Status.Conditions, result.Condition)
+	setRemoteSecretCondition(ctx, remoteSecret, result.Condition)
+
 	if serr := cl.Status().Update(ctx, remoteSecret); serr != nil {
 		return result, fmt.Errorf("failed to persist the stage result condition in the status after the stage %s: %w", result.Name, serr)
 	}
@@ -865,4 +870,25 @@ func (f *remoteSecretLinksFinalizer) createErrorEvent(ctx context.Context, rs cl
 
 func reconcileLogger(lg logr.Logger) logr.Logger {
 	return lg.WithValues("diagnostics", "reconcile")
+}
+
+// setRemoteSecretCondition apply `condition` changes and record metrics
+func setRemoteSecretCondition(ctx context.Context, rs *api.RemoteSecret, condition metav1.Condition) {
+	currentCond := meta.FindStatusCondition(rs.Status.Conditions, condition.Type)
+	defer meta.SetStatusCondition(&rs.Status.Conditions, condition)
+
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("SetRemoteSecretCondition", "name", rs.Name, "namespace", rs.Namespace, "condition", condition, "currentCond", currentCond)
+	if currentCond != nil {
+		// Just set metrics if the status of the condition doesn't change.
+		if currentCond.Status == condition.Status &&
+			currentCond.Reason == condition.Reason && currentCond.Message == condition.Message {
+			metrics.UpdateRemoteSecretConditionMetric(ctx, rs, &condition, 1.0)
+			return
+		}
+		// Set previous condition to 0.0 if Status is changed.
+		metrics.UpdateRemoteSecretConditionMetric(ctx, rs, currentCond, 0.0)
+	}
+	// Set current condition metric to 1.0 if Status is changed.
+	metrics.UpdateRemoteSecretConditionMetric(ctx, rs, &condition, 1.0)
 }

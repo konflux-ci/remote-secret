@@ -15,10 +15,15 @@
 package metrics
 
 import (
-	"fmt"
+	"context"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	"github.com/prometheus/client_golang/prometheus"
+	api "github.com/redhat-appstudio/remote-secret/api/v1beta1"
 	"github.com/redhat-appstudio/remote-secret/pkg/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var UploadRejectionsCounter = prometheus.NewCounterVec(
@@ -39,13 +44,30 @@ var StorageAvailabilityGauge = prometheus.NewGauge(
 		Help:      "The availability of the remote secret system",
 	})
 
-func RegisterCommonMetrics(registerer prometheus.Registerer) error {
-	if err := registerer.Register(UploadRejectionsCounter); err != nil {
-		return fmt.Errorf("failed to register rejected uploads count metric: %w", err)
-	}
-	if err := registerer.Register(StorageAvailabilityGauge); err != nil {
-		return fmt.Errorf("failed to register health check metric: %w", err)
-	}
+var RemoteSecretConditionGauge = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "status_condition",
+		Help:      "The status condition of a specific RemoteSecret",
+	},
+	[]string{"name", "namespace", "condition", "status"},
+)
 
+func RegisterCommonMetrics(registerer prometheus.Registerer) error {
+	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretConditionGauge, StorageAvailabilityGauge)
 	return nil
+}
+
+func DeleteRemoteSecretCondition(ctx context.Context, name, namespace string) {
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("DeleteRemoteSecretCondition", "name", name, "namespace", namespace)
+	RemoteSecretConditionGauge.DeletePartialMatch(prometheus.Labels{"name": name, "namespace": namespace})
+
+}
+
+func UpdateRemoteSecretConditionMetric(ctx context.Context, rs *api.RemoteSecret, condition *metav1.Condition, value float64) {
+	lg := log.FromContext(ctx)
+	lg.V(logs.DebugLevel).Info("UpdateRemoteSecretConditionMetric", "name", rs.Name, "namespace", rs.Namespace, "condition", condition.Type, "status", string(condition.Status), "value", value)
+	RemoteSecretConditionGauge.WithLabelValues(rs.Name, rs.Namespace, condition.Type, string(condition.Status)).Set(value)
 }
