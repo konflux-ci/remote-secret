@@ -5,3 +5,4 @@ metadata:
 data:
   TOKENSTORAGE: vault
   VAULTAPPROLESECRETNAME: vault-approle-remote-secret-operator
+  VAULTAPPROLESECRETNAMESPACE: remotesecret
