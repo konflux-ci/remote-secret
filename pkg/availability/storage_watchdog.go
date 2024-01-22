@@ -16,8 +16,9 @@ package availability
 
 import (
 	"context"
-	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 	"time"
+
+	"github.com/redhat-appstudio/remote-secret/pkg/logs"
 
 	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
 	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage"
