@@ -99,6 +99,31 @@ func TestCheckCredentials(t *testing.T) {
 	})
 }
 
+func TestExamine(t *testing.T) {
+	ctx := context.TODO()
+	t.Run("ok check", func(t *testing.T) {
+		cl := &mockAwsClient{
+			listFn: func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
+				return nil, nil
+			},
+		}
+		strg := newStorage(cl)
+		assert.NoError(t, strg.Examine(ctx))
+	})
+
+	t.Run("failed check", func(t *testing.T) {
+		ctx := context.TODO()
+		cl := &mockAwsClient{
+			listFn: func(ctx context.Context, params *secretsmanager.ListSecretsInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.ListSecretsOutput, error) {
+				return nil, FailError
+			},
+		}
+		strg := newStorage(cl)
+		assert.Error(t, strg.Examine(ctx))
+		assert.True(t, cl.listCalled)
+	})
+}
+
 func TestStore(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		ctx := context.TODO()
