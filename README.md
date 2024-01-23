@@ -39,3 +39,4 @@ The design specifically allows for separating the upload of the secret data (usi
 Apart from the remote secret supporting the delivery of the secret, it is also optionally able to link this secret to the service accounts in the target. These service accounts are either managed by the remote secret (i.e. share its lifecycle) or are required to pre-exist in the target cluster and namespace.
 
 The remote secret is a template of a single secret that can be delivered to multiple targets. Because the target is identified by the namespace (and the URL of the cluster, if provided), there can be at most one secret delivered to a certain namespace by a single remote secret.
+
