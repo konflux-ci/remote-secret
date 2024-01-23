@@ -42,6 +42,11 @@ func TestRegisterMetrics(t *testing.T) {
 		}, func() {
 			RemoteSecretConditionGauge.WithLabelValues("DataObtained", "test-remote-secret", "default", "false").Inc()
 		}, "redhat_appstudio_remotesecret_status_condition", 1},
+		{"storage availability gauge", func() {
+			StorageAvailabilityGauge.Set(0)
+		}, func() {
+			StorageAvailabilityGauge.Inc()
+		}, "redhat_appstudio_remotesecret_secretstorage_system_available", 1},
 	}
 	// The execution loop
 	for _, tt := range tests {

@@ -43,6 +43,8 @@ var NotFoundError = errors.New("not found")
 type SecretStorage interface {
 	// Initialize initializes the connection to the underlying data store, etc.
 	Initialize(ctx context.Context) error
+	// Examine verifies that the underlying data store is in a good state and can be used.
+	Examine(ctx context.Context) error
 	// Store stores the provided data under given id
 	Store(ctx context.Context, id SecretID, data []byte) error
 	// Get retrieves the data under the given id. A NotFoundError is returned if the data is not found.
@@ -56,6 +58,8 @@ type SecretStorage interface {
 type TypedSecretStorage[ID any, D any] interface {
 	// Initialize initializes the connection to the underlying data store, etc.
 	Initialize(ctx context.Context) error
+	// Examine verifies that the underlying data store is in a good state and can be used.
+	Examine(ctx context.Context) error
 	// Store stores the provided data under given id
 	Store(ctx context.Context, id *ID, data *D) error
 	// Get retrieves the data under the given id. A NotFoundError is returned if the data is not found.
@@ -79,11 +83,11 @@ type DefaultTypedSecretStorage[ID any, D any] struct {
 	// ToID is a function that converts the strongly typed ID to the generic SecretID used by the SecretStorage.
 	ToID func(*ID) (*SecretID, error)
 
-	// Serialize is a function to convert the strongly type data into a byte array. You can use
+	// Serialize is a function to convert the strongly typed data into a byte array. You can use
 	// for example the SerializeJSON function.
 	Serialize func(*D) ([]byte, error)
 
-	// Deserialize is a function to convert the byte array back to the strongly type data. You can use
+	// Deserialize is a function to convert the byte array back to the strongly typed data. You can use
 	// for example the DeserializeJSON function.
 	Deserialize func([]byte, *D) error
 }
@@ -148,6 +152,14 @@ func (s *DefaultTypedSecretStorage[ID, D]) Get(ctx context.Context, id *ID) (*D,
 
 // Initialize implements TypedSecretStorage. It is a noop.
 func (s *DefaultTypedSecretStorage[ID, D]) Initialize(ctx context.Context) error {
+	return nil
+}
+
+func (s *DefaultTypedSecretStorage[ID, D]) Examine(ctx context.Context) error {
+	err := s.SecretStorage.Examine(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to examine the underlying secret storage: %w", err)
+	}
 	return nil
 }
 

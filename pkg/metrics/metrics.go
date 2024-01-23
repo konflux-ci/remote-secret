@@ -36,6 +36,14 @@ var UploadRejectionsCounter = prometheus.NewCounterVec(
 	[]string{"operation", "reason"},
 )
 
+var StorageAvailabilityGauge = prometheus.NewGauge(
+	prometheus.GaugeOpts{
+		Namespace: config.MetricsNamespace,
+		Subsystem: config.MetricsSubsystem,
+		Name:      "secretstorage_system_available",
+		Help:      "The availability of the remote secret system",
+	})
+
 var RemoteSecretConditionGauge = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: config.MetricsNamespace,
@@ -47,7 +55,7 @@ var RemoteSecretConditionGauge = prometheus.NewGaugeVec(
 )
 
 func RegisterCommonMetrics(registerer prometheus.Registerer) error {
-	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretConditionGauge)
+	registerer.MustRegister(UploadRejectionsCounter, RemoteSecretConditionGauge, StorageAvailabilityGauge)
 	return nil
 }
 
