@@ -116,6 +116,10 @@ func (m *MemoryStorage) Reset() {
 	m.Data = map[secretstorage.SecretID][]byte{}
 }
 
+func (m *MemoryStorage) Examine(ctx context.Context) error {
+	return nil
+}
+
 func (m *MemoryStorage) ensureTokens() {
 	if m.Data == nil {
 		m.Data = map[secretstorage.SecretID][]byte{}
