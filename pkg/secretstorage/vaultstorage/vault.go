@@ -119,6 +119,15 @@ func (v *VaultSecretStorage) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (v *VaultSecretStorage) Examine(ctx context.Context) error {
+	ctx = httptransport.ContextWithMetrics(ctx, &requestMetricConfig)
+	log.FromContext(ctx).V(logs.DebugLevel).Info("examining Vault token storage")
+	if _, err := v.client.Logical().ListWithContext(ctx, v.Config.DataPathPrefix); err != nil {
+		return fmt.Errorf("error examining the Vault storage: %w", err)
+	}
+	return nil
+}
+
 func (v *VaultSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, bytes []byte) error {
 	data := map[string]interface{}{
 		// yes, the data HAS TO be a JSON object (or serializable thereto). Even if a string is a valid JSON value, it gives Vault fits :)

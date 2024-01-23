@@ -54,6 +54,13 @@ func (m *MeteredSecretStorage) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (m *MeteredSecretStorage) Examine(ctx context.Context) error {
+	if err := m.SecretStorage.Examine(ctx); err != nil {
+		return fmt.Errorf("failed to examine secret storage: %w", err)
+	}
+	return nil
+}
+
 func (m *MeteredSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
 	timer := prometheus.NewTimer(m.storeMetric)
 	defer timer.ObserveDuration()
