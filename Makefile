@@ -187,7 +187,7 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet build ## Run a controller from your host using Vault running in the cluster (assumes the deploy_minikube target has been applied)
 	hack/persist_vault_creds_in_tmp.sh
 	hack/setup-webhook-for-local-run.sh
-	ZAPDEVEL=true VAULTHOST="https://vault.$(shell minikube ip).nip.io" VAULTAPPROLEROLEIDFILEPATH="./.tmp/role_id" VAULTAPPROLESECRETIDFILEPATH="./.tmp/secret_id" VAULTINSECURETLS=true bin/manager
+	ZAPDEVEL=true VAULTHOST="https://vault.$(shell minikube ip).nip.io"  VAULTINSECURETLS=true bin/manager
 
 # If you wish built the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
@@ -271,8 +271,6 @@ undeploy_vault_openshift: kustomize
 deploy_vault_minikube: kustomize
 	VAULT_HOST=vault.`minikube ip`.nip.io hack/replace_placeholders_and_deploy.sh "${KUSTOMIZE}" "vault_k8s" "vault/k8s"
 	VAULT_NAMESPACE=spi-vault POD_NAME=vault-0 hack/vault-init.sh
-
-
 
 undeploy_vault_k8s: kustomize
 	$(KUSTOMIZE) build ${TEMP_DIR}/deployment_vault_k8s/vault/k8s | kubectl delete -f - || true
