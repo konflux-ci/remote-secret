@@ -584,13 +584,15 @@ func (ndsp *NamespaceDeploymentSyncProgress) Start(ctx context.Context, remoteSe
 
 	err := rerror.AggregateNonNilErrors(depErr, checkPointErr, ndsp.syncError)
 
-	ndsp.inconsistent = stdErrors.Is(err, bindings.DependentsInconsistencyError)
+	if deps != nil {
+		ndsp.inconsistent = stdErrors.Is(err, bindings.DependentsInconsistencyError)
 
-	if err != nil {
-		if ndsp.inconsistent {
-			debugLog.Info("encountered an inconsistency error", "error", err.Error())
-		} else {
-			debugLog.Error(err, "failed to sync the dependent objects")
+		if err != nil {
+			if ndsp.inconsistent {
+				debugLog.Info("encountered an inconsistency error", "error", err.Error())
+			} else {
+				debugLog.Error(err, "failed to sync the dependent objects")
+			}
 		}
 	}
 
@@ -622,7 +624,7 @@ func (ndsp *NamespaceDeploymentSyncProgress) FinishAndGetErrorToReport(ctx conte
 			saks[i] = client.ObjectKeyFromObject(sa)
 		}
 		debugLog.Info("successfully synced dependent objects of remote secret", "syncedSecret", client.ObjectKeyFromObject(deps.Secret), "SAs", saks)
-	} else if deps == nil {
+	} else if ndsp.depHandler != nil && deps == nil {
 		debugLog.Error(nil, "Sync of the dependent objects reported no error yet we don't have a record of the performed changes. This should not happen.")
 	}
 
