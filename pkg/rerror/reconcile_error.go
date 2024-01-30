@@ -71,7 +71,3 @@ func (ae *AggregatedError) Error() string {
 func (ae *AggregatedError) HasErrors() bool {
 	return len(ae.errors) > 0
 }
-
-func (ae *AggregatedError) Unwrap() []error {
-	return ae.errors
-}
