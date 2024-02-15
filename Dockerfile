@@ -46,6 +46,8 @@ LABEL io.k8s.description="RHTAP RemoteSecret Operator"
 LABEL io.k8s.display-name="remotesecret-operator"
 LABEL summary="RHTAP RemoteSecret Operator"
 LABEL io.openshift.tags="rhtap"
+LABEL com.redhat.component="remote-secret-container"
+LABEL name="remote-secret"
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
