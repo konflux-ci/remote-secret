@@ -278,6 +278,18 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetName", targetName)
 		return &remoteSecret, nil
 	} else {
+		if kuberrors.IsAlreadyExists(err) {
+			rs, findErr := r.findRemoteSecret(ctx, uploadSecret)
+			if rs == nil {
+				if findErr != nil {
+					return nil, fmt.Errorf("can not find existing RemoteSecret %s. Reason: %w", remoteSecret.Name, findErr)
+				} else {
+					return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
+				}
+			} else {
+				return rs, nil
+			}
+		}
 		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
 	}
 }
