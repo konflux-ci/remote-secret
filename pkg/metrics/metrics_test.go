@@ -23,15 +23,41 @@ import (
 )
 
 func TestRegisterMetrics(t *testing.T) {
-	registry := prometheus.NewPedanticRegistry()
-	UploadRejectionsCounter.Reset()
 
-	assert.NoError(t, RegisterCommonMetrics(registry))
-
-	UploadRejectionsCounter.WithLabelValues("foo_operation", "some_reason").Inc()
-	UploadRejectionsCounter.WithLabelValues("foo_operation", "some_other_reason").Inc()
-
-	count, err := prometheusTest.GatherAndCount(registry, "redhat_appstudio_remotesecret_data_upload_rejected_total")
-	assert.Equal(t, 2, count)
-	assert.NoError(t, err)
+	var tests = []struct {
+		name          string
+		resetFunc     func()
+		incrementFunc func()
+		metricName    string
+		want          int
+	}{
+		{"rejection counter", func() {
+			UploadRejectionsCounter.Reset()
+		}, func() {
+			UploadRejectionsCounter.WithLabelValues("foo_operation", "some_reason").Inc()
+			UploadRejectionsCounter.WithLabelValues("foo_operation", "some_other_reason").Inc()
+		}, "redhat_appstudio_remotesecret_data_upload_rejected_total", 2},
+		{"condition gauge", func() {
+			RemoteSecretConditionGauge.Reset()
+		}, func() {
+			RemoteSecretConditionGauge.WithLabelValues("DataObtained", "test-remote-secret", "default", "false").Inc()
+		}, "redhat_appstudio_remotesecret_status_condition", 1},
+		{"storage availability gauge", func() {
+			StorageAvailabilityGauge.Set(0)
+		}, func() {
+			StorageAvailabilityGauge.Inc()
+		}, "redhat_appstudio_remotesecret_secretstorage_system_available", 1},
+	}
+	// The execution loop
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := prometheus.NewPedanticRegistry()
+			tt.resetFunc()
+			assert.NoError(t, RegisterCommonMetrics(registry))
+			tt.incrementFunc()
+			count, err := prometheusTest.GatherAndCount(registry, tt.metricName)
+			assert.Equal(t, tt.want, count)
+			assert.NoError(t, err)
+		})
+	}
 }

@@ -197,6 +197,10 @@ func (m *DummySecretStorage) Store(ctx context.Context, id secretstorage.SecretI
 	return nil
 }
 
+func (m *DummySecretStorage) Examine(ctx context.Context) error {
+	return nil
+}
+
 // Get is a mocked implementation of the Get method
 func (m *DummySecretStorage) Get(ctx context.Context, id secretstorage.SecretID) ([]byte, error) {
 	m.GetCalled = true

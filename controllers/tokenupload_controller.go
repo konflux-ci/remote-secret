@@ -131,7 +131,8 @@ func (r *TokenUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploadSecret *corev1.Secret) error {
 	_, partialUpdate := uploadSecret.Annotations[api.RemoteSecretPartialUpdateAnnotation]
-
+	auditLog := logs.AuditLog(ctx).WithValues("partialUpdate", partialUpdate)
+	auditLog.Info("reconciling upload secret")
 	remoteSecret, err := r.findRemoteSecret(ctx, uploadSecret)
 	if err != nil {
 		metrics.UploadRejectionsCounter.WithLabelValues(metricOperationNameLabel, "find_remote_secret_failed").Inc()
@@ -152,7 +153,7 @@ func (r *TokenUploadReconciler) reconcileRemoteSecret(ctx context.Context, uploa
 	if remoteSecret == nil {
 		return remoteSecretDoesntExist
 	}
-	auditLog := logs.AuditLog(ctx).WithValues("remoteSecret", client.ObjectKeyFromObject(remoteSecret))
+	auditLog = auditLog.WithValues("remoteSecret", client.ObjectKeyFromObject(remoteSecret))
 
 	if partialUpdate {
 		auditLog.Info("manual secret partial update initiated", "action", "UPDATE")

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/availability"
+
 	"github.com/alexflint/go-arg"
 	"github.com/go-logr/logr"
 	rsmetrics "github.com/redhat-appstudio/remote-secret/pkg/metrics"
@@ -89,7 +91,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), &args.CommonCliArgs)
+	secretStorage, err := cmd.CreateInitializedSecretStorage(ctx, mgr.GetClient(), mgr.GetAPIReader(), &args.CommonCliArgs)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize the secret storage")
 		os.Exit(1)
@@ -126,6 +128,12 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
+	checker := &availability.StorageWatchdog{SecretStorage: secretStorage}
+	if err := mgr.Add(checker); err != nil {
+		setupLog.Error(err, "unable to set up availability checks")
 		os.Exit(1)
 	}
 

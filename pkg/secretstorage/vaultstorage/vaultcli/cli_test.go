@@ -15,23 +15,39 @@
 package vaultcli
 
 import (
+	"context"
 	"testing"
 
+	"github.com/redhat-appstudio/remote-secret/pkg/secretstorage/vaultstorage"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestConfigDataPathPrefix(t *testing.T) {
-	test := func(cliPrefix, expectedPrefix string) {
-		t.Run("simple single path level", func(t *testing.T) {
-			config := VaultStorageConfigFromCliArgs(&VaultCliArgs{VaultDataPathPrefix: cliPrefix})
-			assert.Equal(t, expectedPrefix, config.DataPathPrefix)
-		})
+func TestVaultStorageConfigFromCliArgs(t *testing.T) {
+	//given
+	ctx := context.TODO()
+	vaultArg := &VaultCliArgs{VaultDataPathPrefix: "spi", VaultAuthMethod: vaultstorage.VaultAuthMethodApprole, VaultAppRoleSecretName: "my-secret", VaultAppRoleSecretNamespace: "my-ns"}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaultArg.VaultAppRoleSecretName,
+			Namespace: vaultArg.VaultAppRoleSecretNamespace,
+		},
+		Data: map[string][]byte{
+			"secret_id": []byte("s-01"),
+			"role_id":   []byte("r-01"),
+		},
 	}
 
-	test("spi", "spi")
-	test("spi/at/some/deep/paath", "spi/at/some/deep/paath")
-	test("/cut/leading/slash", "cut/leading/slash")
-	test("cut/trailing/slash/", "cut/trailing/slash")
-	test("/cut/both/slashes/", "cut/both/slashes")
-	test("/spi/", "spi")
+	k := fake.NewClientBuilder().
+		WithObjects(secret).
+		Build()
+	//when
+	config, err := VaultStorageConfigFromCliArgs(ctx, vaultArg, k)
+	//then
+	assert.NoError(t, err)
+	assert.Equal(t, "spi", config.DataPathPrefix)
+	assert.Equal(t, string(secret.Data["secret_id"]), config.SecretId)
+	assert.Equal(t, string(secret.Data["role_id"]), config.RoleId)
 }

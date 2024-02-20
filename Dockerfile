@@ -24,7 +24,7 @@ COPY pkg/ pkg/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1475 as remote-secret-operator
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3-1552 as remote-secret-operator
 # Install the 'shadow-utils' which contains `adduser` and `groupadd` binaries
 RUN microdnf update -y \
     && microdnf -y --setopt=tsflags=nodocs install shadow-utils \
@@ -46,6 +46,8 @@ LABEL io.k8s.description="RHTAP RemoteSecret Operator"
 LABEL io.k8s.display-name="remotesecret-operator"
 LABEL summary="RHTAP RemoteSecret Operator"
 LABEL io.openshift.tags="rhtap"
+LABEL com.redhat.component="remote-secret-container"
+LABEL name="remote-secret"
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

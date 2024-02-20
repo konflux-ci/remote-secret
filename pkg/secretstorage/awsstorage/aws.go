@@ -77,6 +77,14 @@ func (s *AwsSecretStorage) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (s *AwsSecretStorage) Examine(ctx context.Context) error {
+	lg(ctx).V(logs.DebugLevel).Info("examining AWS token storage")
+	if errCheck := s.checkCredentials(ctx); errCheck != nil {
+		return fmt.Errorf("error examining AWS tokenstorage: %w", errCheck)
+	}
+	return nil
+}
+
 func (s *AwsSecretStorage) Store(ctx context.Context, id secretstorage.SecretID, data []byte) error {
 	lg := lg(ctx).WithValues("secretId", id)
 	lg.V(logs.DebugLevel).Info("storing data")

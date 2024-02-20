@@ -27,6 +27,10 @@ type TestSecretStorage struct {
 	DeleteImpl     func(ctx context.Context, key SecretID) error
 }
 
+func (t TestSecretStorage) Examine(ctx context.Context) error {
+	return nil
+}
+
 func (t TestSecretStorage) Initialize(ctx context.Context) error {
 	if t.InitializeImpl == nil {
 		return nil

@@ -12,7 +12,7 @@ jobs:
         with:
           go-version: "1.20"
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: latest
@@ -60,6 +60,9 @@ jobs:
         uses: stackrox/kube-linter-action@v1
         id: kube-linter-action-scan
         with:
+          # version 0.6.6 contains a new liveness check. We do have a few liveness issue already so use previous version for now
+          # Once we fix all issues, we will revert to use latest again.
+          version: v0.6.5
           # Adjust this directory to the location where your kubernetes resources and helm charts are located.
           directory: ./.kube-linter/
           # Adjust this to the location of kube-linter config you're using, or remove the setting if you'd like to use
