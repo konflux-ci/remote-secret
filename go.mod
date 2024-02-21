@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.50.21
 	github.com/aws/aws-sdk-go-v2 v1.25.0
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.26.2
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.27.2
 	github.com/aws/smithy-go v1.20.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/external-secrets/external-secrets v0.9.4
@@ -38,8 +38,8 @@ require (
 	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.16 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.11 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.10 // indirect
