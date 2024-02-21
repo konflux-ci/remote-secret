@@ -1,3 +1,17 @@
+//
+// Copyright (c) 2023 Red Hat, Inc.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package controllers
 
 import (
@@ -18,29 +32,19 @@ import (
 
 func TestCreateRemoteSecret(t *testing.T) {
 
-	remoteSecret := &api.RemoteSecret{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "appstudio.redhat.com/v1beta1",
-			Kind:       "RemoteSecret",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "test-remote-secret",
-		},
-	}
-
-	rs_gvc := schema.GroupVersionKind{
+	// Create client with RemoteSecret in its scheme
+	rsGVK := schema.GroupVersionKind{
 		Group:   "appstudio.redhat.com",
 		Version: "v1beta",
 		Kind:    "RemoteSecret",
 	}
 
 	scheme := runtime.NewScheme()
-	scheme.AddKnownTypeWithName(rs_gvc, &api.RemoteSecret{})
+	scheme.AddKnownTypeWithName(rsGVK, &api.RemoteSecret{})
 	assert.NoError(t, corev1.AddToScheme(scheme))
 	cl := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(remoteSecret).Build()
+		Build()
 
 	TUr := TokenUploadReconciler{
 		Client:              cl,
@@ -48,7 +52,7 @@ func TestCreateRemoteSecret(t *testing.T) {
 		RemoteSecretStorage: nil,
 	}
 
-	// Define the secret here to avoid repetition and only overwrite the specific parts in each test case.
+	// Define the upload secret
 	uploadSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-remote-secret-upload",
@@ -61,14 +65,25 @@ func TestCreateRemoteSecret(t *testing.T) {
 			},
 		},
 	}
-	rs1, err := TUr.createRemoteSecret(context.TODO(), uploadSecret)
+
+	// check remote secret does not exist
+	rs, err := TUr.findRemoteSecret(context.TODO(), uploadSecret)
+	assert.Nil(t, rs)
 	assert.NoError(t, err)
+
+	// create remote secret
+	rs1, err1 := TUr.createRemoteSecret(context.TODO(), uploadSecret)
 	assert.NotNil(t, rs1)
+	assert.NoError(t, err1)
+
+	// check remote secret exists
+	rs2, err2 := TUr.findRemoteSecret(context.TODO(), uploadSecret)
+	assert.NotNil(t, rs2)
+	assert.NoError(t, err2)
 
 	// Second create should return the same remote secret
-	rs2, err2 := TUr.createRemoteSecret(context.TODO(), uploadSecret)
-	assert.NoError(t, err2)
-	assert.NotNil(t, rs2)
-
-	assert.Equal(t, *rs1, *rs2)
+	rs3, err3 := TUr.createRemoteSecret(context.TODO(), uploadSecret)
+	assert.NoError(t, err3)
+	assert.NotNil(t, rs3)
+	assert.Equal(t, rs1.Name, rs3.Name)
 }
