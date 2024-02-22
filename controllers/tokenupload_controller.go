@@ -53,6 +53,7 @@ var uploadSecretSelector = metav1.LabelSelector{
 }
 
 var remoteSecretDoesntExist = errors.New("remote secret does not exist")
+var remoteSecretNilNoError = errors.New("unexpected state: both remote secret and error is nil")
 var metricOperationNameLabel = "secret_data_upload"
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;delete
@@ -278,6 +279,18 @@ func (r *TokenUploadReconciler) createRemoteSecret(ctx context.Context, uploadSe
 		lg.V(logs.DebugLevel).Info("RemoteSecret created : ", "RemoteSecret.name", remoteSecret.Name, "targetName", targetName)
 		return &remoteSecret, nil
 	} else {
+		if kuberrors.IsAlreadyExists(err) {
+			rs, findErr := r.findRemoteSecret(ctx, uploadSecret)
+			if rs == nil {
+				if findErr != nil {
+					return nil, fmt.Errorf("can not find existing RemoteSecret %s. Reason: %w", remoteSecret.Name, findErr)
+				} else {
+					return nil, fmt.Errorf("RemoteSecret: %s. Reason: %w", remoteSecret.Name, remoteSecretNilNoError)
+				}
+			} else {
+				return rs, nil
+			}
+		}
 		return nil, fmt.Errorf("can not create RemoteSecret %s. Reason: %w", remoteSecret.Name, err)
 	}
 }
