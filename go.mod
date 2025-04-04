@@ -13,7 +13,7 @@ require (
 	github.com/external-secrets/external-secrets v0.9.4
 	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.3.0
-	github.com/go-playground/validator/v10 v10.18.0
+	github.com/go-playground/validator/v10 v10.22.0
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/vault/api v1.10.0
